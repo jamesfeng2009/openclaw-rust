@@ -1,0 +1,34 @@
+# Build artifacts
+/target/
+**/*.rs.bk
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Data
+/data/
+/sessions/
+/workspace/
+
+# Logs
+*.log
+/logs/
+
+# Test coverage
+/coverage/
+
+# Claude Code
+.claude/
