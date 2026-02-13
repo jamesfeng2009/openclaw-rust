@@ -6,6 +6,7 @@ members = [
     "crates/openclaw-memory",
     "crates/openclaw-vector",
     "crates/openclaw-channels",
+    "crates/openclaw-agent",
     "crates/openclaw-server",
     "crates/openclaw-cli",
 ]
@@ -75,4 +76,5 @@ openclaw-ai = { path = "crates/openclaw-ai" }
 openclaw-memory = { path = "crates/openclaw-memory" }
 openclaw-vector = { path = "crates/openclaw-vector" }
 openclaw-channels = { path = "crates/openclaw-channels" }
+openclaw-agent = { path = "crates/openclaw-agent" }
 openclaw-server = { path = "crates/openclaw-server" }

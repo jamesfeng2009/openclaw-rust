@@ -1,0 +1,23 @@
+[package]
+name = "openclaw-agent"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+openclaw-core.workspace = true
+openclaw-ai.workspace = true
+openclaw-memory.workspace = true
+openclaw-vector.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+futures.workspace = true
