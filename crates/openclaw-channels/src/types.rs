@@ -14,6 +14,7 @@ pub enum ChannelType {
     Slack,
     Signal,
     Matrix,
+    Teams,  // Microsoft Teams
     // 国内平台
     DingTalk,
     WeCom,  // 企业微信

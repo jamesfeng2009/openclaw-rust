@@ -275,22 +275,9 @@ pub struct TelegramConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiscordConfig {
-    pub bot_token: String,
-    pub enabled: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WhatsAppConfig {
     /// 桥接服务地址
     pub bridge_url: String,
-    pub enabled: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SlackConfig {
-    pub bot_token: String,
-    pub app_token: String,
     pub enabled: bool,
 }
 
@@ -321,6 +308,45 @@ pub struct FeishuConfig {
     pub app_id: String,
     /// App Secret
     pub app_secret: String,
+    /// Webhook 地址（可选）
+    pub webhook: Option<String>,
+    /// 是否启用
+    pub enabled: bool,
+}
+
+/// Discord 配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscordConfig {
+    /// Bot Token
+    pub bot_token: String,
+    /// Webhook URL (可选)
+    pub webhook_url: Option<String>,
+    /// 是否启用
+    pub enabled: bool,
+}
+
+/// Microsoft Teams 配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TeamsConfig {
+    /// Webhook URL
+    pub webhook_url: Option<String>,
+    /// Bot ID (可选)
+    pub bot_id: Option<String>,
+    /// Bot Password (可选)
+    pub bot_password: Option<String>,
+    /// 是否启用
+    pub enabled: bool,
+}
+
+/// Slack 配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlackConfig {
+    /// Bot Token
+    pub bot_token: Option<String>,
+    /// Webhook URL
+    pub webhook_url: Option<String>,
+    /// App Token (可选)
+    pub app_token: Option<String>,
     /// 是否启用
     pub enabled: bool,
 }
