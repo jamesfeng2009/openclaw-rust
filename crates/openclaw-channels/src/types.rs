@@ -7,12 +7,18 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum ChannelType {
+    // 国际平台
     Telegram,
     Discord,
     WhatsApp,
     Slack,
     Signal,
     Matrix,
+    // 国内平台
+    DingTalk,
+    WeCom,  // 企业微信
+    Feishu, // 飞书
+    // 其他
     WebChat,
     Email,
     SMS,
@@ -24,19 +30,17 @@ pub struct ChannelMessage {
     /// 消息 ID
     pub id: String,
     /// 通道类型
-    pub channel: ChannelType,
-    /// 发送者信息
-    pub sender: Sender,
-    /// 聊天信息
-    pub chat: Chat,
+    pub channel_type: ChannelType,
+    /// 聊天 ID
+    pub chat_id: String,
+    /// 用户 ID
+    pub user_id: String,
     /// 消息内容
-    pub content: MessageContent,
+    pub content: String,
     /// 时间戳
     pub timestamp: DateTime<Utc>,
-    /// 回复的消息 ID
-    pub reply_to: Option<String>,
-    /// 原始消息数据
-    pub raw: Option<serde_json::Value>,
+    /// 元数据
+    pub metadata: Option<serde_json::Value>,
 }
 
 /// 发送者信息
@@ -83,10 +87,28 @@ pub enum MessageContent {
 /// 发送消息请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SendMessage {
+    /// 聊天 ID
     pub chat_id: String,
-    pub content: MessageContent,
-    pub reply_to: Option<String>,
-    pub parse_mode: Option<ParseMode>,
+    /// 消息类型 (text, markdown, link, image, news, file)
+    pub message_type: String,
+    /// 消息内容
+    pub content: String,
+    /// 标题（可选）
+    pub title: Option<String>,
+    /// URL（可选）
+    pub url: Option<String>,
+    /// @ 手机号列表（钉钉）
+    pub at_mobiles: Option<Vec<String>>,
+    /// @ 用户列表（企业微信）
+    pub mentioned_list: Option<Vec<String>>,
+    /// Base64 数据（图片）
+    pub base64: Option<String>,
+    /// MD5 值（图片）
+    pub md5: Option<String>,
+    /// 图文消息文章列表
+    pub articles: Option<Vec<crate::wecom::NewsArticle>>,
+    /// 媒体文件 ID
+    pub media_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

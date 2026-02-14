@@ -21,9 +21,18 @@ futures.workspace = true
 chrono.workspace = true
 uuid.workspace = true
 
+# 钉钉加签支持
+hmac = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+urlencoding = "2.1"
+
 [features]
 default = []
 telegram = []
 discord = []
 whatsapp = []
 slack = []
+dingtalk = []
+wecom = []
+feishu = []

@@ -257,6 +257,11 @@ impl Default for LanceDbConfig {
 /// 通道配置
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ChannelsConfig {
+    // 国内平台
+    pub dingtalk: Option<DingTalkConfig>,
+    pub wecom: Option<WeComConfig>,
+    pub feishu: Option<FeishuConfig>,
+    // 国际平台
     pub telegram: Option<TelegramConfig>,
     pub discord: Option<DiscordConfig>,
     pub whatsapp: Option<WhatsAppConfig>,
@@ -286,6 +291,37 @@ pub struct WhatsAppConfig {
 pub struct SlackConfig {
     pub bot_token: String,
     pub app_token: String,
+    pub enabled: bool,
+}
+
+/// 钉钉配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DingTalkConfig {
+    /// Webhook 地址
+    pub webhook: String,
+    /// 加签密钥（可选）
+    pub secret: Option<String>,
+    /// 是否启用
+    pub enabled: bool,
+}
+
+/// 企业微信配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WeComConfig {
+    /// Webhook 地址
+    pub webhook: String,
+    /// 是否启用
+    pub enabled: bool,
+}
+
+/// 飞书配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeishuConfig {
+    /// App ID
+    pub app_id: String,
+    /// App Secret
+    pub app_secret: String,
+    /// 是否启用
     pub enabled: bool,
 }
 

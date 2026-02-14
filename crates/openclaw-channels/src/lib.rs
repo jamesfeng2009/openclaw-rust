@@ -1,15 +1,26 @@
 //! OpenClaw Channels - 消息通道抽象
 //!
 //! 支持多种消息通道：
-//! - Telegram (teloxide)
-//! - Discord (serenity)
-//! - WhatsApp (桥接)
-//! - Slack (桥接)
+//! 
+//! ## 国内平台
+//! - 钉钉 (DingTalk)
+//! - 企业微信 (WeCom)
+//! - 飞书 (Feishu)
+//!
+//! ## 国际平台
+//! - Telegram
+//! - Discord
+//! - WhatsApp
+//! - Slack
 
 pub mod base;
-pub mod telegram;
 pub mod types;
+// pub mod telegram; // TODO: 更新以匹配新的 ChannelMessage 结构
+pub mod dingtalk;
+pub mod wecom;
 
 pub use base::*;
-pub use telegram::*;
 pub use types::*;
+// pub use telegram::*;
+pub use dingtalk::*;
+pub use wecom::*;
