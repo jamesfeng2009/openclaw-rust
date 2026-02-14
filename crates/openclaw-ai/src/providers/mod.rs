@@ -6,6 +6,7 @@
 
 mod base;
 mod openai;
+mod openai_compatible;
 mod anthropic;
 mod gemini;
 mod deepseek;
@@ -16,6 +17,7 @@ mod kimi;
 
 pub use base::*;
 pub use openai::*;
+pub use openai_compatible::*;
 pub use anthropic::*;
 pub use gemini::*;
 pub use deepseek::*;
