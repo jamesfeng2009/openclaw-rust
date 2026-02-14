@@ -6,46 +6,46 @@
 
 ```bash
 # 设置 OpenAI API Key
-openclaw api-key set openai sk-proj-xxxxx
+openclaw-rust api-key set openai sk-proj-xxxxx
 
 # 设置 Anthropic API Key
-openclaw api-key set anthropic sk-ant-xxxxx
+openclaw-rust api-key set anthropic sk-ant-xxxxx
 
 # 设置 Gemini API Key
-openclaw api-key set gemini AIzaSyxxxxx
+openclaw-rust api-key set gemini AIzaSyxxxxx
 
 # 设置国内提供商
-openclaw api-key set glm your-glm-api-key
-openclaw api-key set qwen your-qwen-api-key
-openclaw api-key set deepseek your-deepseek-api-key
-openclaw api-key set kimi your-kimi-api-key
-openclaw api-key set minimax your-minimax-api-key
+openclaw-rust api-key set glm your-glm-api-key
+openclaw-rust api-key set qwen your-qwen-api-key
+openclaw-rust api-key set deepseek your-deepseek-api-key
+openclaw-rust api-key set kimi your-kimi-api-key
+openclaw-rust api-key set minimax your-minimax-api-key
 ```
 
 ### 2. 查看配置
 
 ```bash
 # 列出所有提供商
-openclaw api-key list
+openclaw-rust api-key list
 
 # 查看特定提供商
-openclaw api-key get openai
+openclaw-rust api-key get openai
 
 # 导出配置（隐藏敏感信息）
-openclaw api-key export
+openclaw-rust api-key export
 ```
 
 ### 3. 管理提供商
 
 ```bash
 # 设置默认提供商
-openclaw api-key default openai
+openclaw-rust api-key default openai
 
 # 删除提供商配置
-openclaw api-key remove deepseek
+openclaw-rust api-key remove deepseek
 
 # 验证 API Key 格式
-openclaw api-key validate openai sk-test
+openclaw-rust api-key validate openai sk-test
 ```
 
 ---
@@ -174,6 +174,39 @@ if let Ok(key) = std::env::var("OPENAI_API_KEY") {
 
 ```bash
 # 验证 API Key 格式
+openclaw-rust api-key validate openai sk-test
+openclaw-rust api-key validate anthropic sk-ant-test
+```
+
+### 2. 环境变量（推荐）
+
+创建 `.env` 文件（加入 `.gitignore`）：
+
+```bash
+# .env
+OPENAI_API_KEY=sk-proj-xxxxx
+ANTHROPIC_API_KEY=sk-ant-xxxxx
+GLM_API_KEY=xxxxx
+QWEN_API_KEY=xxxxx
+```
+
+然后在应用中优先读取环境变量：
+
+```rust
+use openclaw_core::UserConfigManager;
+
+let manager = UserConfigManager::new(None)?;
+
+// 优先从环境变量读取
+if let Ok(key) = std::env::var("OPENAI_API_KEY") {
+    manager.set_api_key("openai".to_string(), key, None)?;
+}
+```
+
+### 3. API Key 格式验证
+
+```bash
+# 验证 API Key 格式
 openclaw api-key validate openai sk-test
 openclaw api-key validate anthropic sk-ant-test
 ```
@@ -231,17 +264,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```bash
 # 初始化配置
-openclaw init
+openclaw-rust init
 ```
 
 ### 问题：API Key 格式错误
 
 ```bash
 # 验证格式
-openclaw api-key validate openai your-key
+openclaw-rust api-key validate openai your-key
 
 # 查看已配置的 key（部分隐藏）
-openclaw api-key get openai
+openclaw-rust api-key get openai
 ```
 
 ### 问题：权限错误

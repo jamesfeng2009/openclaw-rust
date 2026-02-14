@@ -1,4 +1,4 @@
-//! OpenClaw CLI - 命令行工具
+//! OpenClaw Rust CLI - 命令行工具
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -8,8 +8,8 @@ mod commands;
 mod api_key_cmd;
 
 #[derive(Parser)]
-#[command(name = "openclaw")]
-#[command(about = "OpenClaw - Your personal AI assistant", long_about = None)]
+#[command(name = "openclaw-rust")]
+#[command(about = "OpenClaw Rust - Your personal AI assistant (Rust implementation)", long_about = None)]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
             commands::init::run(&config).await?;
         }
         Commands::Version => {
-            println!("OpenClaw {}", env!("CARGO_PKG_VERSION"));
+            println!("OpenClaw Rust {}", env!("CARGO_PKG_VERSION"));
         }
     }
 

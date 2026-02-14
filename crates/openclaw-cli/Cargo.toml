@@ -7,7 +7,7 @@ authors.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "openclaw"
+name = "openclaw-rust"
 path = "src/main.rs"
 
 [dependencies]
