@@ -1,28 +1,28 @@
-//! OpenAI 提供商实现
+//! GLM 智谱提供商实现
 
 use async_trait::async_trait;
-use futures::{Stream, StreamExt};
-use openclaw_core::{Content, Message, OpenClawError, Result, Role};
+use futures::Stream;
+use openclaw_core::{Message, OpenClawError, Result, Role};
+use reqwest::header;
 use std::pin::Pin;
-use std::sync::Arc;
 
-use crate::types::{ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason, StreamChunk, StreamDelta, TokenUsage};
+use crate::types::{ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason, StreamChunk, TokenUsage};
 use crate::providers::{AIProvider, ProviderConfig};
 
-/// OpenAI 提供商
-pub struct OpenAIProvider {
+/// GLM 智谱提供商
+pub struct GlmProvider {
     config: ProviderConfig,
     client: reqwest::Client,
 }
 
-impl OpenAIProvider {
+impl GlmProvider {
     pub fn new(config: ProviderConfig) -> Self {
         let client = reqwest::Client::new();
         Self { config, client }
     }
 
     fn get_base_url(&self) -> &str {
-        self.config.base_url.as_deref().unwrap_or("https://api.openai.com/v1")
+        self.config.base_url.as_deref().unwrap_or("https://open.bigmodel.cn/api/paas/v4")
     }
 
     fn convert_messages(&self, messages: Vec<Message>) -> Vec<serde_json::Value> {
@@ -45,9 +45,9 @@ impl OpenAIProvider {
 }
 
 #[async_trait]
-impl AIProvider for OpenAIProvider {
+impl AIProvider for GlmProvider {
     fn name(&self) -> &str {
-        "openai"
+        "glm"
     }
 
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse> {
@@ -58,26 +58,25 @@ impl AIProvider for OpenAIProvider {
             "messages": self.convert_messages(request.messages),
             "temperature": request.temperature,
             "max_tokens": request.max_tokens,
-            "stream": false
         });
 
         let response = self.client
             .post(&url)
             .header("Authorization", format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")))
+            .header(header::CONTENT_TYPE, "application/json")
             .json(&body)
             .send()
             .await
-            .map_err(|e| OpenClawError::Http(format!("OpenAI API 请求失败: {}", e)))?;
+            .map_err(|e| OpenClawError::Http(format!("GLM API 请求失败: {}", e)))?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("OpenAI API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!("GLM API 错误: {}", error_text)));
         }
 
         let json: serde_json::Value = response.json().await
             .map_err(|e| OpenClawError::AIProvider(format!("解析响应失败: {}", e)))?;
 
-        // 解析响应
         let choice = &json["choices"][0];
         let message_content = choice["message"]["content"].as_str().unwrap_or("").to_string();
         
@@ -99,12 +98,10 @@ impl AIProvider for OpenAIProvider {
 
     async fn chat_stream(
         &self,
-        request: ChatRequest,
+        _request: ChatRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
-        // TODO: 实现 SSE 流式响应
-        // 目前返回错误
         Err(OpenClawError::AIProvider(
-            "Streaming not yet implemented".to_string()
+            "Streaming not yet implemented for GLM".to_string()
         ))
     }
 
@@ -122,11 +119,11 @@ impl AIProvider for OpenAIProvider {
             .json(&body)
             .send()
             .await
-            .map_err(|e| OpenClawError::Http(format!("OpenAI Embedding API 请求失败: {}", e)))?;
+            .map_err(|e| OpenClawError::Http(format!("GLM Embedding API 请求失败: {}", e)))?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("OpenAI Embedding API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!("GLM Embedding API 错误: {}", error_text)));
         }
 
         let json: serde_json::Value = response.json().await
@@ -156,31 +153,14 @@ impl AIProvider for OpenAIProvider {
 
     async fn models(&self) -> Result<Vec<String>> {
         Ok(vec![
-            // GPT-4o 系列 (最新)
-            "gpt-4o".to_string(),
-            "gpt-4o-mini".to_string(),
-            "gpt-4o-audio-preview".to_string(),
-            // GPT-4 系列
-            "gpt-4-turbo".to_string(),
-            // o 系列推理模型 (最新)
-            "o1".to_string(),
-            "o1-mini".to_string(),
-            "o3-mini".to_string(),
-            // 嵌入模型
-            "text-embedding-3-small".to_string(),
-            "text-embedding-3-large".to_string(),
+            "glm-4-plus".to_string(),
+            "glm-4-air".to_string(),
+            "glm-4-flash".to_string(),
+            "glm-z1-air".to_string(),
         ])
     }
 
     async fn health_check(&self) -> Result<bool> {
-        let url = format!("{}/models", self.get_base_url());
-        
-        let response = self.client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")))
-            .send()
-            .await;
-
-        Ok(response.map(|r| r.status().is_success()).unwrap_or(false))
+        Ok(self.config.api_key.is_some())
     }
 }

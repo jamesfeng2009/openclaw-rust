@@ -138,11 +138,14 @@ impl AIProvider for AnthropicProvider {
 
     async fn models(&self) -> Result<Vec<String>> {
         Ok(vec![
+            // Claude 4 系列 (最新)
+            "claude-4-opus".to_string(),
+            "claude-4-sonnet".to_string(),
+            // Claude 3.7 系列
+            "claude-3-7-sonnet".to_string(),
+            // Claude 3.5 系列
             "claude-3-5-sonnet-20241022".to_string(),
             "claude-3-5-haiku-20241022".to_string(),
-            "claude-3-opus-20240229".to_string(),
-            "claude-3-sonnet-20240229".to_string(),
-            "claude-3-haiku-20240307".to_string(),
         ])
     }
 
