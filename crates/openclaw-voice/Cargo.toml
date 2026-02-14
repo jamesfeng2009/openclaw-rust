@@ -1,0 +1,31 @@
+[package]
+name = "openclaw-voice"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "OpenClaw Voice - Speech recognition and synthesis"
+
+[dependencies]
+openclaw-core.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+
+# 音频处理
+cpal = "0.15"           # 音频 I/O
+hound = "3.5"           # WAV 文件处理
+rubato = "0.15"         # 音频重采样
+
+[features]
+default = ["openai"]
+openai = []
+local-whisper = []
+edge-tts = []
