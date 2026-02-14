@@ -7,6 +7,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod commands;
 mod api_key_cmd;
 mod channel_cmd;
+mod voice_cmd;
 
 #[derive(Parser)]
 #[command(name = "openclaw-rust")]
@@ -45,6 +46,11 @@ enum Commands {
     Channel {
         #[command(subcommand)]
         command: channel_cmd::ChannelCommand,
+    },
+    /// Voice commands (STT/TTS/Talk Mode)
+    Voice {
+        #[command(subcommand)]
+        command: voice_cmd::VoiceCommand,
     },
     /// Initialize configuration
     Init {
@@ -96,6 +102,9 @@ async fn main() -> Result<()> {
             command.execute().await?;
         }
         Commands::Channel { command } => {
+            command.execute().await?;
+        }
+        Commands::Voice { command } => {
             command.execute().await?;
         }
         Commands::Init { config } => {

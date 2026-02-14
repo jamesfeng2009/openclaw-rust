@@ -1841,6 +1841,7 @@ dependencies = [
  "openclaw-memory",
  "openclaw-server",
  "openclaw-vector",
+ "openclaw-voice",
  "serde",
  "serde_json",
  "shellexpand",

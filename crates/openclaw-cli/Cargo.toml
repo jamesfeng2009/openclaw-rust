@@ -16,6 +16,7 @@ openclaw-ai.workspace = true
 openclaw-memory.workspace = true
 openclaw-vector.workspace = true
 openclaw-channels.workspace = true
+openclaw-voice.workspace = true
 openclaw-server.workspace = true
 tokio.workspace = true
 anyhow.workspace = true

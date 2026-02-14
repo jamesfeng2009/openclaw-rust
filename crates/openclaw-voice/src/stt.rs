@@ -1,11 +1,15 @@
 //! 语音识别 (STT) 模块
 
+mod local;
+
 use async_trait::async_trait;
 use openclaw_core::{OpenClawError, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::types::{SttConfig, SttProvider, TranscriptionResult, WhisperModel};
+
+pub use local::{LocalWhisperConfig, LocalWhisperStt, WhisperModelInfo, WhisperModelType};
 
 /// 语音识别 Trait
 #[async_trait]
@@ -151,8 +155,12 @@ pub fn create_stt(provider: SttProvider, config: SttConfig) -> Box<dyn SpeechToT
     match provider {
         SttProvider::OpenAI => Box::new(OpenAIWhisperStt::new(config)),
         SttProvider::LocalWhisper => {
-            // TODO: 实现本地 Whisper
-            unimplemented!("本地 Whisper 尚未实现")
+            let local_config = LocalWhisperConfig {
+                model_path: config.local_model_path.clone().unwrap_or_default(),
+                language: config.language.clone(),
+                ..Default::default()
+            };
+            Box::new(LocalWhisperStt::new(local_config))
         }
         SttProvider::Azure => {
             unimplemented!("Azure Speech 尚未实现")
