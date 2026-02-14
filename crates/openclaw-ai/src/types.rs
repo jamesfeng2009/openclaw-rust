@@ -116,7 +116,10 @@ pub enum FinishReason {
 /// 流式响应块
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamChunk {
+    pub id: String,
+    pub model: String,
     pub delta: StreamDelta,
+    pub finished: bool,
     pub finish_reason: Option<FinishReason>,
 }
 
@@ -124,12 +127,21 @@ pub struct StreamChunk {
 pub struct StreamDelta {
     pub role: Option<String>,
     pub content: Option<String>,
+    #[serde(default)]
     pub tool_calls: Vec<ToolCallDelta>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCallDelta {
+    pub index: usize,
     pub id: Option<String>,
+    #[serde(rename = "type")]
+    pub call_type: String,
+    pub function: Option<FunctionDelta>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FunctionDelta {
     pub name: Option<String>,
     pub arguments: Option<String>,
 }

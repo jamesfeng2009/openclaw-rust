@@ -1,7 +1,7 @@
 //! Anthropic Claude 提供商实现
 
 use async_trait::async_trait;
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use openclaw_core::{Message, OpenClawError, Result, Role};
 use reqwest::header;
 use std::pin::Pin;

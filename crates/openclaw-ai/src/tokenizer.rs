@@ -1,6 +1,6 @@
 //! Token 计数器
 
-use openclaw_core::{Message, OpenClawError, Result};
+use openclaw_core::{Message, Result};
 
 /// Token 计数器 Trait
 pub trait TokenCounter: Send + Sync {

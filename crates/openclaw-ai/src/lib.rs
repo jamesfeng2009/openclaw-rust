@@ -16,10 +16,14 @@
 
 pub mod models;
 pub mod providers;
+pub mod stream;
+pub mod tools;
 pub mod tokenizer;
 pub mod types;
 
 pub use models::*;
 pub use providers::*;
+pub use stream::*;
+pub use tools::*;
 pub use tokenizer::*;
 pub use types::*;

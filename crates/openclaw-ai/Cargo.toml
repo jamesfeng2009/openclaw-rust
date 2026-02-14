@@ -20,3 +20,5 @@ async-openai.workspace = true
 tiktoken-rs.workspace = true
 futures.workspace = true
 uuid.workspace = true
+chrono.workspace = true
+async-stream.workspace = true
