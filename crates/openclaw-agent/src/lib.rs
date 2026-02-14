@@ -10,9 +10,11 @@ pub mod orchestrator;
 pub mod task;
 pub mod team;
 pub mod types;
+pub mod integration;
 
 pub use agent::*;
 pub use orchestrator::*;
 pub use task::*;
 pub use team::*;
 pub use types::*;
+pub use integration::*;

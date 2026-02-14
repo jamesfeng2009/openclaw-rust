@@ -267,27 +267,21 @@ impl Orchestrator {
 
     /// 使用指定 Agent 执行任务
     async fn execute_with_agent(&self, agent_id: &str, task: TaskRequest) -> Result<TaskResult> {
-        // TODO: 实际调用 Agent 处理
-        // 目前返回模拟结果
-        let output = match &task.input {
-            TaskInput::Message { message } => {
-                TaskOutput::Message {
-                    message: Message::assistant(format!("[{}] Received: {}", agent_id, message.text_content().unwrap_or("")))
-                }
-            }
-            TaskInput::Text { content } => {
-                TaskOutput::Text {
-                    content: format!("[{}] Processed: {}", agent_id, content)
-                }
-            }
-            _ => {
-                TaskOutput::Text {
-                    content: format!("[{}] Task completed", agent_id)
-                }
+        // 获取 Agent
+        let agent = match self.team.get_agent(agent_id) {
+            Some(agent) => agent,
+            None => {
+                return Ok(TaskResult::failure(
+                    task.id,
+                    agent_id.to_string(),
+                    format!("Agent '{}' not found", agent_id),
+                ));
             }
         };
 
-        Ok(TaskResult::success(task.id, agent_id.to_string(), output))
+        // 调用 Agent 处理任务
+        debug!("Agent {} processing task {}", agent_id, task.id);
+        agent.process(task).await
     }
 
     /// 聚合多个结果
@@ -356,7 +350,8 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_orchestrator() {
+    async fn test_orchestrator_without_ai_provider() {
+        // 没有配置 AI 提供商时，任务应该失败
         let orchestrator = Orchestrator::with_default_team();
 
         let task = TaskRequest::new(
@@ -365,6 +360,27 @@ mod tests {
         );
 
         let result = orchestrator.process(task).await.unwrap();
-        assert_eq!(result.status, TaskStatus::Completed);
+        // 没有 AI 提供商，应该返回失败
+        assert_eq!(result.status, TaskStatus::Failed);
+    }
+
+    #[tokio::test]
+    async fn test_orchestrator_task_routing() {
+        let orchestrator = Orchestrator::with_default_team();
+
+        // 测试任务路由选择
+        let task = TaskRequest::new(
+            TaskType::Conversation,
+            TaskInput::Text { content: "Hello".to_string() },
+        );
+
+        // 测试 agent 选择
+        let agent_id = orchestrator.team().select_agent(
+            &task.required_capabilities,
+            None,
+        );
+        
+        // 应该选择一个可用的 agent
+        assert!(agent_id.is_some());
     }
 }

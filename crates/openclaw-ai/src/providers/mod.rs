@@ -2,9 +2,11 @@
 
 mod base;
 mod openai;
+mod anthropic;
 
 pub use base::*;
 pub use openai::*;
+pub use anthropic::*;
 
 use async_trait::async_trait;
 use futures::Stream;

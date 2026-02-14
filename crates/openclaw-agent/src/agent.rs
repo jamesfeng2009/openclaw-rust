@@ -2,13 +2,14 @@
 
 use async_trait::async_trait;
 use std::sync::Arc;
+use chrono::Utc;
 
-use openclaw_core::{Message, Result};
+use openclaw_core::{Message, OpenClawError, Result};
 use openclaw_memory::MemoryManager;
-use openclaw_ai::AIProvider;
+use openclaw_ai::{AIProvider, ChatRequest};
 
 use crate::types::{AgentConfig, AgentInfo, AgentStatus, AgentType, Capability};
-use crate::task::{TaskRequest, TaskResult};
+use crate::task::{TaskInput, TaskOutput, TaskRequest, TaskResult, TaskStatus};
 
 /// Agent Trait - 所有 Agent 必须实现
 #[async_trait]
@@ -47,6 +48,9 @@ pub trait Agent: Send + Sync {
 
     /// 设置记忆管理器
     fn set_memory(&mut self, memory: Arc<MemoryManager>);
+
+    /// 获取系统提示词
+    fn system_prompt(&self) -> Option<&str>;
 }
 
 /// 基础 Agent 实现
@@ -118,6 +122,51 @@ impl BaseAgent {
         self.config.priority = priority;
         self
     }
+
+    /// 构建发送给 AI 的消息列表
+    fn build_messages(&self, task: &TaskRequest) -> Vec<Message> {
+        let mut messages = Vec::new();
+
+        // 添加系统提示词
+        if let Some(prompt) = &self.config.system_prompt {
+            messages.push(Message::system(prompt));
+        }
+
+        // 添加上下文消息
+        messages.extend(task.context.clone());
+
+        // 根据任务输入添加用户消息
+        match &task.input {
+            TaskInput::Message { message } => {
+                messages.push(message.clone());
+            }
+            TaskInput::Text { content } => {
+                messages.push(Message::user(content));
+            }
+            TaskInput::Code { language, code } => {
+                messages.push(Message::user(format!("```{}\n{}\n```", language, code)));
+            }
+            TaskInput::Data { data } => {
+                messages.push(Message::user(format!("Data: {}", serde_json::to_string_pretty(data).unwrap_or_default())));
+            }
+            TaskInput::File { path, content } => {
+                messages.push(Message::user(format!("File: {}\n\n{}", path, content)));
+            }
+            TaskInput::SearchQuery { query } => {
+                messages.push(Message::user(format!("Search for: {}", query)));
+            }
+            TaskInput::ToolCall { name, arguments } => {
+                messages.push(Message::user(format!("Execute tool '{}' with arguments: {}", name, arguments)));
+            }
+        }
+
+        messages
+    }
+
+    /// 获取要使用的模型
+    fn get_model(&self) -> String {
+        self.config.model.clone().unwrap_or_else(|| "gpt-4o".to_string())
+    }
 }
 
 #[async_trait]
@@ -143,9 +192,59 @@ impl Agent for BaseAgent {
     }
 
     async fn process(&self, task: TaskRequest) -> Result<TaskResult> {
-        // 基础实现：调用 AI 提供商
-        // 具体实现由子类或 Orchestrator 协调
-        todo!("Implement agent processing")
+        let started_at = Utc::now();
+
+        // 检查是否有 AI 提供商
+        let ai_provider = match &self.ai_provider {
+            Some(provider) => provider,
+            None => {
+                return Ok(TaskResult::failure(
+                    task.id,
+                    self.id().to_string(),
+                    "No AI provider configured for this agent".to_string(),
+                ));
+            }
+        };
+
+        // 构建消息
+        let messages = self.build_messages(&task);
+
+        // 创建 ChatRequest
+        let model = self.get_model();
+        let chat_request = ChatRequest::new(&model, messages);
+
+        // 调用 AI
+        match ai_provider.chat(chat_request).await {
+            Ok(response) => {
+                // 提取响应消息
+                let reply_message = response.message;
+                let tokens_used = response.usage.total_tokens;
+
+                // 构建任务结果
+                Ok(TaskResult {
+                    task_id: task.id,
+                    agent_id: self.id().to_string(),
+                    status: TaskStatus::Completed,
+                    output: Some(TaskOutput::Message { message: reply_message }),
+                    error: None,
+                    started_at,
+                    completed_at: Some(Utc::now()),
+                    tokens_used: Some(crate::task::TokenUsage {
+                        prompt_tokens: response.usage.prompt_tokens,
+                        completion_tokens: response.usage.completion_tokens,
+                        total_tokens: tokens_used,
+                    }),
+                    sub_tasks: Vec::new(),
+                })
+            }
+            Err(e) => {
+                Ok(TaskResult::failure(
+                    task.id,
+                    self.id().to_string(),
+                    format!("AI provider error: {}", e),
+                ))
+            }
+        }
     }
 
     fn is_available(&self) -> bool {
@@ -167,6 +266,10 @@ impl Agent for BaseAgent {
 
     fn set_memory(&mut self, memory: Arc<MemoryManager>) {
         self.memory = Some(memory);
+    }
+
+    fn system_prompt(&self) -> Option<&str> {
+        self.config.system_prompt.as_deref()
     }
 }
 
@@ -210,3 +313,23 @@ const CONVERSATIONALIST_PROMPT: &str = r#"You are a conversational agent special
 - Maintaining conversation flow
 
 Be friendly, helpful, and responsive to user needs."#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_agent_creation() {
+        let agent = BaseAgent::coder();
+        assert_eq!(agent.id(), "coder");
+        assert_eq!(agent.agent_type(), AgentType::Coder);
+        assert!(agent.is_available());
+    }
+
+    #[test]
+    fn test_agent_capabilities() {
+        let agent = BaseAgent::coder();
+        assert!(agent.has_capability(&Capability::CodeGeneration));
+        assert!(agent.has_capability(&Capability::CodeReview));
+    }
+}
