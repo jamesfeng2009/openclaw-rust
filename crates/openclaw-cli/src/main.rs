@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod commands;
+mod api_key_cmd;
 
 #[derive(Parser)]
 #[command(name = "openclaw")]
@@ -33,6 +34,11 @@ enum Commands {
     Agents {
         #[command(subcommand)]
         command: AgentCommands,
+    },
+    /// Manage API keys
+    ApiKey {
+        #[command(subcommand)]
+        command: api_key_cmd::ApiKeyCommand,
     },
     /// Initialize configuration
     Init {
@@ -79,6 +85,9 @@ async fn main() -> Result<()> {
         }
         Commands::Agents { command } => {
             commands::agents::run(command).await?;
+        }
+        Commands::ApiKey { command } => {
+            command.execute().await?;
         }
         Commands::Init { config } => {
             commands::init::run(&config).await?;

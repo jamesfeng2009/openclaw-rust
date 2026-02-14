@@ -1,0 +1,92 @@
+{
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "user_name": "example-user",
+  "default_provider": "openai",
+  "providers": {
+    "openai": {
+      "name": "openai",
+      "api_key": "sk-proj-your-key-here",
+      "base_url": null,
+      "default_model": "gpt-4o-mini",
+      "enabled": true,
+      "quota": {
+        "daily_requests": 100,
+        "monthly_tokens": 1000000,
+        "used_requests": 0,
+        "used_tokens": 0,
+        "reset_date": "2026-03-01T00:00:00Z"
+      }
+    },
+    "anthropic": {
+      "name": "anthropic",
+      "api_key": "sk-ant-your-key-here",
+      "base_url": null,
+      "default_model": "claude-3-5-sonnet-20241022",
+      "enabled": true,
+      "quota": null
+    },
+    "gemini": {
+      "name": "gemini",
+      "api_key": "your-gemini-key-here",
+      "base_url": null,
+      "default_model": "gemini-2.0-flash",
+      "enabled": true,
+      "quota": null
+    },
+    "deepseek": {
+      "name": "deepseek",
+      "api_key": "sk-your-deepseek-key-here",
+      "base_url": null,
+      "default_model": "deepseek-chat",
+      "enabled": true,
+      "quota": null
+    },
+    "glm": {
+      "name": "glm",
+      "api_key": "your-glm-key-here",
+      "base_url": null,
+      "default_model": "glm-4-flash",
+      "enabled": true,
+      "quota": null
+    },
+    "qwen": {
+      "name": "qwen",
+      "api_key": "your-qwen-key-here",
+      "base_url": null,
+      "default_model": "qwen-plus",
+      "enabled": true,
+      "quota": null
+    },
+    "kimi": {
+      "name": "kimi",
+      "api_key": "your-kimi-key-here",
+      "base_url": null,
+      "default_model": "moonshot-v1-8k",
+      "enabled": true,
+      "quota": null
+    },
+    "minimax": {
+      "name": "minimax",
+      "api_key": "your-minimax-key-here",
+      "base_url": null,
+      "default_model": "abab6.5s-chat",
+      "enabled": true,
+      "quota": null
+    }
+  },
+  "preferences": {
+    "language": "zh-CN",
+    "timezone": "Asia/Shanghai",
+    "temperature": 0.7,
+    "max_tokens": 4096,
+    "stream_response": true,
+    "notifications": {
+      "enabled": true,
+      "on_error": true,
+      "on_quota_warning": true,
+      "quota_warning_threshold": 0.8
+    }
+  },
+  "created_at": "2026-02-14T10:30:00Z",
+  "updated_at": "2026-02-14T10:30:00Z"
+}
