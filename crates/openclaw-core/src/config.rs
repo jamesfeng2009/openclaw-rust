@@ -274,10 +274,20 @@ pub struct TelegramConfig {
     pub enabled: bool,
 }
 
+/// WhatsApp Cloud API 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WhatsAppConfig {
-    /// 桥接服务地址
-    pub bridge_url: String,
+    /// WhatsApp Business Account ID
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub business_account_id: Option<String>,
+    /// Phone Number ID
+    pub phone_number_id: String,
+    /// Access Token
+    pub access_token: String,
+    /// Webhook Verify Token (可选)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verify_token: Option<String>,
+    /// 是否启用
     pub enabled: bool,
 }
 

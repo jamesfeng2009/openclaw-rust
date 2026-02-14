@@ -6,6 +6,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod commands;
 mod api_key_cmd;
+mod channel_cmd;
 
 #[derive(Parser)]
 #[command(name = "openclaw-rust")]
@@ -39,6 +40,11 @@ enum Commands {
     ApiKey {
         #[command(subcommand)]
         command: api_key_cmd::ApiKeyCommand,
+    },
+    /// Manage channel configurations
+    Channel {
+        #[command(subcommand)]
+        command: channel_cmd::ChannelCommand,
     },
     /// Initialize configuration
     Init {
@@ -87,6 +93,9 @@ async fn main() -> Result<()> {
             commands::agents::run(command).await?;
         }
         Commands::ApiKey { command } => {
+            command.execute().await?;
+        }
+        Commands::Channel { command } => {
             command.execute().await?;
         }
         Commands::Init { config } => {
