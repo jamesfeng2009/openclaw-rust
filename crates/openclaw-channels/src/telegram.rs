@@ -2,12 +2,11 @@
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 use openclaw_core::{OpenClawError, Result};
 
-use crate::base::{Channel, ChannelHandler};
-use crate::types::{ChannelMessage, ChannelType, Chat, ChatType, MessageContent, Sender, SendMessage, ParseMode};
+use crate::base::Channel;
+use crate::types::{ChannelMessage, ChannelType, SendMessage};
 
 /// Telegram 配置
 #[derive(Debug, Clone)]
@@ -20,7 +19,6 @@ pub struct TelegramConfig {
 pub struct TelegramBot {
     config: TelegramConfig,
     client: reqwest::Client,
-    handler: Option<Arc<dyn ChannelHandler>>,
     offset: std::sync::RwLock<i64>,
     running: std::sync::RwLock<bool>,
 }
@@ -29,29 +27,31 @@ impl TelegramBot {
     pub fn new(config: TelegramConfig) -> Self {
         Self {
             client: reqwest::Client::new(),
-            handler: None,
             offset: std::sync::RwLock::new(0),
             running: std::sync::RwLock::new(false),
             config,
         }
     }
 
-    pub fn with_handler(mut self, handler: Arc<dyn ChannelHandler>) -> Self {
-        self.handler = Some(handler);
-        self
-    }
-
     fn get_api_url(&self, method: &str) -> String {
-        format!("https://api.telegram.org/bot{}/{}", self.config.bot_token, method)
+        format!(
+            "https://api.telegram.org/bot{}/{}",
+            self.config.bot_token, method
+        )
     }
 
     /// 获取更新
     async fn get_updates(&self) -> Result<Vec<TelegramUpdate>> {
         let offset = *self.offset.read().unwrap();
-        
-        let url = format!("{}?offset={}&timeout=30", self.get_api_url("getUpdates"), offset);
-        
-        let response = self.client
+
+        let url = format!(
+            "{}?offset={}&timeout=30",
+            self.get_api_url("getUpdates"),
+            offset
+        );
+
+        let response = self
+            .client
             .get(&url)
             .send()
             .await
@@ -70,7 +70,7 @@ impl TelegramBot {
     }
 
     /// 发送消息
-    async fn send_message_raw(&self, chat_id: i64, text: &str, parse_mode: Option<&str>) -> Result<TelegramMessage> {
+    pub async fn send_text(&self, chat_id: i64, text: &str, parse_mode: Option<&str>) -> Result<TelegramMessage> {
         let mut body = serde_json::json!({
             "chat_id": chat_id,
             "text": text,
@@ -80,7 +80,8 @@ impl TelegramBot {
             body["parse_mode"] = serde_json::json!(mode);
         }
 
-        let response = self.client
+        let response = self
+            .client
             .post(self.get_api_url("sendMessage"))
             .json(&body)
             .send()
@@ -96,7 +97,96 @@ impl TelegramBot {
             return Err(OpenClawError::Channel("发送消息失败".into()));
         }
 
-        result.result.ok_or_else(|| OpenClawError::Channel("无返回消息".into()))
+        result
+            .result
+            .ok_or_else(|| OpenClawError::Channel("无返回消息".into()))
+    }
+
+    /// 发送图片
+    pub async fn send_photo(
+        &self,
+        chat_id: i64,
+        photo_url: &str,
+        caption: Option<&str>,
+    ) -> Result<TelegramMessage> {
+        let mut body = serde_json::json!({
+            "chat_id": chat_id,
+            "photo": photo_url,
+        });
+
+        if let Some(cap) = caption {
+            body["caption"] = serde_json::json!(cap);
+        }
+
+        let response = self
+            .client
+            .post(self.get_api_url("sendPhoto"))
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| OpenClawError::Http(format!("Telegram API 错误: {}", e)))?;
+
+        let result: TelegramResponse<TelegramMessage> = response
+            .json()
+            .await
+            .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
+
+        result
+            .result
+            .ok_or_else(|| OpenClawError::Channel("发送图片失败".into()))
+    }
+
+    /// 发送文档
+    pub async fn send_document(
+        &self,
+        chat_id: i64,
+        document_url: &str,
+        caption: Option<&str>,
+    ) -> Result<TelegramMessage> {
+        let mut body = serde_json::json!({
+            "chat_id": chat_id,
+            "document": document_url,
+        });
+
+        if let Some(cap) = caption {
+            body["caption"] = serde_json::json!(cap);
+        }
+
+        let response = self
+            .client
+            .post(self.get_api_url("sendDocument"))
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| OpenClawError::Http(format!("Telegram API 错误: {}", e)))?;
+
+        let result: TelegramResponse<TelegramMessage> = response
+            .json()
+            .await
+            .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
+
+        result
+            .result
+            .ok_or_else(|| OpenClawError::Channel("发送文档失败".into()))
+    }
+
+    /// 获取 bot 信息
+    async fn get_me(&self) -> Result<TelegramUser> {
+        let response = self
+            .client
+            .get(self.get_api_url("getMe"))
+            .send()
+            .await
+            .map_err(|e| OpenClawError::Http(format!("Telegram API 错误: {}", e)))?;
+
+        let result: TelegramResponse<TelegramUser> = response
+            .json()
+            .await
+            .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
+
+        result
+            .result
+            .ok_or_else(|| OpenClawError::Channel("获取 Bot 信息失败".into()))
     }
 
     /// 处理更新
@@ -112,47 +202,27 @@ impl TelegramBot {
             *offset = update.update_id + 1;
         }
 
-        // 提前克隆需要的值，避免借用问题
-        let caption = message.caption.clone();
-        let raw = serde_json::to_value(&message).unwrap_or_default();
-        
-        // 转换为 ChannelMessage
-        let channel_message = ChannelMessage {
-            id: message.message_id.to_string(),
-            channel: ChannelType::Telegram,
-            sender: Sender {
-                id: message.from.id.to_string(),
-                name: Some(message.from.full_name()),
-                username: message.from.username,
-                is_bot: message.from.is_bot,
-            },
-            chat: Chat {
-                id: message.chat.id.to_string(),
-                chat_type: match message.chat.chat_type.as_str() {
-                    "private" => ChatType::Private,
-                    "group" => ChatType::Group,
-                    "supergroup" => ChatType::SuperGroup,
-                    "channel" => ChatType::Channel,
-                    _ => ChatType::Private,
-                },
-                title: message.chat.title,
-            },
-            content: if let Some(text) = message.text {
-                MessageContent::Text { text }
-            } else if let Some(photo) = message.photo {
-                MessageContent::Photo {
-                    url: photo.last().map(|p| p.file_id.clone()).unwrap_or_default(),
-                    caption,
-                }
-            } else {
-                MessageContent::Unknown
-            },
-            timestamp: message.date,
-            reply_to: message.reply_to_message.as_ref().map(|m| m.message_id.to_string()),
-            raw: Some(raw),
+        // 提取内容
+        let content = if let Some(text) = &message.text {
+            text.clone()
+        } else if let Some(caption) = &message.caption {
+            caption.clone()
+        } else {
+            "[媒体消息]".to_string()
         };
 
-        Ok(Some(channel_message))
+        // 构建元数据
+        let metadata = serde_json::to_value(&message).ok();
+
+        Ok(Some(ChannelMessage {
+            id: message.message_id.to_string(),
+            channel_type: ChannelType::Telegram,
+            chat_id: message.chat.id.to_string(),
+            user_id: message.from.id.to_string(),
+            content,
+            timestamp: message.date,
+            metadata,
+        }))
     }
 }
 
@@ -163,12 +233,12 @@ impl Channel for TelegramBot {
     }
 
     fn name(&self) -> &str {
-        "telegram"
+        "Telegram"
     }
 
     async fn start(&mut self) -> Result<()> {
         tracing::info!("Telegram Bot 启动中...");
-        
+
         // 设置运行状态
         {
             let mut running = self.running.write().unwrap();
@@ -177,7 +247,10 @@ impl Channel for TelegramBot {
 
         // 获取 bot 信息
         let me = self.get_me().await?;
-        tracing::info!("Telegram Bot 已连接: @{}", me.username.unwrap_or_default());
+        tracing::info!(
+            "Telegram Bot 已连接: @{}",
+            me.username.unwrap_or_default()
+        );
 
         // 开始轮询
         loop {
@@ -193,12 +266,9 @@ impl Channel for TelegramBot {
             match self.get_updates().await {
                 Ok(updates) => {
                     for update in updates {
-                        if let Some(msg) = self.handle_update(update).await? {
-                            if let Some(handler) = &self.handler {
-                                if let Some(reply) = handler.handle(msg).await? {
-                                    self.send(reply).await?;
-                                }
-                            }
+                        if let Some(_msg) = self.handle_update(update).await? {
+                            // 这里可以添加消息处理逻辑
+                            tracing::debug!("收到 Telegram 消息");
                         }
                     }
                 }
@@ -222,45 +292,41 @@ impl Channel for TelegramBot {
     }
 
     async fn send(&self, message: SendMessage) -> Result<ChannelMessage> {
-        let chat_id: i64 = message.chat_id.parse()
-            .map_err(|_| OpenClawError::Channel("无效的 chat_id".into()))?;
+        if !self.config.enabled {
+            return Err(OpenClawError::Config("Telegram 通道未启用".to_string()));
+        }
 
-        let parse_mode = message.parse_mode.map(|m| match m {
-            ParseMode::Markdown => Some("Markdown"),
-            ParseMode::MarkdownV2 => Some("MarkdownV2"),
-            ParseMode::Html => Some("HTML"),
-            ParseMode::Plain => None,
-        });
+        let chat_id: i64 = message.chat_id.parse().map_err(|_| {
+            OpenClawError::Config("无效的 chat_id，需要数字格式".into())
+        })?;
 
-        let text = match message.content {
-            MessageContent::Text { text } => text,
-            MessageContent::Photo { url, caption } => {
-                return self.send_photo(chat_id, &url, caption.as_deref()).await;
-            }
-            _ => return Err(OpenClawError::Channel("不支持的消息类型".into())),
+        let parse_mode = message.message_type.as_str();
+        let mode = match parse_mode {
+            "markdown" => Some("Markdown"),
+            "markdownv2" | "markdown_v2" => Some("MarkdownV2"),
+            "html" => Some("HTML"),
+            _ => None,
         };
 
-        let sent = self.send_message_raw(chat_id, &text, parse_mode.flatten()).await?;
-
-        Ok(ChannelMessage {
-            id: sent.message_id.to_string(),
-            channel: ChannelType::Telegram,
-            sender: Sender {
-                id: sent.from.id.to_string(),
-                name: Some(sent.from.full_name()),
-                username: sent.from.username,
-                is_bot: true,
-            },
-            chat: Chat {
-                id: sent.chat.id.to_string(),
-                chat_type: ChatType::Private,
-                title: None,
-            },
-            content: MessageContent::Text { text },
-            timestamp: sent.date,
-            reply_to: None,
-            raw: None,
-        })
+        // 根据消息类型发送
+        match message.message_type.as_str() {
+            "image" | "photo" => {
+                let sent = self
+                    .send_photo(chat_id, &message.content, message.title.as_deref())
+                    .await?;
+                self.create_channel_message(sent, &message.content)
+            }
+            "document" | "file" => {
+                let sent = self
+                    .send_document(chat_id, &message.content, message.title.as_deref())
+                    .await?;
+                self.create_channel_message(sent, &message.content)
+            }
+            _ => {
+                let sent = self.send_text(chat_id, &message.content, mode).await?;
+                self.create_channel_message(sent, &message.content)
+            }
+        }
     }
 
     async fn health_check(&self) -> Result<bool> {
@@ -272,65 +338,19 @@ impl Channel for TelegramBot {
 }
 
 impl TelegramBot {
-    /// 获取 bot 信息
-    async fn get_me(&self) -> Result<TelegramUser> {
-        let response = self.client
-            .get(self.get_api_url("getMe"))
-            .send()
-            .await
-            .map_err(|e| OpenClawError::Http(format!("Telegram API 错误: {}", e)))?;
-
-        let result: TelegramResponse<TelegramUser> = response
-            .json()
-            .await
-            .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
-
-        result.result.ok_or_else(|| OpenClawError::Channel("获取 Bot 信息失败".into()))
-    }
-
-    /// 发送图片
-    async fn send_photo(&self, chat_id: i64, photo_url: &str, caption: Option<&str>) -> Result<ChannelMessage> {
-        let mut body = serde_json::json!({
-            "chat_id": chat_id,
-            "photo": photo_url,
-        });
-
-        if let Some(cap) = caption {
-            body["caption"] = serde_json::json!(cap);
-        }
-
-        let response = self.client
-            .post(self.get_api_url("sendPhoto"))
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| OpenClawError::Http(format!("Telegram API 错误: {}", e)))?;
-
-        let result: TelegramResponse<TelegramMessage> = response
-            .json()
-            .await
-            .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
-
-        let sent = result.result.ok_or_else(|| OpenClawError::Channel("发送图片失败".into()))?;
-
+    fn create_channel_message(
+        &self,
+        sent: TelegramMessage,
+        content: &str,
+    ) -> Result<ChannelMessage> {
         Ok(ChannelMessage {
             id: sent.message_id.to_string(),
-            channel: ChannelType::Telegram,
-            sender: Sender {
-                id: sent.from.id.to_string(),
-                name: Some(sent.from.full_name()),
-                username: sent.from.username,
-                is_bot: true,
-            },
-            chat: Chat {
-                id: sent.chat.id.to_string(),
-                chat_type: ChatType::Private,
-                title: None,
-            },
-            content: MessageContent::Photo { url: photo_url.to_string(), caption: caption.map(|s| s.to_string()) },
+            channel_type: ChannelType::Telegram,
+            chat_id: sent.chat.id.to_string(),
+            user_id: sent.from.id.to_string(),
+            content: content.to_string(),
             timestamp: sent.date,
-            reply_to: None,
-            raw: None,
+            metadata: None,
         })
     }
 }
@@ -358,7 +378,9 @@ struct TelegramMessage {
     text: Option<String>,
     photo: Option<Vec<TelegramPhotoSize>>,
     caption: Option<String>,
-    reply_to_message: Option<Box<TelegramMessage>>,
+    document: Option<TelegramDocument>,
+    #[serde(rename = "reply_to_message")]
+    reply_to: Option<Box<TelegramMessage>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -393,6 +415,13 @@ struct TelegramPhotoSize {
     file_id: String,
     width: i32,
     height: i32,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct TelegramDocument {
+    file_id: String,
+    file_name: Option<String>,
+    mime_type: Option<String>,
 }
 
 #[cfg(test)]

@@ -16,7 +16,7 @@
 
 pub mod base;
 pub mod types;
-// pub mod telegram; // TODO: 更新以匹配新的 ChannelMessage 结构
+pub mod telegram;
 pub mod dingtalk;
 pub mod wecom;
 pub mod feishu;
@@ -27,7 +27,7 @@ pub mod whatsapp;
 
 pub use base::*;
 pub use types::*;
-// pub use telegram::*;
+pub use telegram::*;
 pub use dingtalk::*;
 pub use wecom::*;
 pub use feishu::*;
