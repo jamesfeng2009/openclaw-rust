@@ -6,6 +6,8 @@ import { ChatView } from './components/ChatView'
 import { AgentPanel } from './components/AgentPanel'
 import { CanvasPage } from './components/CanvasPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { DevicesPage } from './pages/DevicesPage'
+import { SkillsPage } from './pages/SkillsPage'
 import { ChannelsPage } from './pages/ChannelsPage'
 import { SessionsPage } from './pages/SessionsPage'
 import { useAppStore } from './store/appStore'
@@ -64,6 +66,8 @@ function App() {
         <Routes>
           <Route path="/" element={<AppLayout />} />
           <Route path="/canvas" element={<CanvasPage />} />
+          <Route path="/devices" element={<DevicesPage />} />
+          <Route path="/skills" element={<SkillsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/channels" element={<ChannelsPage />} />
           <Route path="/sessions" element={<SessionsPage />} />

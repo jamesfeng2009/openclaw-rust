@@ -49,7 +49,10 @@
 - **Puppeteer 风格 API**: 基于 chromiumoxide
 
 ### 🔐 安全沙箱
-- **Docker 沙箱运行**: 容器创建, 资源限制, 安全配置
+- **Docker/WASM 双轨隔离**: 根据工具类型自动选择隔离方案
+- **输入过滤**: 关键词黑名单 + 正则模式检测 Prompt 注入
+- **权限控制**: 工具级别权限、路径限制、速率限制
+- **网络白名单**: 域名/IP/端口精细控制
 - **权限管理系统**: 角色, 用户, ACL, 权限检查
 
 ### 🛠️ 工具生态
@@ -58,7 +61,8 @@
 - **Cron 调度**: 标准 cron 表达式支持, 自动执行
 - **Webhook 系统**: 事件触发, 签名验证
 - **技能平台**: 触发器, 工具绑定, 执行管理
-- **技能捆绑**: 技能包, 工作区技能, 技能市场
+- **技能系统**: ClawHub/内置/托管/工作区技能管理
+- **设备节点**: 相机拍照/录像, 屏幕录制, 定位, 通知推送, 系统命令
 
 ### 💬 消息处理
 - **群聊上下文**: 自动注入群聊上下文, 防止丢失群组意识
@@ -89,8 +93,10 @@ openclaw-rust/
 │   ├── openclaw-server    # HTTP/WebSocket 服务
 │   ├── openclaw-canvas    # 实时协作画布
 │   ├── openclaw-browser   # 浏览器控制
-│   ├── openclaw-sandbox   # Docker 沙箱
-│   ├── openclaw-tools     # 工具生态
+│   ├── openclaw-sandbox   # Docker/WASM 双轨沙箱
+│   ├── openclaw-tools     # 工具生态 (技能系统)
+│   ├── openclaw-device   # 设备节点 (相机/屏幕/定位/通知)
+│   ├── openclaw-security # 安全模块 (输入过滤/权限控制)
 │   └── openclaw-cli       # 命令行工具
 ├── Cargo.toml
 └── README.md

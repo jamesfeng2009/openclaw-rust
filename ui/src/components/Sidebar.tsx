@@ -7,7 +7,9 @@ import {
   Hash,
   Bot,
   X,
-  Layout
+  Layout,
+  Smartphone,
+  Puzzle
 } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
 
@@ -19,6 +21,8 @@ export function Sidebar() {
   const navItems = [
     { path: '/', icon: MessageSquare, label: '对话' },
     { path: '/canvas', icon: Layout, label: '画布' },
+    { path: '/devices', icon: Smartphone, label: '设备' },
+    { path: '/skills', icon: Puzzle, label: '技能' },
     { path: '/channels', icon: Wifi, label: '通道' },
     { path: '/sessions', icon: Users, label: '会话' },
     { path: '/settings', icon: Settings, label: '设置' },

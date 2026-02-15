@@ -7,9 +7,13 @@ pub mod podman;
 pub mod permission;
 pub mod sandbox;
 pub mod types;
+pub mod wasm;
+pub mod manager;
 
 pub use docker::*;
 pub use podman::*;
 pub use permission::*;
 pub use sandbox::*;
 pub use types::*;
+pub use wasm::*;
+pub use manager::*;
