@@ -2154,6 +2154,7 @@ dependencies = [
  "openclaw-core",
  "openclaw-memory",
  "openclaw-vector",
+ "regex",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

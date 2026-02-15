@@ -12,11 +12,19 @@ pub mod team;
 pub mod types;
 pub mod integration;
 pub mod sub_agent;
+pub mod router;
+pub mod presence;
+pub mod sessions;
 
 pub use agent::*;
 pub use orchestrator::*;
 pub use task::*;
 pub use team::*;
 pub use types::*;
+pub use router::*;
+pub use presence::*;
+pub use sessions::*;
 pub use integration::*;
 pub use sub_agent::*;
+
+pub use openclaw_core::{Result, OpenClawError};
