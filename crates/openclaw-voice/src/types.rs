@@ -34,6 +34,8 @@ pub enum TtsProvider {
     Azure,
     /// Google Cloud TTS
     Google,
+    /// ElevenLabs TTS
+    ElevenLabs,
 }
 
 impl Default for TtsProvider {
@@ -277,10 +279,19 @@ pub struct TtsConfig {
     /// 默认格式
     #[serde(default)]
     pub default_format: AudioFormat,
+    /// ElevenLabs API Key
+    pub elevenlabs_api_key: Option<String>,
+    /// ElevenLabs Model ID
+    #[serde(default = "default_elevenlabs_model")]
+    pub elevenlabs_model: String,
 }
 
 fn default_speed() -> f32 {
     1.0
+}
+
+fn default_elevenlabs_model() -> String {
+    "eleven_multilingual_v2".to_string()
 }
 
 impl Default for TtsConfig {
@@ -292,6 +303,8 @@ impl Default for TtsConfig {
             default_voice: OpenAIVoice::default(),
             default_speed: 1.0,
             default_format: AudioFormat::Mp3,
+            elevenlabs_api_key: None,
+            elevenlabs_model: "eleven_multilingual_v2".to_string(),
         }
     }
 }

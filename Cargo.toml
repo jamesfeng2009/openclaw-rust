@@ -57,7 +57,7 @@ uuid = { version = "1.12", features = ["v4", "serde"] }
 regex = "1.11"
 
 # HTTP client
-reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart"] }
 
 # HTTP server
 axum = { version = "0.8", features = ["ws"] }

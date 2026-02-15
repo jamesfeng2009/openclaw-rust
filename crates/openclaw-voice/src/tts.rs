@@ -213,10 +213,119 @@ impl TextToSpeech for EdgeTts {
     }
 }
 
+/// ElevenLabs TTS
+pub struct ElevenLabsTts {
+    config: TtsConfig,
+    client: Client,
+}
+
+impl ElevenLabsTts {
+    const API_URL: &'static str = "https://api.elevenlabs.io/v1/text-to-speech";
+
+    pub fn new(config: TtsConfig) -> Self {
+        Self {
+            config,
+            client: Client::new(),
+        }
+    }
+
+    fn get_api_key(&self) -> Result<String> {
+        self.config
+            .elevenlabs_api_key
+            .clone()
+            .ok_or_else(|| OpenClawError::Config("未配置 ElevenLabs API Key".to_string()))
+    }
+}
+
+impl Default for ElevenLabsTts {
+    fn default() -> Self {
+        Self::new(TtsConfig::default())
+    }
+}
+
+#[async_trait]
+impl TextToSpeech for ElevenLabsTts {
+    fn provider(&self) -> TtsProvider {
+        TtsProvider::ElevenLabs
+    }
+
+    async fn synthesize(
+        &self,
+        text: &str,
+        options: Option<SynthesisOptions>,
+    ) -> Result<Vec<u8>> {
+        let api_key = self.get_api_key()?;
+        let model = &self.config.elevenlabs_model;
+        
+        let voice_id = options
+            .as_ref()
+            .and_then(|o| o.voice.clone())
+            .unwrap_or_else(|| "rachel".to_string());
+
+        let request_body = serde_json::json!({
+            "text": text,
+            "model_id": model,
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.8
+            }
+        });
+
+        let url = format!("{}/{}", Self::API_URL, voice_id);
+        
+        let response = self.client
+            .post(&url)
+            .header("xi-api-key", api_key)
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| OpenClawError::Config(format!("ElevenLabs 请求失败: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(OpenClawError::Config(format!(
+                "ElevenLabs API 错误 ({}): {}",
+                status, error_text
+            )));
+        }
+
+        let audio_data = response.bytes().await
+            .map_err(|e| OpenClawError::Config(format!("读取音频数据失败: {}", e)))?;
+
+        Ok(audio_data.to_vec())
+    }
+
+    async fn is_available(&self) -> bool {
+        self.config.elevenlabs_api_key.is_some()
+    }
+
+    fn available_voices(&self) -> Vec<String> {
+        vec![
+            "rachel".to_string(),
+            "adam".to_string(),
+            "sam".to_string(),
+            "bella".to_string(),
+            "josh".to_string(),
+            "arnold".to_string(),
+            "cherry".to_string(),
+            "domi".to_string(),
+            "elliot".to_string(),
+            "finsbury".to_string(),
+            "danielle".to_string(),
+            "olivia".to_string(),
+            "onyx".to_string(),
+            "pearl".to_string(),
+            "shimmer".to_string(),
+        ]
+    }
+}
+
 /// 创建 TTS 实例
 pub fn create_tts(provider: TtsProvider, config: TtsConfig) -> Box<dyn TextToSpeech> {
     match provider {
-        TtsProvider::OpenAI => Box::new(OpenAITts::new(config)),
+        TtsProvider::OpenAI => Box::new(OpenAITts::new(config.clone())),
         TtsProvider::Edge => Box::new(EdgeTts::new()),
         TtsProvider::Azure => {
             unimplemented!("Azure TTS 尚未实现")
@@ -224,6 +333,7 @@ pub fn create_tts(provider: TtsProvider, config: TtsConfig) -> Box<dyn TextToSpe
         TtsProvider::Google => {
             unimplemented!("Google TTS 尚未实现")
         }
+        TtsProvider::ElevenLabs => Box::new(ElevenLabsTts::new(config)),
     }
 }
 

@@ -1,6 +1,11 @@
 //! 音频处理工具
 
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use openclaw_core::{OpenClawError, Result};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::collections::VecDeque;
+use std::sync::Mutex;
 
 /// 音频格式信息
 #[derive(Debug, Clone)]
@@ -26,12 +31,85 @@ impl AudioRecorder {
     }
 
     /// 开始录音
-    pub async fn start_recording(&self) -> Result<AudioRecording> {
-        // TODO: 实现实际的音频录制
-        // 需要使用 cpal 库进行跨平台音频输入
-        Err(OpenClawError::Config(
-            "音频录制功能开发中".to_string(),
-        ))
+    pub fn start_recording(&self) -> Result<AudioRecording> {
+        let host = cpal::default_host();
+        let device = host
+            .default_input_device()
+            .ok_or_else(|| OpenClawError::Config("找不到音频输入设备".to_string()))?;
+
+        let config = device
+            .default_input_config()
+            .map_err(|e| OpenClawError::Config(format!("获取音频配置失败: {}", e)))?;
+
+        let sample_rate = config.sample_rate().0;
+        let channels = config.channels();
+        
+        let is_recording = Arc::new(AtomicBool::new(true));
+        let recorded_data: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
+        
+        let is_recording_clone = is_recording.clone();
+        let recorded_data_clone = recorded_data.clone();
+
+        let err_fn = |err| eprintln!("音频录制错误: {}", err);
+
+        let stream_config: cpal::StreamConfig = config.clone().into();
+        
+        let stream = match config.sample_format() {
+            cpal::SampleFormat::I16 => {
+                device.build_input_stream(
+                    &stream_config,
+                    move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                        if is_recording_clone.load(Ordering::SeqCst) {
+                            let bytes: Vec<u8> = data
+                                .iter()
+                                .flat_map(|&sample| sample.to_le_bytes())
+                                .collect();
+                            recorded_data_clone.lock().unwrap().extend(bytes);
+                        }
+                    },
+                    err_fn,
+                    None,
+                )
+            }
+            cpal::SampleFormat::F32 => {
+                device.build_input_stream(
+                    &stream_config,
+                    move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                        if is_recording_clone.load(Ordering::SeqCst) {
+                            let samples_i16: Vec<i16> = data
+                                .iter()
+                                .map(|&s| (s * i16::MAX as f32) as i16)
+                                .collect();
+                            let bytes: Vec<u8> = samples_i16
+                                .iter()
+                                .flat_map(|&sample| sample.to_le_bytes())
+                                .collect();
+                            recorded_data_clone.lock().unwrap().extend(bytes);
+                        }
+                    },
+                    err_fn,
+                    None,
+                )
+            }
+            _ => {
+                return Err(OpenClawError::Config(
+                    "不支持的音频格式".to_string(),
+                ));
+            }
+        }
+        .map_err(|e| OpenClawError::Config(format!("创建录音流失败: {}", e)))?;
+
+        stream
+            .play()
+            .map_err(|e| OpenClawError::Config(format!("开始录音失败: {}", e)))?;
+
+        Ok(AudioRecording {
+            sample_rate,
+            channels,
+            stream: Some(stream),
+            is_recording,
+            recorded_data,
+        })
     }
 }
 
@@ -39,19 +117,29 @@ impl AudioRecorder {
 pub struct AudioRecording {
     sample_rate: u32,
     channels: u16,
-    data: Vec<u8>,
+    stream: Option<cpal::Stream>,
+    is_recording: Arc<AtomicBool>,
+    recorded_data: Arc<Mutex<Vec<u8>>>,
 }
 
 impl AudioRecording {
     /// 停止录音并获取数据
-    pub async fn stop(self) -> Result<Vec<u8>> {
-        Ok(self.data)
+    pub fn stop(self) -> Result<Vec<u8>> {
+        self.is_recording.store(false, Ordering::SeqCst);
+        
+        if let Some(stream) = self.stream {
+            drop(stream);
+        }
+        
+        let data = self.recorded_data.lock().unwrap().clone();
+        Ok(data)
     }
 
     /// 获取当前录音时长（秒）
     pub fn duration(&self) -> f64 {
-        let samples = self.data.len() as f64 / (self.channels as f64 * 2.0); // 16-bit = 2 bytes
-        samples / self.sample_rate as f64
+        let bytes = self.recorded_data.lock().unwrap().len() as f64;
+        let bytes_per_sample = self.channels as f64 * 2.0;
+        bytes / bytes_per_sample / self.sample_rate as f64
     }
 }
 
@@ -70,24 +158,64 @@ impl AudioPlayer {
     }
 
     /// 播放音频数据
-    pub async fn play(&self, audio_data: &[u8]) -> Result<()> {
-        // TODO: 实现实际的音频播放
-        // 需要使用 cpal 库进行跨平台音频输出
-        Err(OpenClawError::Config(
-            "音频播放功能开发中".to_string(),
-        ))
+    pub fn play(&self, audio_data: &[u8]) -> Result<()> {
+        let host = cpal::default_host();
+        let device = host
+            .default_output_device()
+            .ok_or_else(|| OpenClawError::Config("找不到音频输出设备".to_string()))?;
+
+        let config = device
+            .default_output_config()
+            .map_err(|e| OpenClawError::Config(format!("获取音频配置失败: {}", e)))?;
+
+        let err_fn = |err| eprintln!("音频播放错误: {}", err);
+
+        let audio_buffer = audio_data.to_vec();
+        let audio_len = audio_buffer.len();
+        let stream_config: cpal::StreamConfig = config.clone().into();
+        let channels = config.channels() as usize;
+
+        let duration_secs = (audio_len as f64 / (self.channels as f64 * 2.0)) / self.sample_rate as f64;
+
+        let stream = device
+            .build_output_stream(
+                &stream_config,
+                move |data: &mut [u8], _: &cpal::OutputCallbackInfo| {
+                    let bytes_per_sample = 2;
+                    let bytes_per_frame = channels * bytes_per_sample;
+                    
+                    for (i, chunk) in data.chunks_mut(bytes_per_frame).enumerate() {
+                        let sample_idx = i * bytes_per_frame;
+                        if sample_idx < audio_len {
+                            let remaining = audio_len - sample_idx;
+                            let copy_len = std::cmp::min(chunk.len(), remaining);
+                            chunk[..copy_len].copy_from_slice(&audio_buffer[sample_idx..sample_idx + copy_len]);
+                        } else {
+                            for byte in chunk {
+                                *byte = 0;
+                            }
+                        }
+                    }
+                },
+                err_fn,
+                None,
+            )
+            .map_err(|e| OpenClawError::Config(format!("创建播放流失败: {}", e)))?;
+
+        stream
+            .play()
+            .map_err(|e| OpenClawError::Config(format!("开始播放失败: {}", e)))?;
+
+        std::thread::sleep(std::time::Duration::from_secs_f64(duration_secs + 0.1));
+
+        Ok(())
     }
 
     /// 播放音频文件
-    pub async fn play_file(&self, file_path: &std::path::Path) -> Result<()> {
+    pub fn play_file(&self, file_path: &std::path::Path) -> Result<()> {
         let data = std::fs::read(file_path)
             .map_err(|e| OpenClawError::Config(format!("读取音频文件失败: {}", e)))?;
-        self.play(&data).await
-    }
-
-    /// 停止播放
-    pub async fn stop(&self) -> Result<()> {
-        Ok(())
+        self.play(&data)
     }
 }
 
@@ -101,142 +229,79 @@ impl Default for AudioPlayer {
 pub struct AudioUtils;
 
 impl AudioUtils {
-    /// 计算 RMS 音量
-    pub fn calculate_rms(samples: &[i16]) -> f32 {
-        if samples.is_empty() {
-            return 0.0;
-        }
+    /// 获取默认输入设备信息
+    pub fn get_input_device_info() -> Result<(String, AudioInfo)> {
+        let host = cpal::default_host();
+        let device = host
+            .default_input_device()
+            .ok_or_else(|| OpenClawError::Config("找不到音频输入设备".to_string()))?;
 
-        let sum: f64 = samples.iter().map(|&s| (s as f64).powi(2)).sum();
-        (sum / samples.len() as f64).sqrt() as f32 / i16::MAX as f32
-    }
+        let name = device.name().unwrap_or_else(|_| "Unknown".to_string());
+        let config = device
+            .default_input_config()
+            .map_err(|e| OpenClawError::Config(format!("获取音频配置失败: {}", e)))?;
 
-    /// 检测是否静音
-    pub fn is_silence(samples: &[i16], threshold: f32) -> bool {
-        Self::calculate_rms(samples) < threshold
-    }
-
-    /// 重采样音频
-    pub fn resample(
-        input: &[i16],
-        input_rate: u32,
-        output_rate: u32,
-        channels: u16,
-    ) -> Result<Vec<i16>> {
-        if input_rate == output_rate {
-            return Ok(input.to_vec());
-        }
-
-        // 使用 rubato 进行高质量重采样
-        let ratio = output_rate as f64 / input_rate as f64;
-        let output_len = (input.len() as f64 * ratio) as usize;
-
-        let mut output = Vec::with_capacity(output_len);
-        for i in 0..output_len {
-            let src_idx = (i as f64 / ratio) as usize;
-            output.push(input.get(src_idx).copied().unwrap_or(0));
-        }
-
-        Ok(output)
-    }
-
-    /// 将音频数据转换为 WAV 格式
-    pub fn to_wav(
-        samples: &[i16],
-        sample_rate: u32,
-        channels: u16,
-    ) -> Result<Vec<u8>> {
-        let spec = hound::WavSpec {
-            channels,
-            sample_rate,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
+        let info = AudioInfo {
+            sample_rate: config.sample_rate().0,
+            channels: config.channels(),
+            bits_per_sample: config.sample_format().sample_size() as u16 * 8,
+            duration_seconds: 0.0,
         };
 
-        let mut cursor = std::io::Cursor::new(Vec::new());
-        {
-            let mut writer = hound::WavWriter::new(&mut cursor, spec)
-                .map_err(|e| OpenClawError::Config(format!("创建 WAV 写入器失败: {}", e)))?;
+        Ok((name, info))
+    }
 
-            for &sample in samples {
-                writer
-                    .write_sample(sample)
-                    .map_err(|e| OpenClawError::Config(format!("写入 WAV 数据失败: {}", e)))?;
+    /// 获取默认输出设备信息
+    pub fn get_output_device_info() -> Result<(String, AudioInfo)> {
+        let host = cpal::default_host();
+        let device = host
+            .default_output_device()
+            .ok_or_else(|| OpenClawError::Config("找不到音频输出设备".to_string()))?;
+
+        let name = device.name().unwrap_or_else(|_| "Unknown".to_string());
+        let config = device
+            .default_output_config()
+            .map_err(|e| OpenClawError::Config(format!("获取音频配置失败: {}", e)))?;
+
+        let info = AudioInfo {
+            sample_rate: config.sample_rate().0,
+            channels: config.channels(),
+            bits_per_sample: config.sample_format().sample_size() as u16 * 8,
+            duration_seconds: 0.0,
+        };
+
+        Ok((name, info))
+    }
+
+    /// 列出所有输入设备
+    pub fn list_input_devices() -> Result<Vec<String>> {
+        let host = cpal::default_host();
+        let devices = host
+            .input_devices()
+            .map_err(|e| OpenClawError::Config(format!("获取设备列表失败: {}", e)))?;
+
+        let mut result = Vec::new();
+        for device in devices {
+            if let Ok(name) = device.name() {
+                result.push(name);
             }
-
-            writer
-                .finalize()
-                .map_err(|e| OpenClawError::Config(format!("完成 WAV 文件失败: {}", e)))?;
         }
-
-        Ok(cursor.into_inner())
+        Ok(result)
     }
 
-    /// 从 WAV 数据读取音频
-    pub fn from_wav(wav_data: &[u8]) -> Result<(Vec<i16>, AudioInfo)> {
-        let cursor = std::io::Cursor::new(wav_data);
-        let reader = hound::WavReader::new(cursor)
-            .map_err(|e| OpenClawError::Config(format!("读取 WAV 文件失败: {}", e)))?;
+    /// 列出所有输出设备
+    pub fn list_output_devices() -> Result<Vec<String>> {
+        let host = cpal::default_host();
+        let devices = host
+            .output_devices()
+            .map_err(|e| OpenClawError::Config(format!("获取设备列表失败: {}", e)))?;
 
-        let spec = reader.spec();
-        let samples: Vec<i16> = reader
-            .into_samples()
-            .filter_map(|s| s.ok())
-            .collect();
-
-        let duration_seconds = samples.len() as f64 / (spec.sample_rate as f64 * spec.channels as f64);
-
-        Ok((
-            samples,
-            AudioInfo {
-                sample_rate: spec.sample_rate,
-                channels: spec.channels,
-                bits_per_sample: spec.bits_per_sample,
-                duration_seconds,
-            },
-        ))
-    }
-
-    /// 拼接音频数据
-    pub fn concat(audio_chunks: &[Vec<i16>]) -> Vec<i16> {
-        let total_len: usize = audio_chunks.iter().map(|c| c.len()).sum();
-        let mut result = Vec::with_capacity(total_len);
-
-        for chunk in audio_chunks {
-            result.extend(chunk);
+        let mut result = Vec::new();
+        for device in devices {
+            if let Ok(name) = device.name() {
+                result.push(name);
+            }
         }
-
-        result
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_calculate_rms() {
-        let samples = vec![1000, -1000, 1000, -1000];
-        let rms = AudioUtils::calculate_rms(&samples);
-        assert!(rms > 0.0 && rms < 1.0);
-    }
-
-    #[test]
-    fn test_is_silence() {
-        let silence = vec![0, 0, 0, 0];
-        assert!(AudioUtils::is_silence(&silence, 0.01));
-
-        let loud = vec![10000, -10000, 10000, -10000];
-        assert!(!AudioUtils::is_silence(&loud, 0.01));
-    }
-
-    #[test]
-    fn test_to_wav() {
-        let samples = vec![1000, -1000, 1000, -1000];
-        let wav = AudioUtils::to_wav(&samples, 16000, 1).unwrap();
-        assert!(!wav.is_empty());
-
-        // 验证 WAV 头
-        assert_eq!(&wav[0..4], b"RIFF");
+        Ok(result)
     }
 }
