@@ -131,6 +131,11 @@ pub enum ScheduleType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum TaskAction {
+    /// 发送消息到通道
+    SendMessage {
+        channel: String,
+        message: String,
+    },
     /// 执行工具
     ExecuteTool {
         tool_id: ToolId,

@@ -1,8 +1,9 @@
 //! AI 提供商实现
 //!
 //! 支持多种 AI 提供商:
-//! - 国外: OpenAI, Anthropic, Google Gemini
-//! - 国内: DeepSeek, Qwen, GLM, Minimax, Kimi
+//! - 国外: OpenAI, Anthropic, Google Gemini, DeepSeek
+//! - 国内: Qwen, Doubao, GLM, Minimax, Kimi
+//! - 自定义: CustomProvider (用户自定义)
 
 mod base;
 mod openai;
@@ -11,9 +12,11 @@ mod anthropic;
 mod gemini;
 mod deepseek;
 mod qwen;
+mod doubao;
 mod glm;
 mod minimax;
 mod kimi;
+mod custom;
 
 pub use base::*;
 pub use openai::*;
@@ -22,9 +25,11 @@ pub use anthropic::*;
 pub use gemini::*;
 pub use deepseek::*;
 pub use qwen::*;
+pub use doubao::*;
 pub use glm::*;
 pub use minimax::*;
 pub use kimi::*;
+pub use custom::*;
 
 use async_trait::async_trait;
 use futures::Stream;
@@ -65,6 +70,9 @@ pub struct ProviderConfig {
     pub api_key: Option<String>,
     pub base_url: Option<String>,
     pub default_model: String,
+    pub timeout: Option<std::time::Duration>,
+    pub headers: std::collections::HashMap<String, String>,
+    pub organization: Option<String>,
 }
 
 impl ProviderConfig {
@@ -74,16 +82,39 @@ impl ProviderConfig {
             api_key: Some(api_key.into()),
             base_url: None,
             default_model: String::new(),
+            timeout: None,
+            headers: std::collections::HashMap::new(),
+            organization: None,
         }
     }
 
+    /// 设置自定义基础 URL
     pub fn with_base_url(mut self, url: impl Into<String>) -> Self {
         self.base_url = Some(url.into());
         self
     }
 
+    /// 设置默认模型
     pub fn with_default_model(mut self, model: impl Into<String>) -> Self {
         self.default_model = model.into();
+        self
+    }
+
+    /// 设置请求超时
+    pub fn with_timeout(mut self, timeout: std::time::Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
+    }
+
+    /// 添加自定义 Header
+    pub fn with_header(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.headers.insert(key.into(), value.into());
+        self
+    }
+
+    /// 设置 Organization (用于 OpenAI)
+    pub fn with_organization(mut self, org: impl Into<String>) -> Self {
+        self.organization = Some(org.into());
         self
     }
 }

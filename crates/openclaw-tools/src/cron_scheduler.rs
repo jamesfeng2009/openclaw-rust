@@ -295,20 +295,24 @@ impl CronScheduler {
 
         // 执行任务动作
         match &task.action {
+            TaskAction::SendMessage { channel, message } => {
+                debug!("发送消息到通道: {} 内容: {}", channel, message);
+            }
             TaskAction::ExecuteTool { tool_id, parameters } => {
                 debug!("执行工具: {} 参数: {:?}", tool_id, parameters);
                 // 实际执行由外部执行器完成
             }
-            TaskAction::SendMessage { channel, message } => {
-                debug!("发送消息到 {}: {}", channel, message);
-                // 实际发送由外部处理器完成
-            }
-            TaskAction::Webhook { url, payload } => {
-                debug!("触发 Webhook: {} payload: {:?}", url, payload);
+            TaskAction::HttpCall { url, method, headers, body } => {
+                debug!("HTTP 调用: {} {} headers: {:?} body: {:?}", method, url, headers, body);
                 // 实际调用由外部处理器完成
             }
-            _ => {
-                warn!("未知任务类型");
+            TaskAction::TriggerWebhook { webhook_id, payload } => {
+                debug!("触发 Webhook: {} payload: {:?}", webhook_id, payload);
+                // 实际调用由外部处理器完成
+            }
+            TaskAction::Script { language, code } => {
+                debug!("执行脚本: {} code: {:?}", language, code);
+                // 实际执行由外部处理器完成
             }
         }
 

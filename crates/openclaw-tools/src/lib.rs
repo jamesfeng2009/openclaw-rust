@@ -8,6 +8,7 @@ pub mod cron_scheduler;
 pub mod webhook;
 pub mod skills;
 pub mod skill_bundle;
+pub mod skill_registry;
 pub mod types;
 
 pub use browser_tools::*;
@@ -16,4 +17,5 @@ pub use cron_scheduler::*;
 pub use webhook::*;
 pub use skills::*;
 pub use skill_bundle::*;
+pub use skill_registry::*;
 pub use types::*;

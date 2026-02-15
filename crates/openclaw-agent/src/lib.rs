@@ -11,6 +11,7 @@ pub mod task;
 pub mod team;
 pub mod types;
 pub mod integration;
+pub mod sub_agent;
 
 pub use agent::*;
 pub use orchestrator::*;
@@ -18,3 +19,4 @@ pub use task::*;
 pub use team::*;
 pub use types::*;
 pub use integration::*;
+pub use sub_agent::*;

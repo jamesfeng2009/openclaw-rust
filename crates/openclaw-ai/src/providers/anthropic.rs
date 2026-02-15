@@ -349,6 +349,9 @@ mod tests {
             api_key: Some("test-key".to_string()),
             base_url: None,
             default_model: "claude-3-sonnet".to_string(),
+            timeout: None,
+            headers: std::collections::HashMap::new(),
+            organization: None,
         };
         let provider = AnthropicProvider::new(config);
         assert_eq!(provider.name(), "anthropic");

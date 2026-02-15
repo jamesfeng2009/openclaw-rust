@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::info;
 
 /// 修剪策略配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -299,7 +299,7 @@ impl SessionPruner {
     }
 
     /// 修剪短期记忆摘要
-    pub async fn prune_short_term<T: Prunable>(
+    pub async fn prune_short_term<T: Prunable + Clone>(
         &self,
         summaries: &mut Vec<T>,
     ) -> usize {
@@ -338,7 +338,7 @@ impl SessionPruner {
         T: Prunable + Clone,
         M: Prunable,
         W: Prunable,
-        S: Prunable,
+        S: Prunable + Clone,
     >(
         &self,
         sessions: &mut HashMap<String, T>,
@@ -469,6 +469,7 @@ impl AutoPruner {
 mod tests {
     use super::*;
 
+    #[derive(Clone)]
     struct TestItem {
         created: DateTime<Utc>,
         accessed: DateTime<Utc>,

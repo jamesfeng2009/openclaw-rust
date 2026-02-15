@@ -20,6 +20,8 @@ pub mod stream;
 pub mod tools;
 pub mod tokenizer;
 pub mod types;
+pub mod failover;
+pub mod oauth;
 
 pub use models::*;
 pub use providers::*;
@@ -27,3 +29,5 @@ pub use stream::*;
 pub use tools::*;
 pub use tokenizer::*;
 pub use types::*;
+pub use oauth::*;
+pub use failover::*;

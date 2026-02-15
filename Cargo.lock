@@ -2180,6 +2180,7 @@ dependencies = [
  "tiktoken-rs",
  "tokio",
  "tracing",
+ "urlencoding",
  "uuid",
 ]
 
@@ -2229,12 +2230,14 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "futures",
+ "hex",
  "hmac",
  "openclaw-core",
  "rand 0.8.5",
  "reqwest",
  "serde",
  "serde_json",
+ "serde_qs",
  "sha2",
  "thiserror 2.0.18",
  "tokio",
@@ -2373,6 +2376,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "urlencoding",
  "uuid",
  "zip",
 ]
@@ -3266,6 +3270,17 @@ dependencies = [
  "itoa",
  "serde",
  "serde_core",
+]
+
+[[package]]
+name = "serde_qs"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0431a35568651e363364210c91983c1da5eb29404d9f0928b67d4ebcfa7d330c"
+dependencies = [
+ "percent-encoding",
+ "serde",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

@@ -11,6 +11,8 @@ mod voice_cmd;
 mod wizard_cmd;
 mod doctor_cmd;
 mod daemon_cmd;
+mod message_cmd;
+mod agent_cmd;
 
 #[derive(Parser)]
 #[command(name = "openclaw-rust")]
@@ -84,6 +86,32 @@ enum Commands {
         #[command(subcommand)]
         command: daemon_cmd::DaemonCommand,
     },
+    /// Send a message to a channel
+    Message {
+        #[command(subcommand)]
+        command: message_cmd::MessageCommand,
+    },
+    /// Talk to the AI assistant
+    Agent {
+        /// Agent ID (default: default)
+        #[arg(long, default_value = "default")]
+        agent: String,
+        /// Message to send to the agent
+        #[arg(short, long)]
+        message: Option<String>,
+        /// Thinking mode (low, medium, high)
+        #[arg(long, default_value = "medium")]
+        thinking: String,
+        /// Stream the response
+        #[arg(short, long, action = clap::ArgAction::SetTrue)]
+        stream: bool,
+        /// Continue the last conversation
+        #[arg(short, long, action = clap::ArgAction::SetTrue)]
+        continue_conv: bool,
+        /// System prompt override
+        #[arg(long)]
+        system: Option<String>,
+    },
     /// Show version info
     Version,
 }
@@ -144,6 +172,20 @@ async fn main() -> Result<()> {
         }
         Commands::Daemon { command } => {
             daemon_cmd::execute(command).await?;
+        }
+        Commands::Message { command } => {
+            command.execute().await?;
+        }
+        Commands::Agent { agent, message, thinking, stream, continue_conv, system } => {
+            let cli = agent_cmd::AgentCli {
+                agent,
+                message,
+                thinking,
+                stream,
+                continue_conv,
+                system,
+            };
+            cli.run().await?;
         }
         Commands::Version => {
             println!("OpenClaw Rust {}", env!("CARGO_PKG_VERSION"));

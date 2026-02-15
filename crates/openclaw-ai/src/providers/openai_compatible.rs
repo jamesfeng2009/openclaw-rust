@@ -38,6 +38,11 @@ impl OpenAICompatibleProvider {
         Self { config, client, provider_info }
     }
 
+    /// 获取配置克隆
+    pub fn config(&self) -> ProviderConfig {
+        self.config.clone()
+    }
+
     /// 获取基础 URL
     fn get_base_url(&self) -> &str {
         self.config.base_url.as_deref().unwrap_or(self.provider_info.default_base_url)

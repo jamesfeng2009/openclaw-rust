@@ -60,6 +60,8 @@ pub struct AiConfig {
     pub providers: Vec<ProviderConfig>,
     /// Token 预算
     pub token_budget: TokenBudget,
+    #[serde(default)]
+    pub auth_profiles: Vec<AuthProfile>,
 }
 
 impl Default for AiConfig {
@@ -68,6 +70,7 @@ impl Default for AiConfig {
             default_provider: "openai".to_string(),
             providers: vec![],
             token_budget: TokenBudget::default(),
+            auth_profiles: vec![],
         }
     }
 }
@@ -81,6 +84,8 @@ pub struct ProviderConfig {
     pub base_url: Option<String>,
     pub default_model: String,
     pub models: Vec<String>,
+    #[serde(default)]
+    pub auth: AuthConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -93,6 +98,58 @@ pub enum ProviderType {
     DeepSeek,
     Ollama,
     Custom,
+}
+
+/// 认证配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AuthConfig {
+    /// API 密钥认证
+    ApiKey {
+        key: String,
+    },
+    /// OAuth 认证
+    OAuth {
+        client_id: String,
+        client_secret: String,
+        refresh_token: Option<String>,
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+        scopes: Vec<String>,
+    },
+    /// Azure AD 认证
+    AzureAd {
+        tenant_id: String,
+        client_id: String,
+        client_secret: String,
+    },
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self::ApiKey { key: String::new() }
+    }
+}
+
+/// Auth Profile - 认证配置轮换
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthProfile {
+    pub id: String,
+    pub name: String,
+    pub provider: String,
+    pub auth: AuthConfig,
+    pub priority: u8,
+    pub enabled: bool,
+}
+
+impl AuthProfile {
+    pub fn is_expired(&self) -> bool {
+        if let AuthConfig::OAuth { expires_at, .. } = &self.auth {
+            if let Some(exp) = expires_at {
+                return chrono::Utc::now() >= *exp;
+            }
+        }
+        false
+    }
 }
 
 /// Token 预算

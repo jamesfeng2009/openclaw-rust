@@ -7,10 +7,12 @@
 ## ✨ 功能特性
 
 ### 🧠 AI 能力
-- **多提供商支持**: OpenAI, Anthropic (Claude), Google (Gemini), DeepSeek, 通义千问, 智谱 GLM, Moonshot (Kimi)
+- **多提供商支持**: OpenAI, Anthropic (Claude), Google (Gemini), DeepSeek, 通义千问 (Qwen), 智谱 GLM, Moonshot (Kimi), 豆包 (Doubao), Minimax
 - **流式响应**: 支持流式输出，实时显示 AI 回复
 - **工具调用**: 支持 Function Calling
 - **嵌入向量**: 支持文本嵌入生成
+- **OAuth 认证**: 支持多提供商 OAuth (OpenAI, Anthropic, DeepSeek, Qwen, Doubao, GLM, Kimi, Minimax)
+- **自定义 Provider**: 支持用户自定义 OpenAI 兼容 API
 
 ### 🧠 记忆系统
 - **三层记忆架构**:
@@ -23,10 +25,12 @@
 - **任务编排**: 自动任务分解和多 Agent 协作
 
 ### 📡 消息通道
-支持 10+ 个主流平台的消息收发:
+支持 15+ 个主流平台的消息收发:
 - 国际: Telegram, Discord, Slack, Microsoft Teams, WhatsApp, **Signal**
-- 国内: 钉钉, 企业微信, 飞书
-- macOS: **iMessage** (Apple 消息服务)
+- 国内: 钉钉, 企业微信, 飞书, **Zalo** (越南)
+- macOS: **iMessage** (Apple 消息服务), **BlueBubbles** (iMessage REST API)
+- 去中心化: **Matrix**
+- 其他: **WebChat** (自定义 Webhook), **Email** (邮件), **SMS** (短信)
 
 ### 🎙️ 语音交互
 - **STT (语音识别)**: OpenAI Whisper, 本地 Whisper
