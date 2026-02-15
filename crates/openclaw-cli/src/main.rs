@@ -8,6 +8,8 @@ mod commands;
 mod api_key_cmd;
 mod channel_cmd;
 mod voice_cmd;
+mod wizard_cmd;
+mod doctor_cmd;
 
 #[derive(Parser)]
 #[command(name = "openclaw-rust")]
@@ -57,6 +59,24 @@ enum Commands {
         /// Configuration file path
         #[arg(short, long, default_value = "~/.openclaw/openclaw.json")]
         config: String,
+    },
+    /// Interactive setup wizard
+    Wizard {
+        /// Skip optional steps
+        #[arg(short, long)]
+        quick: bool,
+        /// Force overwrite existing config
+        #[arg(long)]
+        force: bool,
+    },
+    /// System health check
+    Doctor {
+        /// Fix issues automatically
+        #[arg(short, long)]
+        fix: bool,
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
     },
     /// Show version info
     Version,
@@ -109,6 +129,12 @@ async fn main() -> Result<()> {
         }
         Commands::Init { config } => {
             commands::init::run(&config).await?;
+        }
+        Commands::Wizard { quick, force } => {
+            wizard_cmd::run(quick, force).await?;
+        }
+        Commands::Doctor { fix, verbose } => {
+            doctor_cmd::run(fix, verbose).await?;
         }
         Commands::Version => {
             println!("OpenClaw Rust {}", env!("CARGO_PKG_VERSION"));
