@@ -10,6 +10,8 @@ members = [
     "crates/openclaw-voice",
     "crates/openclaw-server",
     "crates/openclaw-cli",
+    "crates/openclaw-canvas",
+    "crates/openclaw-browser",
 ]
 
 [workspace.package]
@@ -81,3 +83,5 @@ openclaw-channels = { path = "crates/openclaw-channels" }
 openclaw-agent = { path = "crates/openclaw-agent" }
 openclaw-voice = { path = "crates/openclaw-voice" }
 openclaw-server = { path = "crates/openclaw-server" }
+openclaw-canvas = { path = "crates/openclaw-canvas" }
+openclaw-browser = { path = "crates/openclaw-browser" }

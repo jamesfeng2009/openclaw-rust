@@ -6,13 +6,21 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-/// 创建 API 路由
+use crate::browser_api::{create_browser_router, BrowserApiState};
+use crate::canvas_api::{create_canvas_router, CanvasApiState};
+
+/// 创建完整 API 路由
 pub fn create_router() -> Router {
     Router::new()
+        // 基础 API
         .route("/health", get(health_check))
         .route("/chat", post(chat_handler))
         .route("/models", get(list_models))
         .route("/stats", get(get_stats))
+        // 画布 API
+        .merge(create_canvas_router(CanvasApiState::new()))
+        // 浏览器控制 API
+        .merge(create_browser_router(BrowserApiState::new()))
 }
 
 /// 健康检查
