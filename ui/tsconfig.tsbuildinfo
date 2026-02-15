@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/agentpanel.tsx","./src/components/chatview.tsx","./src/components/sidebar.tsx","./src/lib/api.ts","./src/lib/websocket.ts","./src/pages/channelspage.tsx","./src/pages/sessionspage.tsx","./src/pages/settingspage.tsx","./src/store/appstore.ts","./vite.config.ts"],"version":"5.6.3"}
