@@ -183,13 +183,14 @@ fn get_default_model(provider: &str) -> String {
 
 /// 隐藏 API Key 中间部分
 fn mask_api_key(key: &str) -> String {
-    if key.len() <= 12 {
+    if key.len() <= 8 {
         return "*".repeat(key.len());
     }
     
-    let start = &key[..8];
-    let end = &key[key.len()-4..];
-    let middle = "*".repeat(key.len() - 12);
+    let start = &key[..4];
+    let end = &key[key.len().saturating_sub(4)..];
+    let middle_len = (key.len() - 8).min(4);
+    let middle = "*".repeat(middle_len);
     
     format!("{}{}{}", start, middle, end)
 }
@@ -200,8 +201,8 @@ mod tests {
     
     #[test]
     fn test_mask_api_key() {
-        assert_eq!(mask_api_key("sk-short"), "*******");
-        assert_eq!(mask_api_key("sk-1234567890abcdef"), "sk-12345****cdef");
+        assert_eq!(mask_api_key("sk-short"), "********");
+        assert_eq!(mask_api_key("sk-1234567890abcdef"), "sk-1****cdef");
     }
     
     #[test]
