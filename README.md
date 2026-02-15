@@ -23,9 +23,10 @@
 - **任务编排**: 自动任务分解和多 Agent 协作
 
 ### 📡 消息通道
-支持 8 个主流平台的消息收发:
-- 国际: Telegram, Discord, Slack, Microsoft Teams, WhatsApp
+支持 10+ 个主流平台的消息收发:
+- 国际: Telegram, Discord, Slack, Microsoft Teams, WhatsApp, **Signal**
 - 国内: 钉钉, 企业微信, 飞书
+- macOS: **iMessage** (Apple 消息服务)
 
 ### 🎙️ 语音交互
 - **STT (语音识别)**: OpenAI Whisper, 本地 Whisper
@@ -52,11 +53,13 @@
 - **定时任务**: 任务创建, 执行, 管理
 - **Webhook 系统**: 事件触发, 签名验证
 - **技能平台**: 触发器, 工具绑定, 执行管理
+- **技能捆绑**: 技能包, 工作区技能, 技能市场
 
 ### 🖥️ CLI 工具
 - **wizard**: 交互式设置向导
 - **doctor**: 系统健康检查与自动修复
 - **gateway**: 启动 HTTP/WebSocket 服务
+- **daemon**: 后台守护进程服务 (支持开机自启动)
 
 ## 📦 项目结构
 
@@ -130,6 +133,25 @@ cargo run -- gateway --port 8080 --host 0.0.0.0
 
 # 启用详细日志
 cargo run -- gateway --verbose
+```
+
+### Daemon 后台服务
+
+```bash
+# 启动后台守护进程
+cargo run -- daemon start
+
+# 查看守护进程状态
+cargo run -- daemon status
+
+# 停止守护进程
+cargo run -- daemon stop
+
+# 安装为系统服务 (开机自启动)
+cargo run -- daemon install
+
+# 卸载系统服务
+cargo run -- daemon uninstall
 ```
 
 ## 📡 API 端点

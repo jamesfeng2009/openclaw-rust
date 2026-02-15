@@ -34,6 +34,21 @@ pub enum OpenClawError {
     #[error("HTTP 请求错误: {0}")]
     Http(String),
 
+    #[error("网络错误: {0}")]
+    Network(String),
+
+    #[error("API 错误: {0}")]
+    Api(String),
+
+    #[error("解析错误: {0}")]
+    Parse(String),
+
+    #[error("执行错误: {0}")]
+    Execution(String),
+
+    #[error("平台不支持: {0}")]
+    Platform(String),
+
     #[error("未知错误: {0}")]
     Unknown(String),
 }

@@ -10,6 +10,7 @@ mod channel_cmd;
 mod voice_cmd;
 mod wizard_cmd;
 mod doctor_cmd;
+mod daemon_cmd;
 
 #[derive(Parser)]
 #[command(name = "openclaw-rust")]
@@ -78,6 +79,11 @@ enum Commands {
         #[arg(short, long)]
         verbose: bool,
     },
+    /// Daemon service management
+    Daemon {
+        #[command(subcommand)]
+        command: daemon_cmd::DaemonCommand,
+    },
     /// Show version info
     Version,
 }
@@ -135,6 +141,9 @@ async fn main() -> Result<()> {
         }
         Commands::Doctor { fix, verbose } => {
             doctor_cmd::run(fix, verbose).await?;
+        }
+        Commands::Daemon { command } => {
+            daemon_cmd::execute(command).await?;
         }
         Commands::Version => {
             println!("OpenClaw Rust {}", env!("CARGO_PKG_VERSION"));

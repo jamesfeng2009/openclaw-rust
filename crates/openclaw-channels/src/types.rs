@@ -15,6 +15,7 @@ pub enum ChannelType {
     Signal,
     Matrix,
     Teams,  // Microsoft Teams
+    IMessage, // Apple iMessage
     // 国内平台
     DingTalk,
     WeCom,  // 企业微信

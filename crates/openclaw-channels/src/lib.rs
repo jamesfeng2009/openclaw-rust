@@ -13,6 +13,8 @@
 //! - Slack - 企业协作工具
 //! - Microsoft Teams - 微软企业协作平台
 //! - WhatsApp - Meta 即时通讯应用
+//! - Signal - 隐私优先的即时通讯
+//! - iMessage - Apple 消息服务 (仅 macOS)
 
 pub mod base;
 pub mod types;
@@ -24,6 +26,8 @@ pub mod discord;
 pub mod teams;
 pub mod slack;
 pub mod whatsapp;
+pub mod signal;
+pub mod imessage;
 
 pub use base::*;
 pub use types::*;
@@ -35,3 +39,5 @@ pub use discord::*;
 pub use teams::*;
 pub use slack::*;
 pub use whatsapp::*;
+pub use signal::*;
+pub use imessage::*;
