@@ -7,12 +7,14 @@
 
 pub mod compressor;
 pub mod manager;
+pub mod pruning;
 pub mod scorer;
 pub mod types;
 pub mod working;
 
 pub use compressor::*;
 pub use manager::*;
+pub use pruning::*;
 pub use scorer::*;
 pub use types::*;
 pub use working::*;

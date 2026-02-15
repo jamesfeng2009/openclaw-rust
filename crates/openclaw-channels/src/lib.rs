@@ -28,6 +28,7 @@ pub mod slack;
 pub mod whatsapp;
 pub mod signal;
 pub mod imessage;
+pub mod dm_policy;
 
 pub use base::*;
 pub use types::*;
@@ -41,3 +42,4 @@ pub use slack::*;
 pub use whatsapp::*;
 pub use signal::*;
 pub use imessage::*;
+pub use dm_policy::*;

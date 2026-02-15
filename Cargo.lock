@@ -806,6 +806,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cron"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f8c3e73077b4b4a6ab1ea5047c37c57aee77657bc8ecd6f29b0af082d0b0c07"
+dependencies = [
+ "chrono",
+ "nom",
+ "once_cell",
+]
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.8.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2220,6 +2231,7 @@ dependencies = [
  "futures",
  "hmac",
  "openclaw-core",
+ "rand 0.8.5",
  "reqwest",
  "serde",
  "serde_json",
@@ -2348,6 +2360,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "cron",
  "futures",
  "hex",
  "openclaw-browser",

@@ -20,6 +20,7 @@ tokio-tungstenite.workspace = true
 futures.workspace = true
 chrono.workspace = true
 uuid.workspace = true
+rand = "0.8"
 
 # 钉钉加签支持
 hmac = "0.12"
