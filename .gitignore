@@ -2,6 +2,11 @@
 /target/
 **/*.rs.bk
 
+# Frontend build
+ui/node_modules/
+ui/dist/
+ui/.vite/
+
 # IDE
 .idea/
 .vscode/

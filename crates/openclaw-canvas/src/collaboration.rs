@@ -36,7 +36,7 @@ pub enum CollabEvent {
     ElementUpdated {
         canvas_id: CanvasId,
         element_id: String,
-        updates: super::canvas::ElementUpdate,
+        updates: ElementUpdate,
     },
     /// 元素删除
     ElementDeleted {
@@ -173,7 +173,7 @@ impl CollabSession {
     }
 
     /// 广播元素更新
-    pub fn broadcast_element_updated(&self, element_id: String, updates: super::canvas::ElementUpdate) {
+    pub fn broadcast_element_updated(&self, element_id: String, updates: ElementUpdate) {
         let event = CollabEvent::ElementUpdated {
             canvas_id: self.canvas_id.clone(),
             element_id,

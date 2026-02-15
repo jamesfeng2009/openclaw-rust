@@ -242,6 +242,17 @@ impl Element {
     }
 }
 
+/// 元素更新
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ElementUpdate {
+    pub shape: Option<Shape>,
+    pub layer: Option<usize>,
+    pub locked: Option<bool>,
+    pub visible: Option<bool>,
+    pub opacity: Option<f64>,
+    pub transform: Option<Transform>,
+}
+
 /// 变换
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Transform {

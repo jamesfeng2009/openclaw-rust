@@ -31,6 +31,75 @@ pub enum CanvasError {
     Internal(#[from] anyhow::Error),
 }
 
+/// Agent 操作类型
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "action")]
+pub enum AgentAction {
+    /// 添加元素
+    AddElement {
+        element: Element,
+    },
+    /// 更新元素
+    UpdateElement {
+        element_id: String,
+        updates: ElementUpdate,
+    },
+    /// 删除元素
+    DeleteElement {
+        element_id: String,
+    },
+    /// 移动元素
+    MoveElement {
+        element_id: String,
+        position: Point,
+    },
+    /// 缩放元素
+    ScaleElement {
+        element_id: String,
+        scale_x: f64,
+        scale_y: f64,
+    },
+    /// 旋转元素
+    RotateElement {
+        element_id: String,
+        angle: f64,
+    },
+    /// 更改元素颜色
+    ChangeColor {
+        element_id: String,
+        color: Color,
+    },
+    /// 添加文本
+    AddText {
+        position: Point,
+        text: String,
+        font_size: f64,
+        color: Color,
+    },
+    /// 添加图片
+    AddImage {
+        position: Point,
+        url: String,
+        width: f64,
+        height: f64,
+    },
+    /// 添加形状
+    AddShape {
+        shape: Shape,
+        position: Point,
+    },
+    /// 撤销操作
+    Undo,
+    /// 重做操作
+    Redo,
+    /// 清空画布
+    Clear,
+    /// 设置背景色
+    SetBackground {
+        color: Color,
+    },
+}
+
 /// 画布管理器
 pub struct CanvasManager {
     canvases: Arc<RwLock<HashMap<CanvasId, Arc<RwLock<CanvasState>>>>>,
@@ -277,14 +346,4 @@ impl CanvasOps {
 
         Ok(())
     }
-}
-
-/// 元素更新
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
-pub struct ElementUpdate {
-    pub shape: Option<Shape>,
-    pub layer: Option<usize>,
-    pub opacity: Option<f64>,
-    pub transform: Option<Transform>,
-    pub visible: Option<bool>,
 }

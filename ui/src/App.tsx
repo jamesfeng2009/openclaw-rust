@@ -4,6 +4,7 @@ import { Layout } from 'lucide-react'
 import { Sidebar } from './components/Sidebar'
 import { ChatView } from './components/ChatView'
 import { AgentPanel } from './components/AgentPanel'
+import { CanvasPage } from './components/CanvasPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { ChannelsPage } from './pages/ChannelsPage'
 import { SessionsPage } from './pages/SessionsPage'
@@ -62,6 +63,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<AppLayout />} />
+          <Route path="/canvas" element={<CanvasPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/channels" element={<ChannelsPage />} />
           <Route path="/sessions" element={<SessionsPage />} />
