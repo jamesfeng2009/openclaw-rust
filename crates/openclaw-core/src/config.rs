@@ -1,6 +1,7 @@
 //! 配置管理
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// 主配置
@@ -18,6 +19,9 @@ pub struct Config {
     pub channels: ChannelsConfig,
     /// 智能体配置
     pub agents: AgentsConfig,
+    /// 工作区配置
+    #[serde(default)]
+    pub workspaces: WorkspacesConfig,
 }
 
 impl Default for Config {
@@ -29,6 +33,7 @@ impl Default for Config {
             vector: VectorConfig::default(),
             channels: ChannelsConfig::default(),
             agents: AgentsConfig::default(),
+            workspaces: WorkspacesConfig::default(),
         }
     }
 }
@@ -442,6 +447,54 @@ impl Default for AgentDefaults {
     fn default() -> Self {
         Self {
             workspace: PathBuf::from("~/.openclaw/workspace"),
+        }
+    }
+}
+
+/// 工作区配置
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkspacesConfig {
+    /// 工作区列表
+    #[serde(default)]
+    pub workspaces: Vec<WorkspaceConfig>,
+    /// 默认工作区 ID
+    #[serde(default)]
+    pub default: Option<String>,
+}
+
+/// 单个工作区配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceConfig {
+    /// 工作区 ID
+    pub id: String,
+    /// 工作区名称
+    pub name: String,
+    /// 工作区路径
+    pub path: PathBuf,
+    /// 关联的通道 (channel_id -> 配置)
+    #[serde(default)]
+    pub channels: HashMap<String, serde_json::Value>,
+    /// 关联的智能体 IDs
+    #[serde(default)]
+    pub agent_ids: Vec<String>,
+    /// 是否启用
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl WorkspaceConfig {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, path: impl Into<PathBuf>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            path: path.into(),
+            channels: HashMap::new(),
+            agent_ids: Vec::new(),
+            enabled: true,
         }
     }
 }

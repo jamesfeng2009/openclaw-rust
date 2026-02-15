@@ -16,10 +16,13 @@ pub enum ChannelType {
     Matrix,
     Teams,  // Microsoft Teams
     IMessage, // Apple iMessage
+    GoogleChat, // Google Chat
     // 国内平台
     DingTalk,
     WeCom,  // 企业微信
     Feishu, // 飞书
+    Zalo,   // Zalo
+    ZaloPersonal, // Zalo Personal (越南个人)
     // 其他
     WebChat,
     Email,
