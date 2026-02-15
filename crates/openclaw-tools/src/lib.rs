@@ -10,6 +10,7 @@ pub mod skills;
 pub mod skill_bundle;
 pub mod skill_registry;
 pub mod types;
+pub mod mcp;
 
 pub use browser_tools::*;
 pub use scheduler::*;
@@ -19,3 +20,4 @@ pub use skills::*;
 pub use skill_bundle::*;
 pub use skill_registry::*;
 pub use types::*;
+pub use mcp::*;

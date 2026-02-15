@@ -2462,6 +2462,7 @@ dependencies = [
  "openclaw-ai",
  "openclaw-core",
  "openclaw-memory",
+ "openclaw-security",
  "openclaw-vector",
  "regex",
  "serde",

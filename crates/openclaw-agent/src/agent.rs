@@ -4,12 +4,25 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use chrono::Utc;
 
-use openclaw_core::{Message, OpenClawError, Result};
+use openclaw_core::{Message, OpenClawError, Result, Content};
 use openclaw_memory::MemoryManager;
 use openclaw_ai::{AIProvider, ChatRequest};
+use openclaw_security::{SecurityPipeline, PipelineConfig, PipelineResult, PromptCategory};
 
 use crate::types::{AgentConfig, AgentInfo, AgentStatus, AgentType, Capability};
 use crate::task::{TaskInput, TaskOutput, TaskRequest, TaskResult, TaskStatus};
+
+fn extract_text_from_content(content: &[Content]) -> String {
+    content.iter().map(|c| {
+        match c {
+            Content::Text { text } => text.clone(),
+            Content::Image { url } => format!("[Image: {}]", url),
+            Content::Audio { url } => format!("[Audio: {}]", url),
+            Content::ToolCall { id: _, name, arguments: _ } => format!("[Tool: {}]", name),
+            Content::ToolResult { id: _, content: tool_content } => tool_content.clone(),
+        }
+    }).collect::<Vec<_>>().join("\n")
+ }
 
 /// Agent Trait - 所有 Agent 必须实现
 #[async_trait]
@@ -49,6 +62,9 @@ pub trait Agent: Send + Sync {
     /// 设置记忆管理器
     fn set_memory(&mut self, memory: Arc<MemoryManager>);
 
+    /// 设置安全管线
+    fn set_security_pipeline(&mut self, pipeline: Arc<SecurityPipeline>);
+
     /// 获取系统提示词
     fn system_prompt(&self) -> Option<&str>;
 }
@@ -60,6 +76,7 @@ pub struct BaseAgent {
     current_tasks: usize,
     ai_provider: Option<Arc<dyn AIProvider>>,
     memory: Option<Arc<MemoryManager>>,
+    security_pipeline: Option<Arc<SecurityPipeline>>,
 }
 
 impl BaseAgent {
@@ -70,6 +87,7 @@ impl BaseAgent {
             config,
             ai_provider: None,
             memory: None,
+            security_pipeline: None,
         }
     }
 
@@ -193,6 +211,38 @@ impl Agent for BaseAgent {
 
     async fn process(&self, task: TaskRequest) -> Result<TaskResult> {
         let started_at = Utc::now();
+        let session_id = format!("agent-{}", self.id());
+
+        // 安全检查：输入过滤和分类
+        if let Some(pipeline) = &self.security_pipeline {
+            // 提取输入文本进行安全检查
+            let input_text = match &task.input {
+                TaskInput::Message { message } => extract_text_from_content(&message.content),
+                TaskInput::Text { content } => content.clone(),
+                TaskInput::Code { code, .. } => code.clone(),
+                TaskInput::Data { data } => serde_json::to_string(data).unwrap_or_default(),
+                TaskInput::File { content, .. } => content.clone(),
+                TaskInput::SearchQuery { query } => query.clone(),
+                TaskInput::ToolCall { name, arguments } => format!("{}: {}", name, arguments),
+            };
+
+            // 输入安全检查
+            let (security_result, _classification) = pipeline.check_input(&session_id, &input_text).await;
+            
+            match security_result {
+                PipelineResult::Block(reason) => {
+                    return Ok(TaskResult::failure(
+                        task.id,
+                        self.id().to_string(),
+                        format!("Input blocked by security: {}", reason),
+                    ));
+                }
+                PipelineResult::Warn(warning) => {
+                    tracing::warn!("Security warning for task {}: {}", task.id, warning);
+                }
+                PipelineResult::Allow => {}
+            }
+        }
 
         // 检查是否有 AI 提供商
         let ai_provider = match &self.ai_provider {
@@ -213,19 +263,52 @@ impl Agent for BaseAgent {
         let model = self.get_model();
         let chat_request = ChatRequest::new(&model, messages);
 
+        // 记录操作开始（用于自我修复）
+        let operation_id = if let Some(pipeline) = &self.security_pipeline {
+            Some(pipeline.start_operation(&session_id, "agent", "process").await)
+        } else {
+            None
+        };
+
         // 调用 AI
-        match ai_provider.chat(chat_request).await {
+        let ai_result = ai_provider.chat(chat_request).await;
+
+        // 处理 AI 响应
+        match ai_result {
             Ok(response) => {
-                // 提取响应消息
-                let reply_message = response.message;
+                // 记录进度
+                if let (Some(pipeline), Some(op_id)) = (&self.security_pipeline, &operation_id) {
+                    pipeline.record_progress(op_id).await;
+                }
+
+                // 安全检查：输出验证
+                let final_output = if let Some(pipeline) = &self.security_pipeline {
+                    let output_text = extract_text_from_content(&response.message.content);
+                    let (redacted_output, validation) = pipeline.validate_output(&session_id, &output_text).await;
+                    
+                    if validation.requires_action {
+                        tracing::warn!("Output validation blocked sensitive data in task {}", task.id);
+                    }
+                    
+                    redacted_output
+                } else {
+                    extract_text_from_content(&response.message.content)
+                };
+
                 let tokens_used = response.usage.total_tokens;
+
+                // 完成任务
+                if let (Some(pipeline), Some(op_id)) = (&self.security_pipeline, &operation_id) {
+                    let duration = Utc::now().signed_duration_since(started_at);
+                    pipeline.complete_operation(&session_id, &op_id, "completed", duration.num_milliseconds() as u64).await;
+                }
 
                 // 构建任务结果
                 Ok(TaskResult {
                     task_id: task.id,
                     agent_id: self.id().to_string(),
                     status: TaskStatus::Completed,
-                    output: Some(TaskOutput::Message { message: reply_message }),
+                    output: Some(TaskOutput::Message { message: openclaw_core::Message::user(final_output) }),
                     error: None,
                     started_at,
                     completed_at: Some(Utc::now()),
@@ -238,6 +321,11 @@ impl Agent for BaseAgent {
                 })
             }
             Err(e) => {
+                // 标记操作失败
+                if let (Some(pipeline), Some(op_id)) = (&self.security_pipeline, &operation_id) {
+                    pipeline.complete_operation(&session_id, &op_id, &format!("error: {}", e), 0).await;
+                }
+
                 Ok(TaskResult::failure(
                     task.id,
                     self.id().to_string(),
@@ -266,6 +354,10 @@ impl Agent for BaseAgent {
 
     fn set_memory(&mut self, memory: Arc<MemoryManager>) {
         self.memory = Some(memory);
+    }
+
+    fn set_security_pipeline(&mut self, pipeline: Arc<SecurityPipeline>) {
+        self.security_pipeline = Some(pipeline);
     }
 
     fn system_prompt(&self) -> Option<&str> {
