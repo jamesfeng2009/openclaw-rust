@@ -11,6 +11,7 @@ pub mod skill_bundle;
 pub mod skill_registry;
 pub mod types;
 pub mod mcp;
+pub mod wasm_executor;
 
 pub use browser_tools::*;
 pub use scheduler::*;
@@ -21,3 +22,4 @@ pub use skill_bundle::*;
 pub use skill_registry::*;
 pub use types::*;
 pub use mcp::*;
+pub use wasm_executor::*;

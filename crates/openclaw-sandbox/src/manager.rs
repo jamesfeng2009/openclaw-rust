@@ -9,7 +9,7 @@ use openclaw_security::{
 };
 
 use crate::types::{ExecutionResult, SandboxState};
-use crate::wasm::{WasmToolRuntime, WasmToolConfig, WasmError, WasmToolModule};
+use crate::wasm::{WasmToolRuntime, WasmToolConfig, WasmError, WasmToolModule, WasmExecutionInput};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SandboxType {
@@ -277,12 +277,17 @@ impl SandboxManager {
         if let Some(runtime) = runtime.as_ref() {
             let wasm_modules = self.wasm_modules.read().await;
             if let Some(module) = wasm_modules.get(tool_id) {
-                let result = runtime.execute(module, input).await
+                let exec_input = WasmExecutionInput {
+                    function: "run".to_string(),
+                    params: serde_json::json!({ "input": input }),
+                };
+                
+                let result = runtime.execute(module, &exec_input)
                     .map_err(|e| SandboxError::WasmError(e.to_string()))?;
                 
                 Ok(ExecutionResult {
                     exit_code: if result.success { 0 } else { 1 },
-                    stdout: result.output,
+                    stdout: result.output.to_string(),
                     stderr: result.error.unwrap_or_default(),
                     timed_out: false,
                     duration_secs: result.execution_time_ms as f64 / 1000.0,

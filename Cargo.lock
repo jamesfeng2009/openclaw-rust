@@ -5604,6 +5604,7 @@ dependencies = [
  "hex",
  "openclaw-browser",
  "openclaw-core",
+ "openclaw-sandbox",
  "reqwest",
  "serde",
  "serde_json",
