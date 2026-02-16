@@ -529,6 +529,65 @@ pub struct DevicesConfig {
     /// 网络适配器配置
     #[serde(default)]
     pub adapters: Vec<AdapterConfig>,
+    /// 自定义设备配置
+    #[serde(default)]
+    pub custom_devices: Vec<CustomDeviceConfig>,
+    /// 插件配置
+    #[serde(default)]
+    pub plugins: Vec<PluginConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomDeviceConfig {
+    pub id: String,
+    pub name: String,
+    pub platform: String,
+    pub category: String,
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub endpoint: Option<String>,
+    #[serde(default)]
+    pub api_key: Option<String>,
+    #[serde(default)]
+    pub timeout_ms: Option<u64>,
+    #[serde(default)]
+    pub metadata: HashMap<String, String>,
+    #[serde(default)]
+    pub capabilities: Option<DeviceCapabilitiesConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DeviceCapabilitiesConfig {
+    #[serde(default)]
+    pub min_cpu_cores: Option<u32>,
+    #[serde(default)]
+    pub min_memory_mb: Option<u32>,
+    pub has_gpu: bool,
+    pub has_npu: bool,
+    #[serde(default)]
+    pub has_wifi: bool,
+    #[serde(default)]
+    pub has_ethernet: bool,
+    #[serde(default)]
+    pub has_ble: bool,
+    #[serde(default)]
+    pub has_cellular: bool,
+    #[serde(default)]
+    pub peripherals: Vec<String>,
+    #[serde(default)]
+    pub sensors: Vec<String>,
+    #[serde(default)]
+    pub network_protocols: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginConfig {
+    pub name: String,
+    pub enabled: bool,
+    pub path: Option<PathBuf>,
+    #[serde(default)]
+    pub config: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
