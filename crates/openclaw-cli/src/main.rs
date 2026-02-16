@@ -36,6 +36,15 @@ enum Commands {
         /// Enable verbose logging
         #[arg(short, long)]
         verbose: bool,
+        /// Enable Agent service
+        #[arg(long)]
+        agents: bool,
+        /// Enable Channel service
+        #[arg(long)]
+        channels: bool,
+        /// Enable Voice service
+        #[arg(long)]
+        voice: bool,
     },
     /// Manage agents
     Agents {
@@ -148,8 +157,8 @@ async fn main() -> Result<()> {
     openclaw_device::init_device().await?;
 
     match cli.command {
-        Commands::Gateway { port, host, verbose } => {
-            commands::gateway::run(port, host, verbose).await?;
+        Commands::Gateway { port, host, verbose, agents, channels, voice } => {
+            commands::gateway::run(port, host, verbose, agents, channels, voice).await?;
         }
         Commands::Agents { command } => {
             commands::agents::run(command).await?;

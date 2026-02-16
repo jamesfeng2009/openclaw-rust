@@ -44,6 +44,12 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub log_level: String,
+    #[serde(default)]
+    pub enable_agents: bool,
+    #[serde(default)]
+    pub enable_channels: bool,
+    #[serde(default)]
+    pub enable_voice: bool,
 }
 
 impl Default for ServerConfig {
@@ -52,6 +58,9 @@ impl Default for ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 18789,
             log_level: "info".to_string(),
+            enable_agents: false,
+            enable_channels: false,
+            enable_voice: false,
         }
     }
 }

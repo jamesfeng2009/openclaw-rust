@@ -8,6 +8,7 @@ pub mod websocket;
 pub mod agent_service;
 pub mod channel_service;
 pub mod voice_service;
+pub mod orchestrator;
 
 pub use api::*;
 pub use browser_api::*;
@@ -17,3 +18,4 @@ pub use websocket::*;
 pub use agent_service::*;
 pub use channel_service::*;
 pub use voice_service::*;
+pub use orchestrator::*;
