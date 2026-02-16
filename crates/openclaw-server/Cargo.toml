@@ -15,6 +15,7 @@ openclaw-channels.workspace = true
 openclaw-canvas.workspace = true
 openclaw-browser.workspace = true
 openclaw-agent.workspace = true
+openclaw-device.workspace = true
 tokio.workspace = true
 async-trait.workspace = true
 serde.workspace = true

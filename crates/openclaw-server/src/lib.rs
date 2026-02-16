@@ -9,6 +9,7 @@ pub mod agent_service;
 pub mod channel_service;
 pub mod voice_service;
 pub mod orchestrator;
+pub mod device_manager;
 
 pub use api::*;
 pub use browser_api::*;

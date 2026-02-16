@@ -5754,6 +5754,7 @@ dependencies = [
  "openclaw-canvas",
  "openclaw-channels",
  "openclaw-core",
+ "openclaw-device",
  "openclaw-memory",
  "openclaw-vector",
  "serde",

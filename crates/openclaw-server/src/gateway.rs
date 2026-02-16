@@ -12,10 +12,12 @@ use openclaw_core::Config;
 use crate::api::create_router;
 use crate::websocket::websocket_router;
 use crate::orchestrator::{ServiceOrchestrator, OrchestratorConfig};
+use crate::device_manager::DeviceManager;
 
 pub struct Gateway {
     config: Config,
     orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
+    device_manager: Arc<DeviceManager>,
 }
 
 impl Gateway {
@@ -38,11 +40,15 @@ impl Gateway {
             }
         ));
 
-        Self { config, orchestrator }
+        let device_manager = Arc::new(DeviceManager::new(config.clone()));
+
+        Self { config, orchestrator, device_manager }
     }
 
     /// 启动服务
     pub async fn start(&self) -> openclaw_core::Result<()> {
+        self.device_manager.init().await?;
+
         if let Some(ref orchestrator) = *self.orchestrator.read().await {
             orchestrator.start().await?;
             
@@ -62,10 +68,16 @@ impl Gateway {
             .expect("Invalid address");
 
         tracing::info!("OpenClaw Gateway starting on {}", addr);
-        tracing::info!("Services enabled: agents={}, channels={}, voice={}", 
+        tracing::info!("Services enabled: agents={}, channels={}, voice={}, devices={}", 
             self.config.server.enable_agents, 
             self.config.server.enable_channels, 
-            self.config.server.enable_voice);
+            self.config.server.enable_voice,
+            self.config.devices.enabled);
+        
+        if self.config.devices.enabled {
+            tracing::info!("Custom devices configured: {}", self.config.devices.custom_devices.len());
+            tracing::info!("Plugins configured: {}", self.config.devices.plugins.len());
+        }
 
         let listener = tokio::net::TcpListener::bind(addr).await
             .map_err(|e| openclaw_core::OpenClawError::Config(format!("绑定地址失败: {}", e)))?;
