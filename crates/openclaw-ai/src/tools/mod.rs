@@ -160,6 +160,10 @@ impl Default for ToolRegistry {
     }
 }
 
+// ============== MCP 适配器 ==============
+mod mcp_adapter;
+pub use mcp_adapter::{McpToolAdapter, McpToolRegistry};
+
 // ============== 内置工具 ==============
 
 /// 当前时间工具

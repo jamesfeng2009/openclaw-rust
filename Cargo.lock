@@ -5366,6 +5366,7 @@ dependencies = [
  "chrono",
  "futures",
  "openclaw-core",
+ "openclaw-tools",
  "reqwest",
  "serde",
  "serde_json",

@@ -22,6 +22,7 @@ pub mod tokenizer;
 pub mod types;
 pub mod failover;
 pub mod oauth;
+pub mod error;
 
 pub use models::*;
 pub use providers::*;
@@ -31,3 +32,4 @@ pub use tokenizer::*;
 pub use types::*;
 pub use oauth::*;
 pub use failover::*;
+pub use error::*;
