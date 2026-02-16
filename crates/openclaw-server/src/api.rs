@@ -1,29 +1,85 @@
 //! HTTP API 路由
 
 use axum::{
-    routing::{get, post},
+    routing::{get, post, delete},
+    extract::{Path, State},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use crate::browser_api::{create_browser_router, BrowserApiState};
 use crate::canvas_api::{create_canvas_router, CanvasApiState};
 
-/// 创建完整 API 路由
 pub fn create_router() -> Router {
+    let state = Arc::new(RwLock::new(ApiState::new()));
+    
     Router::new()
-        // 基础 API
         .route("/health", get(health_check))
         .route("/chat", post(chat_handler))
         .route("/models", get(list_models))
         .route("/stats", get(get_stats))
-        // 画布 API
+        .route("/api/channels", get(list_channels).post(create_channel))
+        .route("/api/channels/:id", delete(delete_channel))
+        .route("/api/agents", get(list_agents).post(create_agent))
+        .route("/api/agents/:id", get(get_agent))
+        .route("/api/sessions", get(list_sessions).post(create_session))
+        .route("/api/sessions/:id", get(get_session))
+        .route("/api/sessions/:id/close", post(close_session))
+        .route("/api/agent/message", post(send_agent_message))
+        .route("/api/presence", get(get_presence).post(set_presence))
+        .with_state(state)
         .merge(create_canvas_router(CanvasApiState::new()))
-        // 浏览器控制 API
         .merge(create_browser_router(BrowserApiState::new()))
 }
 
-/// 健康检查
+#[derive(Clone)]
+pub struct ApiState {
+    pub channels: Vec<ChannelInfo>,
+    pub agents: Vec<AgentInfo>,
+    pub sessions: Vec<SessionInfo>,
+    pub presence: String,
+}
+
+impl ApiState {
+    pub fn new() -> Self {
+        Self {
+            channels: Vec::new(),
+            agents: Vec::new(),
+            sessions: Vec::new(),
+            presence: "online".to_string(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ChannelInfo {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub channel_type: String,
+    pub name: String,
+    pub enabled: bool,
+    pub config: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AgentInfo {
+    pub id: String,
+    pub name: String,
+    pub status: String,
+    pub capabilities: Option<Vec<String>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SessionInfo {
+    pub id: String,
+    pub name: String,
+    pub agent_id: Option<String>,
+    pub channel_id: Option<String>,
+    pub state: String,
+}
+
 async fn health_check() -> Json<HealthResponse> {
     Json(HealthResponse {
         status: "ok".to_string(),
@@ -37,7 +93,6 @@ struct HealthResponse {
     version: String,
 }
 
-/// 聊天请求
 #[derive(Debug, Deserialize)]
 pub struct ChatRequest {
     pub message: String,
@@ -45,7 +100,6 @@ pub struct ChatRequest {
     pub model: Option<String>,
 }
 
-/// 聊天响应
 #[derive(Debug, Serialize)]
 pub struct ChatResponse {
     pub reply: String,
@@ -60,9 +114,7 @@ pub struct TokenUsage {
     pub completion_tokens: usize,
 }
 
-/// 聊天处理器
 async fn chat_handler(Json(request): Json<ChatRequest>) -> Json<ChatResponse> {
-    // TODO: 实际的聊天逻辑
     Json(ChatResponse {
         reply: format!("收到消息: {}", request.message),
         session_id: request.session_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
@@ -74,7 +126,6 @@ async fn chat_handler(Json(request): Json<ChatRequest>) -> Json<ChatResponse> {
     })
 }
 
-/// 模型列表响应
 #[derive(Debug, Serialize)]
 pub struct ModelsResponse {
     pub models: Vec<ModelInfo>,
@@ -87,7 +138,6 @@ pub struct ModelInfo {
     pub provider: String,
 }
 
-/// 列出模型
 async fn list_models() -> Json<ModelsResponse> {
     Json(ModelsResponse {
         models: vec![
@@ -105,7 +155,6 @@ async fn list_models() -> Json<ModelsResponse> {
     })
 }
 
-/// 统计信息响应
 #[derive(Debug, Serialize)]
 pub struct StatsResponse {
     pub sessions: usize,
@@ -113,12 +162,155 @@ pub struct StatsResponse {
     pub tokens_used: usize,
 }
 
-/// 获取统计信息
 async fn get_stats() -> Json<StatsResponse> {
-    // TODO: 实际的统计信息
     Json(StatsResponse {
         sessions: 0,
         messages: 0,
         tokens_used: 0,
     })
+}
+
+async fn list_channels(State(state): State<Arc<RwLock<ApiState>>>) -> Json<Vec<ChannelInfo>> {
+    let state = state.read().await;
+    Json(state.channels.clone())
+}
+
+async fn create_channel(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Json(input): Json<ChannelInfo>,
+) -> Json<ChannelInfo> {
+    let channel = ChannelInfo {
+        id: uuid::Uuid::new_v4().to_string(),
+        channel_type: input.channel_type,
+        name: input.name,
+        enabled: input.enabled,
+        config: input.config,
+    };
+    let mut state = state.write().await;
+    state.channels.push(channel.clone());
+    Json(channel)
+}
+
+async fn delete_channel(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Path(id): Path<String>,
+) -> Json<serde_json::Value> {
+    let mut state = state.write().await;
+    state.channels.retain(|c| c.id != id);
+    Json(serde_json::json!({ "success": true }))
+}
+
+async fn list_agents(State(state): State<Arc<RwLock<ApiState>>>) -> Json<Vec<AgentInfo>> {
+    let state = state.read().await;
+    Json(state.agents.clone())
+}
+
+async fn get_agent(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Path(id): Path<String>,
+) -> Json<Option<AgentInfo>> {
+    let state = state.read().await;
+    Json(state.agents.iter().find(|a| a.id == id).cloned())
+}
+
+async fn create_agent(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Json(input): Json<AgentInfo>,
+) -> Json<AgentInfo> {
+    let agent = AgentInfo {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: input.name,
+        status: "idle".to_string(),
+        capabilities: input.capabilities,
+    };
+    let mut state = state.write().await;
+    state.agents.push(agent.clone());
+    Json(agent)
+}
+
+async fn list_sessions(State(state): State<Arc<RwLock<ApiState>>>) -> Json<Vec<SessionInfo>> {
+    let state = state.read().await;
+    Json(state.sessions.clone())
+}
+
+async fn get_session(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Path(id): Path<String>,
+) -> Json<Option<SessionInfo>> {
+    let state = state.read().await;
+    Json(state.sessions.iter().find(|s| s.id == id).cloned())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateSessionRequest {
+    pub name: Option<String>,
+    pub agent_id: Option<String>,
+    pub channel_id: Option<String>,
+}
+
+async fn create_session(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Json(input): Json<CreateSessionRequest>,
+) -> Json<SessionInfo> {
+    let session = SessionInfo {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: input.name.unwrap_or_else(|| "新会话".to_string()),
+        agent_id: input.agent_id,
+        channel_id: input.channel_id,
+        state: "active".to_string(),
+    };
+    let mut state = state.write().await;
+    state.sessions.push(session.clone());
+    Json(session)
+}
+
+async fn close_session(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Path(id): Path<String>,
+) -> Json<serde_json::Value> {
+    let mut state = state.write().await;
+    if let Some(session) = state.sessions.iter_mut().find(|s| s.id == id) {
+        session.state = "closed".to_string();
+    }
+    Json(serde_json::json!({ "success": true }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AgentMessageRequest {
+    pub message: String,
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AgentMessageResponse {
+    pub message: String,
+    pub session_id: String,
+}
+
+async fn send_agent_message(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Json(input): Json<AgentMessageRequest>,
+) -> Json<AgentMessageResponse> {
+    let session_id = input.session_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    
+    Json(AgentMessageResponse {
+        message: format!("Agent response to: {}", input.message),
+        session_id,
+    })
+}
+
+async fn get_presence(State(state): State<Arc<RwLock<ApiState>>>) -> Json<serde_json::Value> {
+    let state = state.read().await;
+    Json(serde_json::json!({ "status": state.presence }))
+}
+
+async fn set_presence(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Json(input): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let mut state = state.write().await;
+    if let Some(status) = input.get("status").and_then(|v| v.as_str()) {
+        state.presence = status.to_string();
+    }
+    Json(serde_json::json!({ "success": true }))
 }

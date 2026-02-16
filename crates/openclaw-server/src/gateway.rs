@@ -8,6 +8,7 @@ use tower_http::trace::TraceLayer;
 use openclaw_core::Config;
 
 use crate::api::create_router;
+use crate::websocket::websocket_router;
 
 /// 网关服务
 pub struct Gateway {
@@ -23,6 +24,7 @@ impl Gateway {
     pub async fn start(&self) -> openclaw_core::Result<()> {
         let app = Router::new()
             .merge(create_router())
+            .merge(websocket_router())
             .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any))
             .layer(TraceLayer::new_for_http());
 
