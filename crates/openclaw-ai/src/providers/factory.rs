@@ -1,6 +1,8 @@
 //! AI 提供商工厂 - 支持零厂商锁定
 
 use std::collections::HashMap;
+use std::fmt;
+use std::sync::Arc;
 
 use super::{AIProvider, ProviderConfig, openai_compatible::ProviderInfo};
 
@@ -60,45 +62,65 @@ impl ProviderType {
     }
 }
 
+impl fmt::Display for ProviderType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            Self::OpenAI => "openai",
+            Self::Anthropic => "anthropic",
+            Self::Gemini => "gemini",
+            Self::DeepSeek => "deepseek",
+            Self::Qwen => "qwen",
+            Self::Doubao => "doubao",
+            Self::Glm => "glm",
+            Self::Minimax => "minimax",
+            Self::Kimi => "kimi",
+            Self::OpenRouter => "openrouter",
+            Self::Ollama => "ollama",
+            Self::Custom => "custom",
+        };
+        write!(f, "{}", name)
+    }
+}
+
 /// 提供商工厂
 pub struct ProviderFactory;
 
 impl ProviderFactory {
-    /// 根据配置创建提供商实例
+    /// 根据配置创建提供商实例 (返回 Arc)
     #[allow(clippy::result_large_err)]
     pub fn create(
         provider_type: ProviderType,
         config: ProviderConfig,
-    ) -> Result<Box<dyn AIProvider>, String> {
+    ) -> Result<Arc<dyn AIProvider>, String> {
         use super::*;
 
         match provider_type {
             ProviderType::OpenAI => {
-                Ok(Box::new(OpenAIProvider::new(config)))
+                Ok(Arc::new(OpenAIProvider::new(config)))
             }
             ProviderType::Anthropic => {
-                Ok(Box::new(AnthropicProvider::new(config)))
+                Ok(Arc::new(AnthropicProvider::new(config)))
             }
             ProviderType::Gemini => {
-                Ok(Box::new(GeminiProvider::new(config)))
+                Ok(Arc::new(GeminiProvider::new(config)))
             }
             ProviderType::DeepSeek => {
-                Ok(Box::new(DeepSeekProvider::new(config)))
+                Ok(Arc::new(DeepSeekProvider::new(config)))
             }
             ProviderType::Qwen => {
-                Ok(Box::new(QwenProvider::new(config)))
+                Ok(Arc::new(QwenProvider::new(config)))
             }
             ProviderType::Doubao => {
-                Ok(Box::new(DoubaoProvider::new(config)))
+                Ok(Arc::new(DoubaoProvider::new(config)))
             }
             ProviderType::Glm => {
-                Ok(Box::new(GlmProvider::new(config)))
+                Ok(Arc::new(GlmProvider::new(config)))
             }
             ProviderType::Minimax => {
-                Ok(Box::new(MinimaxProvider::new(config)))
+                Ok(Arc::new(MinimaxProvider::new(config)))
             }
             ProviderType::Kimi => {
-                Ok(Box::new(KimiProvider::new(config)))
+                Ok(Arc::new(KimiProvider::new(config)))
             }
             ProviderType::OpenRouter => {
                 let info = openai_compatible::ProviderInfo {
@@ -112,17 +134,17 @@ impl ProviderFactory {
                         "mistralai/mistral-7b-instruct",
                     ],
                 };
-                Ok(Box::new(OpenAICompatibleProvider::new(config, info)))
+                Ok(Arc::new(OpenAICompatibleProvider::new(config, info)))
             }
             ProviderType::Ollama => {
-                Ok(Box::new(OllamaProvider::new(config)))
+                Ok(Arc::new(OllamaProvider::new(config)))
             }
             ProviderType::Custom => {
                 let base_url = config.base_url.clone()
                     .unwrap_or_else(|| "https://api.example.com/v1".to_string());
                 let api_key = config.api_key.clone()
                     .unwrap_or_else(|| "dummy".to_string());
-                Ok(Box::new(CustomProvider::new(
+                Ok(Arc::new(CustomProvider::new(
                     "custom",
                     base_url,
                     api_key,
@@ -131,13 +153,13 @@ impl ProviderFactory {
         }
     }
 
-    /// 从提供商名称字符串创建提供商
+    /// 从提供商名称字符串创建提供商 (返回 Arc)
     #[allow(clippy::result_large_err)]
     pub fn create_from_name(
         name: &str,
         api_key: Option<String>,
         base_url: Option<String>,
-    ) -> Result<Box<dyn AIProvider>, String> {
+    ) -> Result<Arc<dyn AIProvider>, String> {
         let provider_type = ProviderType::from_str(name)
             .ok_or_else(|| format!("Unknown provider: {}", name))?;
 

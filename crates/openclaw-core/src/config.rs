@@ -101,7 +101,13 @@ pub enum ProviderType {
     Google,
     Azure,
     DeepSeek,
+    OpenRouter,
     Ollama,
+    Qwen,
+    Doubao,
+    Glm,
+    Minimax,
+    Kimi,
     Custom,
 }
 
