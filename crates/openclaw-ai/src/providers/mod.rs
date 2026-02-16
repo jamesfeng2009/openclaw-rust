@@ -1,7 +1,7 @@
 //! AI 提供商实现
 //!
 //! 支持多种 AI 提供商:
-//! - 国外: OpenAI, Anthropic, Google Gemini, DeepSeek
+//! - 国外: OpenAI, Anthropic, Google Gemini, DeepSeek, OpenRouter, Ollama
 //! - 国内: Qwen, Doubao, GLM, Minimax, Kimi
 //! - 自定义: CustomProvider (用户自定义)
 
@@ -17,6 +17,8 @@ mod glm;
 mod minimax;
 mod kimi;
 mod custom;
+mod ollama;
+mod factory;
 
 pub use base::*;
 pub use openai::*;
@@ -30,6 +32,8 @@ pub use glm::*;
 pub use minimax::*;
 pub use kimi::*;
 pub use custom::*;
+pub use ollama::*;
+pub use factory::*;
 
 use async_trait::async_trait;
 use futures::Stream;
