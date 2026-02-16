@@ -535,6 +535,9 @@ pub struct DevicesConfig {
     /// 插件配置
     #[serde(default)]
     pub plugins: Vec<PluginConfig>,
+    /// 嵌入式设备配置 (HTTP REST)
+    #[serde(default)]
+    pub embedded_devices: Vec<EmbeddedDeviceConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -662,6 +665,57 @@ impl WorkspaceConfig {
             enabled: true,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmbeddedDeviceConfig {
+    pub id: String,
+    pub name: String,
+    pub device_type: String,
+    pub endpoint: String,
+    #[serde(default)]
+    pub api_key: Option<String>,
+    #[serde(default = "default_timeout")]
+    pub timeout_ms: u64,
+    #[serde(default)]
+    pub sensors: Vec<SensorDef>,
+    #[serde(default)]
+    pub actuators: Vec<ActuatorDef>,
+    #[serde(default)]
+    pub commands: Vec<CommandDef>,
+}
+
+fn default_timeout() -> u64 {
+    5000
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SensorDef {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub unit: Option<String>,
+    #[serde(default)]
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActuatorDef {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub command: String,
+    #[serde(default)]
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandDef {
+    pub name: String,
+    #[serde(default)]
+    pub path: String,
+    #[serde(default)]
+    pub method: String,
 }
 
 impl Config {
