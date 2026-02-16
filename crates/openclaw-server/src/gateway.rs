@@ -24,12 +24,14 @@ impl Gateway {
             enable_agents: config.server.enable_agents,
             enable_channels: config.server.enable_channels,
             enable_voice: config.server.enable_voice,
+            enable_canvas: config.server.enable_canvas,
             default_agent: Some("orchestrator".to_string()),
             channel_to_agent_map: std::collections::HashMap::new(),
+            agent_to_canvas_map: std::collections::HashMap::new(),
         };
 
         let orchestrator = Arc::new(RwLock::new(
-            if config.server.enable_agents || config.server.enable_channels {
+            if config.server.enable_agents || config.server.enable_channels || config.server.enable_canvas {
                 Some(ServiceOrchestrator::new(orchestrator_config))
             } else {
                 None
@@ -71,7 +73,7 @@ impl Gateway {
     }
 
     pub async fn get_orchestrator(&self) -> Option<Arc<RwLock<Option<ServiceOrchestrator>>>> {
-        if self.config.server.enable_agents || self.config.server.enable_channels {
+        if self.config.server.enable_agents || self.config.server.enable_channels || self.config.server.enable_canvas {
             Some(self.orchestrator.clone())
         } else {
             None

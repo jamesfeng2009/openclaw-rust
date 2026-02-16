@@ -50,6 +50,8 @@ pub struct ServerConfig {
     pub enable_channels: bool,
     #[serde(default)]
     pub enable_voice: bool,
+    #[serde(default)]
+    pub enable_canvas: bool,
 }
 
 impl Default for ServerConfig {
@@ -61,6 +63,7 @@ impl Default for ServerConfig {
             enable_agents: false,
             enable_channels: false,
             enable_voice: false,
+            enable_canvas: false,
         }
     }
 }

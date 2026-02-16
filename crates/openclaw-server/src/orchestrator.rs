@@ -6,11 +6,13 @@ use openclaw_core::{Result, OpenClawError, Message, Content, Role};
 use openclaw_agent::{Agent, BaseAgent, AgentInfo};
 use openclaw_agent::task::{TaskRequest, TaskInput, TaskType};
 use openclaw_agent::task::TaskOutput;
-use openclaw_channels::{Channel, ChannelManager, ChannelMessage, SendMessage};
+use openclaw_channels::{ChannelManager, ChannelMessage, SendMessage};
+use openclaw_canvas::CanvasManager;
 
 pub struct ServiceOrchestrator {
     agent_service: AgentServiceState,
     channel_service: ChannelServiceState,
+    canvas_service: CanvasServiceState,
     config: OrchestratorConfig,
     running: Arc<RwLock<bool>>,
 }
@@ -26,12 +28,27 @@ pub struct ChannelServiceState {
 }
 
 #[derive(Clone)]
+pub struct CanvasServiceState {
+    manager: Arc<CanvasManager>,
+}
+
+impl Default for CanvasServiceState {
+    fn default() -> Self {
+        Self {
+            manager: Arc::new(CanvasManager::new()),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct OrchestratorConfig {
     pub enable_agents: bool,
     pub enable_channels: bool,
     pub enable_voice: bool,
+    pub enable_canvas: bool,
     pub default_agent: Option<String>,
     pub channel_to_agent_map: HashMap<String, String>,
+    pub agent_to_canvas_map: HashMap<String, String>,
 }
 
 impl Default for OrchestratorConfig {
@@ -40,8 +57,10 @@ impl Default for OrchestratorConfig {
             enable_agents: false,
             enable_channels: false,
             enable_voice: false,
+            enable_canvas: false,
             default_agent: Some("orchestrator".to_string()),
             channel_to_agent_map: HashMap::new(),
+            agent_to_canvas_map: HashMap::new(),
         }
     }
 }
@@ -51,6 +70,7 @@ impl ServiceOrchestrator {
         Self {
             agent_service: AgentServiceState::default(),
             channel_service: ChannelServiceState::default(),
+            canvas_service: CanvasServiceState::default(),
             config,
             running: Arc::new(RwLock::new(false)),
         }
@@ -205,11 +225,40 @@ impl ServiceOrchestrator {
             }
         }
         
+        if self.config.enable_canvas {
+            health.insert("canvas".to_string(), true);
+        }
+        
         health
     }
 
     pub fn config(&self) -> &OrchestratorConfig {
         &self.config
+    }
+
+    pub fn canvas_manager(&self) -> Arc<CanvasManager> {
+        self.canvas_service.manager.clone()
+    }
+
+    pub async fn create_canvas(&self, name: String, width: f64, height: f64) -> Result<String> {
+        let canvas_id = self.canvas_service.manager.create_canvas(name, width, height).await;
+        Ok(canvas_id)
+    }
+
+    pub async fn agent_generate_to_canvas(&self, agent_id: &str, prompt: &str, canvas_name: Option<String>) -> Result<String> {
+        if !self.config.enable_canvas {
+            return Err(OpenClawError::Config("Canvas service not enabled".to_string()));
+        }
+
+        let canvas_name = canvas_name.unwrap_or_else(|| format!("canvas_{}", agent_id));
+        
+        let canvas_id = self.create_canvas(canvas_name.clone(), 1920.0, 1080.0).await?;
+
+        let response = self.process_message(agent_id, prompt.to_string(), Some(canvas_id.clone())).await?;
+
+        tracing::info!("Agent {} generated content for canvas {}: {}", agent_id, canvas_id, response);
+
+        Ok(canvas_id)
     }
 }
 
