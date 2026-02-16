@@ -19,6 +19,7 @@ pub mod capabilities;
 pub mod adapter;
 pub mod registry;
 pub mod device_trait;
+pub mod embedded;
 
 pub use nodes::*;
 pub use camera::*;
@@ -33,6 +34,7 @@ pub use capabilities::*;
 pub use adapter::*;
 pub use registry::*;
 pub use device_trait::*;
+pub use embedded::*;
 
 static DEVICE_REGISTRY: std::sync::OnceLock<Arc<registry::DeviceRegistry>> = std::sync::OnceLock::new();
 
