@@ -40,6 +40,8 @@ pub struct OnboardConfig {
     pub agents: AgentsConfig,
     pub channels: ChannelsConfig,
     pub features: FeaturesConfig,
+    #[serde(default)]
+    pub security: SecurityConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -125,6 +127,20 @@ pub struct FeaturesConfig {
     pub webhook: bool,
     #[serde(default = "default_true")]
     pub sandbox: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SecurityConfig {
+    #[serde(default = "default_true")]
+    pub dm_policy_pairing: bool,
+    #[serde(default = "default_true")]
+    pub sandbox_tools: bool,
+    #[serde(default = "default_true")]
+    pub prompt_injection_protection: bool,
+    #[serde(default = "default_true")]
+    pub network_allowlisting: bool,
+    #[serde(default)]
+    pub allowed_endpoints: Vec<String>,
 }
 
 fn default_true() -> bool {
@@ -286,6 +302,42 @@ async fn run_interactive_mode(config: &mut OnboardConfig) -> Result<()> {
     config.features.sandbox = selected.contains(&5);
 
     println!();
+    println!("\x1b[33m\x1b[1m🔒 Step 4b: Security Settings\x1b[0m");
+
+    let security_items = vec![
+        "DM Pairing (require approval for unknown senders)",
+        "Sandbox untrusted tools (WASM/Docker)",
+        "Prompt injection protection",
+        "Network allowlisting",
+    ];
+
+    let security_selected = MultiSelect::with_theme(&ColorfulTheme::default())
+        .with_prompt("Select security options")
+        .items(&security_items)
+        .defaults(&[true, true, true, false])
+        .interact()?;
+
+    config.security.dm_policy_pairing = security_selected.contains(&0);
+    config.security.sandbox_tools = security_selected.contains(&1);
+    config.security.prompt_injection_protection = security_selected.contains(&2);
+    config.security.network_allowlisting = security_selected.contains(&3);
+
+    if config.security.network_allowlisting {
+        let endpoints: String = Input::with_theme(&ColorfulTheme::default())
+            .with_prompt("Allowed endpoints (comma-separated, empty for all)")
+            .allow_empty(true)
+            .default("api.openai.com,api.anthropic.com".to_string())
+            .interact()?;
+        
+        if !endpoints.is_empty() {
+            config.security.allowed_endpoints = endpoints
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect();
+        }
+    }
+
+    println!();
     println!("\x1b[33m\x1b[1m💬 Step 5: Chat Channels (optional)\x1b[0m");
     
     let channel_items = vec![
@@ -389,6 +441,52 @@ async fn run_interactive_mode(config: &mut OnboardConfig) -> Result<()> {
         if !bot_token.is_empty() {
             config.channels.slack.enabled = true;
             config.channels.slack.token = Some(bot_token);
+        }
+    }
+
+    println!();
+    println!("\x1b[33m\x1b[1m🧠 Step 6: Memory Settings\x1b[0m");
+
+    let memory_enabled = Confirm::with_theme(&ColorfulTheme::default())
+        .with_prompt("Enable persistent memory?")
+        .default(true)
+        .interact()?;
+
+    if memory_enabled {
+        let memory_items = vec![
+            "Working memory (recent conversations)",
+            "Short-term memory (daily summaries)",
+            "Long-term memory (vector search)",
+        ];
+
+        let memory_selected = MultiSelect::with_theme(&ColorfulTheme::default())
+            .with_prompt("Select memory layers to enable")
+            .items(&memory_items)
+            .defaults(&[true, true, true])
+            .interact()?;
+
+        if memory_selected.contains(&2) {
+            let embedding_provider: String = Select::with_theme(&ColorfulTheme::default())
+                .with_prompt("Select embedding provider for long-term memory")
+                .items(&["OpenAI", "Ollama (local)", "Custom"])
+                .default(0)
+                .interact()?;
+
+            match embedding_provider {
+                0 => {
+                    config.providers.insert(
+                        "openai-embedding".to_string(),
+                        ProviderConfig { api_key: None, api_base: None },
+                    );
+                }
+                1 => {
+                    config.providers.insert(
+                        "ollama".to_string(),
+                        ProviderConfig { api_key: None, api_base: Some("http://localhost:11434".to_string()) },
+                    );
+                }
+                _ => {}
+            }
         }
     }
 

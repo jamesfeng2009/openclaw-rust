@@ -370,4 +370,58 @@ impl SelfHealer {
 
         before - ops.len()
     }
+
+    pub async fn start_auto_recovery_loop(&self, shutdown_signal: Option<tokio::sync::oneshot::Receiver<()>>) {
+        info!("Starting auto-recovery loop with check interval {:?}", self.check_interval);
+        
+        let mut shutdown_rx = shutdown_signal;
+        
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(self.check_interval) => {
+                    let stuck = self.check_for_stuck_operations().await;
+                    
+                    for detection in stuck {
+                        info!("Auto-recovery: detected stuck operation {}", detection.operation_id);
+                        
+                        let ops = self.operations.read().await;
+                        if let Some(op) = ops.get(&detection.operation_id) {
+                            let strategy = self.determine_recovery_strategy(op);
+                            drop(ops);
+                            
+                            let success = self.attempt_recovery(&detection.operation_id, strategy).await;
+                            if success {
+                                info!("Auto-recovery: successfully recovered operation {}", detection.operation_id);
+                            } else {
+                                warn!("Auto-recovery: failed to recover operation {}", detection.operation_id);
+                            }
+                        }
+                    }
+                }
+                _ = async {
+                    if let Some(ref mut rx) = shutdown_rx {
+                        rx.await.ok();
+                    }
+                    std::future::pending::<()>()
+                } => {
+                    info!("Auto-recovery loop received shutdown signal");
+                    break;
+                }
+            }
+        }
+    }
+
+    fn determine_recovery_strategy(&self, operation: &Operation) -> RecoveryStrategy {
+        if let Some(ref strategy) = operation.recovery_strategy {
+            return strategy.clone();
+        }
+
+        if operation.retry_count < operation.max_retries / 2 {
+            RecoveryStrategy::Restart
+        } else if operation.retry_count < operation.max_retries {
+            RecoveryStrategy::SimplifyRequest
+        } else {
+            RecoveryStrategy::FallbackAlternative
+        }
+    }
 }
