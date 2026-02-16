@@ -183,3 +183,74 @@ impl HttpDevice {
         &self.config
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_embedded_device_type_to_platform_string() {
+        assert_eq!(EmbeddedDeviceType::Esp32.to_platform_string(), "esp32");
+        assert_eq!(EmbeddedDeviceType::Stm32F4.to_platform_string(), "stm32");
+        assert_eq!(EmbeddedDeviceType::ArduinoMega.to_platform_string(), "arduino");
+        assert_eq!(EmbeddedDeviceType::RpiPicoW.to_platform_string(), "rpi_pico");
+        assert_eq!(EmbeddedDeviceType::Nrf52.to_platform_string(), "nrf52");
+    }
+
+    #[test]
+    fn test_device_state_default() {
+        let state = DeviceState::default();
+        assert!(state.sensors.is_empty());
+        assert!(state.actuators.is_empty());
+    }
+
+    #[test]
+    fn test_http_device_config() {
+        let config = EmbeddedDeviceConfig {
+            id: "test-device".to_string(),
+            name: "Test Device".to_string(),
+            device_type: EmbeddedDeviceType::Esp32,
+            endpoint: "http://192.168.1.100:80".to_string(),
+            api_key: Some("test-key".to_string()),
+            timeout_ms: 5000,
+            sensors: vec![
+                SensorDef {
+                    id: "temp".to_string(),
+                    name: "Temperature".to_string(),
+                    unit: Some("℃".to_string()),
+                    path: "temperature".to_string(),
+                }
+            ],
+            actuators: vec![],
+            commands: vec![
+                CommandDef {
+                    name: "led_on".to_string(),
+                    path: "led".to_string(),
+                    method: "POST".to_string(),
+                }
+            ],
+        };
+
+        let device = HttpDevice::new(config.clone());
+        assert_eq!(device.config().id, "test-device");
+    }
+
+    #[test]
+    fn test_serialize_deserialize() {
+        let config = EmbeddedDeviceConfig {
+            id: "test".to_string(),
+            name: "Test".to_string(),
+            device_type: EmbeddedDeviceType::Esp32,
+            endpoint: "http://localhost".to_string(),
+            api_key: None,
+            timeout_ms: 5000,
+            sensors: vec![],
+            actuators: vec![],
+            commands: vec![],
+        };
+
+        let json = serde_json::to_string(&config).unwrap();
+        let parsed: EmbeddedDeviceConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.id, "test");
+    }
+}

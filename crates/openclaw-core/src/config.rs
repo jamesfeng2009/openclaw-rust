@@ -741,3 +741,83 @@ impl Config {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_config_default() {
+        let config = Config::default();
+        assert_eq!(config.server.port, 18789);
+        assert!(config.ai.providers.is_empty());
+    }
+
+    #[test]
+    fn test_config_serialize_deserialize() {
+        let config = Config::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let parsed: Config = serde_json::from_str(&json).unwrap();
+        assert_eq!(config.server.port, parsed.server.port);
+    }
+
+    #[test]
+    fn test_config_from_file() {
+        let mut config = Config::default();
+        config.server.port = 9999;
+        let json = serde_json::to_string_pretty(&config).unwrap();
+        
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "{}", json).unwrap();
+        
+        let loaded = Config::from_file(file.path()).unwrap();
+        assert_eq!(loaded.server.port, 9999);
+    }
+
+    #[test]
+    fn test_config_save() {
+        let mut config = Config::default();
+        config.server.port = 12345;
+        
+        let file = NamedTempFile::new().unwrap();
+        config.save(file.path()).unwrap();
+        
+        let loaded = Config::from_file(file.path()).unwrap();
+        assert_eq!(loaded.server.port, 12345);
+    }
+
+    #[test]
+    fn test_devices_config_default() {
+        let devices = DevicesConfig::default();
+        assert!(!devices.enabled);
+        assert!(devices.custom_devices.is_empty());
+        assert!(devices.embedded_devices.is_empty());
+    }
+
+    #[test]
+    fn test_embedded_device_config() {
+        let config = r#"
+        {
+            "id": "test-esp32",
+            "name": "Test ESP32",
+            "device_type": "esp32",
+            "endpoint": "http://192.168.1.100:80",
+            "timeout_ms": 5000,
+            "sensors": [
+                {"id": "temp", "name": "Temperature", "unit": "℃", "path": "temperature"}
+            ],
+            "commands": [
+                {"name": "led_on", "path": "led", "method": "POST"}
+            ]
+        }
+        "#;
+        
+        let embedded: EmbeddedDeviceConfig = serde_json::from_str(config).unwrap();
+        assert_eq!(embedded.id, "test-esp32");
+        assert_eq!(embedded.device_type, "esp32");
+        assert_eq!(embedded.sensors.len(), 1);
+        assert_eq!(embedded.commands.len(), 1);
+    }
+}
