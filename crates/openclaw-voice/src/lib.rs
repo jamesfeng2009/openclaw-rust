@@ -22,6 +22,7 @@ pub mod audio;
 pub mod types;
 pub mod config;
 pub mod wake;
+pub mod voice_agent;
 
 pub use stt::*;
 pub use tts::*;
@@ -30,3 +31,4 @@ pub use audio::AudioUtils;
 pub use types::*;
 pub use config::*;
 pub use wake::*;
+pub use voice_agent::*;

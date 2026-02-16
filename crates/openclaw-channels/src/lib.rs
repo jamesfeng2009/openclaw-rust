@@ -28,6 +28,7 @@
 
 pub mod base;
 pub mod types;
+pub mod manager;
 pub mod telegram;
 pub mod dingtalk;
 pub mod wecom;
@@ -50,6 +51,7 @@ pub mod dm_policy;
 
 pub use base::*;
 pub use types::*;
+pub use manager::*;
 pub use telegram::*;
 pub use dingtalk::*;
 pub use wecom::*;
