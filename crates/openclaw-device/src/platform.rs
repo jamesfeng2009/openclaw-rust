@@ -34,6 +34,30 @@ pub enum Platform {
     Android,
     iOS,
     
+    // 车载系统
+    AndroidAuto,
+    AppleCarPlay,
+    AutomotiveGradeLinux,
+    
+    // ARM 开发板
+    RaspberryPi,
+    RaspberryPi2,
+    RaspberryPi3,
+    RaspberryPi4,
+    OrangePi,
+    BananaPi,
+    RockchipRk3588,
+    NvidiaJetsonNano,
+    NvidiaJetsonXavier,
+    NvidiaJetsonOrin,
+    GoogleCoral,
+    
+    // Arduino
+    ArduinoUno,
+    ArduinoNano,
+    ArduinoMega,
+    ArduinoDue,
+    
     // 嵌入式
     Esp32,
     Esp32S2,
@@ -56,12 +80,24 @@ impl Platform {
             Self::CloudServer | Self::Docker | Self::Kubernetes 
             | Self::WasmBrowser | Self::WasmRuntime | Self::Serverless => ComputeCategory::Elastic,
             
-            // 边缘计算
+            // 边缘计算 - 车载系统
+            Self::AndroidAuto | Self::AppleCarPlay | Self::AutomotiveGradeLinux => ComputeCategory::Edge,
+            
+            // 边缘计算 - ARM 开发板
+            Self::RaspberryPi | Self::RaspberryPi2 | Self::RaspberryPi3 | Self::RaspberryPi4
+            | Self::OrangePi | Self::BananaPi | Self::RockchipRk3588
+            | Self::NvidiaJetsonNano | Self::NvidiaJetsonXavier | Self::NvidiaJetsonOrin
+            | Self::GoogleCoral => ComputeCategory::Edge,
+            
+            // 边缘计算 - 标准平台
             Self::LinuxDesktop | Self::LinuxServer | Self::LinuxEmbedded
             | Self::Windows | Self::MacOSIntel | Self::MacOSAppleSilicon
             | Self::Android | Self::iOS => ComputeCategory::Edge,
             
-            // 嵌入式
+            // 嵌入式 - Arduino
+            Self::ArduinoUno | Self::ArduinoNano | Self::ArduinoMega | Self::ArduinoDue => ComputeCategory::Embedded,
+            
+            // 嵌入式 - 其他
             Self::Esp32 | Self::Esp32S2 | Self::Esp32S3 | Self::Esp32C3
             | Self::Stm32F1 | Self::Stm32F4 | Self::Stm32H7
             | Self::RpiPico | Self::Nrf52 | Self::RiscV => ComputeCategory::Embedded,
@@ -86,6 +122,24 @@ impl Platform {
             Self::MacOSAppleSilicon => "macos_apple_silicon",
             Self::Android => "android",
             Self::iOS => "ios",
+            Self::AndroidAuto => "android_auto",
+            Self::AppleCarPlay => "apple_carplay",
+            Self::AutomotiveGradeLinux => "automotive_grade_linux",
+            Self::RaspberryPi => "raspberry_pi",
+            Self::RaspberryPi2 => "raspberry_pi_2",
+            Self::RaspberryPi3 => "raspberry_pi_3",
+            Self::RaspberryPi4 => "raspberry_pi_4",
+            Self::OrangePi => "orange_pi",
+            Self::BananaPi => "banana_pi",
+            Self::RockchipRk3588 => "rockchip_rk3588",
+            Self::NvidiaJetsonNano => "nvidia_jetson_nano",
+            Self::NvidiaJetsonXavier => "nvidia_jetson_xavier",
+            Self::NvidiaJetsonOrin => "nvidia_jetson_orin",
+            Self::GoogleCoral => "google_coral",
+            Self::ArduinoUno => "arduino_uno",
+            Self::ArduinoNano => "arduino_nano",
+            Self::ArduinoMega => "arduino_mega",
+            Self::ArduinoDue => "arduino_due",
             Self::Esp32 => "esp32",
             Self::Esp32S2 => "esp32s2",
             Self::Esp32S3 => "esp32s3",

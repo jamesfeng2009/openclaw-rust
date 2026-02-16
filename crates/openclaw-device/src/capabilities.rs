@@ -330,6 +330,29 @@ pub struct NetworkCapability {
     pub has_cellular: bool,
     pub has_usb_ethernet: bool,
     pub max_speed_mbps: u32,
+    #[serde(default)]
+    pub supported_protocols: Vec<NetworkProtocol>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NetworkProtocol {
+    Ethernet100M,
+    Ethernet1G,
+    Ethernet10G,
+    Wifi4,
+    Wifi5,
+    Wifi6,
+    Wifi6E,
+    Lte,
+    LteAdvanced,
+    FiveG,
+    LoraWan,
+    NbIot,
+    Zigbee,
+    Thread,
+    Ble,
+    Usb,
 }
 
 impl NetworkCapability {
@@ -340,6 +363,17 @@ impl NetworkCapability {
             let has_wifi = std::path::Path::new("/sys/class/net/wlan0").exists();
             let has_ble = std::path::Path::new("/sys/class/bluetooth").exists();
             
+            let mut protocols = Vec::new();
+            if has_ethernet {
+                protocols.push(NetworkProtocol::Ethernet1G);
+            }
+            if has_wifi {
+                protocols.push(NetworkProtocol::Wifi5);
+            }
+            if has_ble {
+                protocols.push(NetworkProtocol::Ble);
+            }
+            
             return Self {
                 has_ethernet,
                 has_wifi,
@@ -347,6 +381,7 @@ impl NetworkCapability {
                 has_cellular: std::path::Path::new("/dev/cdc-wdm0").exists(),
                 has_usb_ethernet: std::path::Path::new("/sys/class/net/usb0").exists(),
                 max_speed_mbps: if has_ethernet { 1000 } else if has_wifi { 1200 } else { 100 },
+                supported_protocols: protocols,
             };
         }
         
@@ -363,6 +398,7 @@ impl Default for NetworkCapability {
             has_cellular: false,
             has_usb_ethernet: false,
             max_speed_mbps: 1000,
+            supported_protocols: vec![NetworkProtocol::Ethernet1G, NetworkProtocol::Wifi5, NetworkProtocol::Ble],
         }
     }
 }
