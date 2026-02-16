@@ -5,6 +5,7 @@
 //! - 短期记忆 (Short-term Memory): 压缩摘要，中优先级
 //! - 长期记忆 (Long-term Memory): 向量存储，低优先级
 
+pub mod ai_adapter;
 pub mod compressor;
 pub mod config;
 pub mod embedding;

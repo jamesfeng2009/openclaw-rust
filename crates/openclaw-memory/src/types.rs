@@ -145,8 +145,23 @@ pub struct LongTermMemoryConfig {
     pub backend: String,
     /// 向量存储集合名
     pub collection: String,
+    /// 嵌入向量提供商 (openai, ollama, anthropic, deepseek, glm, qwen, minimax, kimi, custom)
+    pub embedding_provider: String,
     /// 嵌入模型
     pub embedding_model: String,
+    /// 自定义提供商配置 (当 embedding_provider 为 custom 时使用)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_embedding: Option<CustomEmbeddingConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomEmbeddingConfig {
+    /// API 基础 URL
+    pub base_url: String,
+    /// API 密钥
+    pub api_key: String,
+    /// 默认模型
+    pub model: Option<String>,
 }
 
 impl Default for LongTermMemoryConfig {
@@ -155,7 +170,9 @@ impl Default for LongTermMemoryConfig {
             enabled: true,
             backend: "lancedb".to_string(),
             collection: "memories".to_string(),
+            embedding_provider: "openai".to_string(),
             embedding_model: "text-embedding-3-small".to_string(),
+            custom_embedding: None,
         }
     }
 }
