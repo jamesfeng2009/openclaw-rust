@@ -4,6 +4,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::aieos::AIEOS;
+
 /// Agent ID 类型
 pub type AgentId = String;
 
@@ -141,6 +143,9 @@ pub struct AgentConfig {
     pub description: Option<String>,
     /// 系统提示词
     pub system_prompt: Option<String>,
+    /// AIEOS 身份定义 (优先级高于 system_prompt)
+    #[serde(default)]
+    pub aieos: Option<AIEOS>,
     /// 使用的模型
     pub model: Option<String>,
     /// 能力列表
@@ -161,6 +166,7 @@ impl AgentConfig {
             agent_type: agent_type.clone(),
             description: None,
             system_prompt: None,
+            aieos: None,
             model: None,
             capabilities: agent_type.default_capabilities(),
             priority: 50,
@@ -192,6 +198,19 @@ impl AgentConfig {
     pub fn with_capabilities(mut self, capabilities: Vec<Capability>) -> Self {
         self.capabilities = capabilities;
         self
+    }
+
+    pub fn with_aieos(mut self, aieos: AIEOS) -> Self {
+        self.aieos = Some(aieos);
+        self
+    }
+
+    pub fn get_system_prompt(&self) -> Option<String> {
+        if let Some(aieos) = &self.aieos {
+            Some(crate::aieos::AIEOSPromptGenerator::generate_system_prompt(aieos))
+        } else {
+            self.system_prompt.clone()
+        }
     }
 }
 
