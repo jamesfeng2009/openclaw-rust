@@ -145,6 +145,8 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
+    openclaw_device::init_device().await?;
+
     match cli.command {
         Commands::Gateway { port, host, verbose } => {
             commands::gateway::run(port, host, verbose).await?;

@@ -5452,6 +5452,7 @@ dependencies = [
  "openclaw-ai",
  "openclaw-channels",
  "openclaw-core",
+ "openclaw-device",
  "openclaw-memory",
  "openclaw-sandbox",
  "openclaw-server",

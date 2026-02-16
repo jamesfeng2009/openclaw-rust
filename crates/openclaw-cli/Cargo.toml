@@ -20,6 +20,7 @@ openclaw-voice.workspace = true
 openclaw-server.workspace = true
 openclaw-sandbox.workspace = true
 openclaw-tools.workspace = true
+openclaw-device.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
