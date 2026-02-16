@@ -26,3 +26,6 @@ bollard = "0.18"
 # Security
 sha2 = "0.10"
 base64 = "0.22"
+
+# WASM runtime
+wasmtime.workspace = true

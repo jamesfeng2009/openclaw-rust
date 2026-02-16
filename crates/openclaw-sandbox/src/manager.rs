@@ -9,7 +9,7 @@ use openclaw_security::{
 };
 
 use crate::types::{ExecutionResult, SandboxState};
-use crate::wasm::{WasmRuntime, WasmConfig, WasmError};
+use crate::wasm::{WasmToolRuntime, WasmToolConfig, WasmError, WasmToolModule};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SandboxType {
@@ -78,7 +78,8 @@ impl std::error::Error for SandboxError {}
 pub struct SandboxManager {
     security: SecurityMiddleware,
     tool_configs: Arc<RwLock<HashMap<String, ToolSandboxConfig>>>,
-    wasm_runtime: Arc<RwLock<Option<WasmRuntime>>>,
+    wasm_runtime: Arc<RwLock<Option<WasmToolRuntime>>>,
+    wasm_modules: Arc<RwLock<HashMap<String, WasmToolModule>>>,
     native_tools: Arc<RwLock<HashMap<String, Box<dyn NativeTool>>>>,
 }
 
@@ -100,6 +101,7 @@ impl SandboxManager {
             security: SecurityMiddleware::new(),
             tool_configs: Arc::new(RwLock::new(HashMap::new())),
             wasm_runtime: Arc::new(RwLock::new(None)),
+            wasm_modules: Arc::new(RwLock::new(HashMap::new())),
             native_tools: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -273,10 +275,29 @@ impl SandboxManager {
         let runtime = self.wasm_runtime.read().await;
         
         if let Some(runtime) = runtime.as_ref() {
-            let result = runtime.execute(tool_id, input).await
-                .map_err(|e| SandboxError::WasmError(e.to_string()))?;
-            
-            Ok(result)
+            let wasm_modules = self.wasm_modules.read().await;
+            if let Some(module) = wasm_modules.get(tool_id) {
+                let result = runtime.execute(module, input).await
+                    .map_err(|e| SandboxError::WasmError(e.to_string()))?;
+                
+                Ok(ExecutionResult {
+                    exit_code: if result.success { 0 } else { 1 },
+                    stdout: result.output,
+                    stderr: result.error.unwrap_or_default(),
+                    timed_out: false,
+                    duration_secs: result.execution_time_ms as f64 / 1000.0,
+                    resource_usage: Some(crate::types::ResourceUsage {
+                        cpu_time_nanos: 0,
+                        memory_bytes: result.memory_used_bytes,
+                        network_rx_bytes: 0,
+                        network_tx_bytes: 0,
+                        disk_read_bytes: 0,
+                        disk_write_bytes: 0,
+                    }),
+                })
+            } else {
+                Err(SandboxError::WasmError("WASM module not found".to_string()))
+            }
         } else {
             let start = std::time::Instant::now();
             Ok(ExecutionResult {

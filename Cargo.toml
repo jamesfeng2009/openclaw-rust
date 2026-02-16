@@ -94,6 +94,9 @@ tiktoken-rs = "0.6"
 # Testing
 tokio-test = "0.4"
 
+# WASM
+wasmtime = "25.0"
+
 # Internal crates
 openclaw-core = { path = "crates/openclaw-core" }
 openclaw-ai = { path = "crates/openclaw-ai" }
