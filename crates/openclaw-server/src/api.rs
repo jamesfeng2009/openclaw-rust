@@ -11,6 +11,7 @@ use tokio::sync::RwLock;
 
 use crate::browser_api::{create_browser_router, BrowserApiState};
 use crate::canvas_api::{create_canvas_router, CanvasApiState};
+use crate::agent_service::AgentService;
 
 pub fn create_router() -> Router {
     let state = Arc::new(RwLock::new(ApiState::new()));
@@ -40,6 +41,7 @@ pub struct ApiState {
     pub agents: Vec<AgentInfo>,
     pub sessions: Vec<SessionInfo>,
     pub presence: String,
+    pub agent_service: AgentService,
 }
 
 impl ApiState {
@@ -49,6 +51,7 @@ impl ApiState {
             agents: Vec::new(),
             sessions: Vec::new(),
             presence: "online".to_string(),
+            agent_service: AgentService::new(),
         }
     }
 }
