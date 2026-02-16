@@ -15,6 +15,7 @@ pub mod sub_agent;
 pub mod router;
 pub mod presence;
 pub mod sessions;
+pub mod decision;
 
 pub use agent::*;
 pub use orchestrator::*;
