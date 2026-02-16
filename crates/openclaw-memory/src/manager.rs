@@ -10,23 +10,19 @@ use crate::compressor::MemoryCompressor;
 use crate::scorer::ImportanceScorer;
 use crate::working::WorkingMemory;
 use crate::hybrid_search::{HybridSearchManager, HybridSearchConfig};
+use crate::embedding::{EmbeddingProvider, Embedding};
+use crate::recall::{MemoryRecall, RecallResult, SimpleMemoryRecall};
 
 /// 记忆管理器 - 统一管理三层记忆
 pub struct MemoryManager {
-    /// 工作记忆
     working: WorkingMemory,
-    /// 短期记忆 (摘要)
     short_term: Vec<MemoryItem>,
-    /// 长期记忆 (向量存储)
     long_term: Option<Arc<dyn VectorStore>>,
-    /// 混合搜索管理器
     hybrid_search: Option<Arc<HybridSearchManager>>,
-    /// 配置
     config: MemoryConfig,
-    /// 重要性评分器
     scorer: ImportanceScorer,
-    /// 压缩器
     compressor: MemoryCompressor,
+    embedding_provider: Option<Arc<dyn EmbeddingProvider>>,
 }
 
 impl MemoryManager {
@@ -39,6 +35,7 @@ impl MemoryManager {
             scorer: ImportanceScorer::new(),
             compressor: MemoryCompressor::new(config.short_term.clone()),
             config,
+            embedding_provider: None,
         }
     }
 
@@ -52,6 +49,23 @@ impl MemoryManager {
     pub fn with_hybrid_search(mut self, search: Arc<HybridSearchManager>) -> Self {
         self.hybrid_search = Some(search);
         self
+    }
+
+    /// 设置嵌入向量提供者
+    pub fn with_embedding_provider<E: EmbeddingProvider + 'static>(mut self, provider: E) -> Self {
+        self.embedding_provider = Some(Arc::new(provider));
+        self
+    }
+
+    /// 自动召回相关记忆
+    pub async fn recall(&self, query: &str) -> Result<RecallResult> {
+        if let Some(provider) = &self.embedding_provider {
+            let recall_tool = SimpleMemoryRecall::new(provider.clone());
+            let result = recall_tool.recall(query, None).await?;
+            Ok(result)
+        } else {
+            Err(OpenClawError::Memory("Embedding provider not configured".to_string()))
+        }
     }
 
     /// 添加消息到记忆

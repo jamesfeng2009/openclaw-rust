@@ -192,3 +192,47 @@ impl MemoryRetrieval {
         self.items.push(item);
     }
 }
+
+/// 记忆搜索查询
+#[derive(Debug, Clone)]
+pub struct MemorySearchQuery {
+    pub query: String,
+    pub limit: usize,
+    pub max_tokens: usize,
+    pub level: Option<MemoryLevel>,
+    pub min_importance: Option<f32>,
+    pub session_id: Option<uuid::Uuid>,
+}
+
+impl MemorySearchQuery {
+    pub fn new(query: impl Into<String>) -> Self {
+        Self {
+            query: query.into(),
+            limit: 10,
+            max_tokens: 4000,
+            level: None,
+            min_importance: None,
+            session_id: None,
+        }
+    }
+
+    pub fn with_limit(mut self, limit: usize) -> Self {
+        self.limit = limit;
+        self
+    }
+
+    pub fn with_max_tokens(mut self, tokens: usize) -> Self {
+        self.max_tokens = tokens;
+        self
+    }
+
+    pub fn with_level(mut self, level: MemoryLevel) -> Self {
+        self.level = Some(level);
+        self
+    }
+
+    pub fn with_session(mut self, session_id: uuid::Uuid) -> Self {
+        self.session_id = Some(session_id);
+        self
+    }
+}

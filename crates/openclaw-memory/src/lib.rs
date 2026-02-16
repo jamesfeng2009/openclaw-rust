@@ -6,17 +6,23 @@
 //! - 长期记忆 (Long-term Memory): 向量存储，低优先级
 
 pub mod compressor;
+pub mod embedding;
 pub mod hybrid_search;
 pub mod manager;
 pub mod pruning;
+pub mod recall;
 pub mod scorer;
+pub mod store;
 pub mod types;
 pub mod working;
 
 pub use compressor::*;
+pub use embedding::*;
 pub use hybrid_search::*;
 pub use manager::*;
 pub use pruning::*;
+pub use recall::*;
 pub use scorer::*;
+pub use store::*;
 pub use types::*;
 pub use working::*;
