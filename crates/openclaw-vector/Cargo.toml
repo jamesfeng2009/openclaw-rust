@@ -21,6 +21,8 @@ uuid.workspace = true
 # qdrant-client.workspace = true  # 暂时移除
 rusqlite.workspace = true
 lancedb.workspace = true
+qdrant-client.workspace = true
+sqlx.workspace = true
 
 [features]
 default = []

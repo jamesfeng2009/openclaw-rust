@@ -141,6 +141,8 @@ impl Default for ShortTermMemoryConfig {
 pub struct LongTermMemoryConfig {
     /// 是否启用
     pub enabled: bool,
+    /// 向量存储后端 (memory, sqlite, lancedb, qdrant, pgvector)
+    pub backend: String,
     /// 向量存储集合名
     pub collection: String,
     /// 嵌入模型
@@ -151,6 +153,7 @@ impl Default for LongTermMemoryConfig {
     fn default() -> Self {
         Self {
             enabled: true,
+            backend: "lancedb".to_string(),
             collection: "memories".to_string(),
             embedding_model: "text-embedding-3-small".to_string(),
         }

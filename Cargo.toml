@@ -86,13 +86,16 @@ tokio-tungstenite = "0.26"
 
 # Vector stores
 # lancedb = "0.26"  # 需要更新版本
-# qdrant-client = "1.13"
+qdrant-client = "1.13"
 
 # SQLite with FTS5
 rusqlite = { version = "0.32", features = ["bundled"] }
 
 # LanceDB
 lancedb = "0.20"
+
+# PostgreSQL with pgvector
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json"] }
 
 # AI providers
 async-openai = "0.28"

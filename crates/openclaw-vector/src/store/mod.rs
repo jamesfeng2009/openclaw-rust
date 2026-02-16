@@ -2,6 +2,8 @@
 
 mod lancedb;
 mod memory;
+mod pgvector;
+mod qdrant;
 mod sqlite;
 
 use async_trait::async_trait;
@@ -10,6 +12,8 @@ use std::sync::Arc;
 
 pub use lancedb::LanceDbStore;
 pub use memory::MemoryStore;
+pub use pgvector::PgVectorStore;
+pub use qdrant::QdrantStore;
 pub use sqlite::SqliteStore;
 
 use super::types::{Filter, SearchQuery, SearchResult, StoreStats, VectorItem};
@@ -44,14 +48,14 @@ pub fn create_store(backend: StoreBackend) -> Result<Arc<dyn VectorStore>> {
                 "LanceDB requires async initialization. Use create_store_async instead.".to_string()
             ))
         }
-        StoreBackend::Qdrant { url: _, collection: _, api_key: _ } => {
+        StoreBackend::Qdrant { .. } => {
             Err(OpenClawError::VectorStore(
-                "Qdrant store not yet implemented".to_string()
+                "Qdrant requires async initialization. Use create_store_async instead.".to_string()
             ))
         }
         StoreBackend::PgVector { .. } => {
             Err(OpenClawError::VectorStore(
-                "pgvector store not yet implemented".to_string()
+                "PgVector requires async initialization. Use create_store_async instead.".to_string()
             ))
         }
         StoreBackend::SQLite { path, table } => {
@@ -68,15 +72,13 @@ pub async fn create_store_async(backend: StoreBackend) -> Result<Arc<dyn VectorS
             let store = LanceDbStore::new(&path, "vectors").await?;
             Ok(Arc::new(store))
         }
-        StoreBackend::Qdrant { url, collection, api_key: _ } => {
-            Err(OpenClawError::VectorStore(
-                format!("Qdrant store not yet implemented: {} {}", url, collection)
-            ))
+        StoreBackend::Qdrant { url, collection, api_key } => {
+            let store = QdrantStore::new(&url, &collection, 1536, api_key.as_deref()).await?;
+            Ok(Arc::new(store))
         }
-        StoreBackend::PgVector { .. } => {
-            Err(OpenClawError::VectorStore(
-                "pgvector store not yet implemented".to_string()
-            ))
+        StoreBackend::PgVector { url, table } => {
+            let store = PgVectorStore::new(&url, &table, 1536).await?;
+            Ok(Arc::new(store))
         }
         StoreBackend::SQLite { path, table } => {
             let store = SqliteStore::new(path, &table)?;
