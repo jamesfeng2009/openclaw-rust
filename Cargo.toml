@@ -28,7 +28,16 @@ repository = "https://github.com/openclaw/openclaw-rust"
 
 [workspace.dependencies]
 # Async runtime
-tokio = { version = "1.43", features = ["full"] }
+tokio = { version = "1.43", features = [
+    "rt-multi-thread",
+    "macros",
+    "sync",
+    "time",
+    "net",
+    "io-util",
+    "rt",
+    "fs",
+] }
 async-trait = "0.1"
 futures = "0.3"
 async-stream = "0.3"
@@ -112,3 +121,17 @@ openclaw-sandbox = { path = "crates/openclaw-sandbox" }
 openclaw-tools = { path = "crates/openclaw-tools" }
 openclaw-device = { path = "crates/openclaw-device" }
 openclaw-security = { path = "crates/openclaw-security" }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.release.package.regex]
+opt-level = "z"
+
+[profile.dev]
+opt-level = 0
+debug = true
