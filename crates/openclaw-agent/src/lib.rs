@@ -16,6 +16,8 @@ pub mod router;
 pub mod presence;
 pub mod sessions;
 pub mod decision;
+pub mod voice;
+pub mod channels;
 
 pub use agent::*;
 pub use orchestrator::*;
