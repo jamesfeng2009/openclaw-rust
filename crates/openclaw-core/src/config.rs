@@ -454,6 +454,8 @@ pub struct AgentConfig {
     pub workspace: PathBuf,
     #[serde(default)]
     pub default: bool,
+    #[serde(default)]
+    pub aieos_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -45,6 +45,10 @@ impl Gateway {
     pub async fn start(&self) -> openclaw_core::Result<()> {
         if let Some(ref orchestrator) = *self.orchestrator.read().await {
             orchestrator.start().await?;
+            
+            if !self.config.agents.list.is_empty() {
+                orchestrator.init_agents_from_config(&self.config).await?;
+            }
         }
 
         let app = Router::new()

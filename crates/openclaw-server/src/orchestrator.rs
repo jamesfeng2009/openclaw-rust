@@ -1,9 +1,11 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
-use openclaw_core::{Result, OpenClawError, Message, Content, Role};
-use openclaw_agent::{Agent, BaseAgent, AgentInfo};
+use openclaw_core::{Result, OpenClawError, Message, Content, Role, Config};
+use openclaw_agent::{Agent, BaseAgent, AgentInfo, AgentConfig as OpenclawAgentConfig, AgentType};
+use openclaw_agent::aieos::{AIEOSParser, AIEOSPromptGenerator};
 use openclaw_agent::task::{TaskRequest, TaskInput, TaskType};
 use openclaw_agent::task::TaskOutput;
 use openclaw_channels::{ChannelManager, ChannelMessage, SendMessage};
@@ -259,6 +261,39 @@ impl ServiceOrchestrator {
         tracing::info!("Agent {} generated content for canvas {}: {}", agent_id, canvas_id, response);
 
         Ok(canvas_id)
+    }
+
+    pub async fn init_agents_from_config(&self, config: &Config) -> Result<()> {
+        let agents_config = &config.agents;
+        
+        for agent_cfg in &agents_config.list {
+            let mut openclaw_cfg = OpenclawAgentConfig::new(
+                agent_cfg.id.clone(),
+                agent_cfg.id.clone(),
+                AgentType::Custom(agent_cfg.id.clone()),
+            );
+
+            if let Some(aieos_path) = &agent_cfg.aieos_path {
+                if aieos_path.exists() {
+                    match AIEOSParser::from_file(aieos_path) {
+                        Ok(aieos) => {
+                            let system_prompt = AIEOSPromptGenerator::generate_system_prompt(&aieos);
+                            openclaw_cfg = openclaw_cfg.with_system_prompt(system_prompt);
+                            tracing::info!("Loaded AIEOS for agent {} from {:?}", agent_cfg.id, aieos_path);
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to load AIEOS for agent {}: {}", agent_cfg.id, e);
+                        }
+                    }
+                }
+            }
+
+            let agent = Arc::new(BaseAgent::new(openclaw_cfg)) as Arc<dyn Agent>;
+            self.register_agent(agent_cfg.id.clone(), agent).await;
+        }
+
+        tracing::info!("Initialized {} agents from config", agents_config.list.len());
+        Ok(())
     }
 }
 
