@@ -164,6 +164,10 @@ impl Default for ToolRegistry {
 mod mcp_adapter;
 pub use mcp_adapter::{McpToolAdapter, McpToolRegistry};
 
+// ============== WASM 适配器 ==============
+mod wasm_adapter;
+pub use wasm_adapter::{WasmToolAdapter, WasmToolRegistry};
+
 // ============== 内置工具 ==============
 
 /// 当前时间工具
