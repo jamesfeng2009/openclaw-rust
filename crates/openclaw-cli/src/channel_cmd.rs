@@ -100,6 +100,16 @@ const CHANNEL_TYPES: &[(&str, &str)] = &[
 
 #[derive(Debug, Subcommand)]
 pub enum ChannelCommand {
+    /// 列出所有可用通道
+    List,
+    /// 登录通道 (显示设置说明)
+    Login {
+        /// 通道名称
+        #[arg(default_value = "")]
+        channel: String,
+    },
+    /// 显示通道状态
+    Status,
     /// 设置通道配置
     Set {
         /// 通道类型 (dingtalk, wecom, feishu, discord, teams, slack, whatsapp, telegram)
@@ -123,9 +133,6 @@ pub enum ChannelCommand {
         /// 通道类型
         channel_type: String,
     },
-
-    /// 列出所有通道配置
-    List,
 
     /// 启用通道
     Enable {
@@ -156,9 +163,6 @@ pub enum ChannelCommand {
         #[arg(short, long)]
         target: Option<String>,
     },
-
-    /// 显示帮助信息
-    Help,
 }
 
 /// 解析 key=value 格式
@@ -176,10 +180,102 @@ impl ChannelCommand {
         let mut manager = ChannelConfigManager::load()?;
 
         match self {
+            ChannelCommand::List => {
+                println!();
+                println!("\x1b[36m\x1b[1m📱 Available Chat Channels\x1b[0m");
+                println!();
+                
+                let channels = vec![
+                    ("telegram", "Telegram", "Bot Token"),
+                    ("discord", "Discord", "Bot Token"),
+                    ("whatsapp", "WhatsApp", "QR Code"),
+                    ("feishu", "飞书 (Feishu)", "App ID/Secret"),
+                    ("dingtalk", "钉钉 (DingTalk)", "App Key/Secret"),
+                    ("wecom", "企业微信 (WeCom)", "Corp ID/Agent ID"),
+                    ("slack", "Slack", "Bot Token"),
+                ];
+
+                for (name, display, auth) in channels {
+                    println!("  \x1b[33m{}\x1b[0m", name);
+                    println!("    \x1b[90m{} | Auth: {}\x1b[0m", display, auth);
+                }
+
+                println!();
+                Ok(())
+            }
+
+            ChannelCommand::Login { channel } => {
+                if channel.is_empty() {
+                    println!();
+                    println!("\x1b[36m\x1b[1m📱 Available Chat Channels\x1b[0m");
+                    println!();
+                    println!("Usage: \x1b[36mopenclaw-rust channel login <channel-name>\x1b[0m");
+                    println!();
+                    println!("Supported channels:");
+                    println!("  whatsapp  - WhatsApp (QR Code)");
+                    println!("  telegram   - Telegram (Bot)");
+                    println!("  discord    - Discord (Bot)");
+                } else {
+                    match channel.to_lowercase().as_str() {
+                        "whatsapp" => {
+                            println!();
+                            println!("\x1b[33m📱 WhatsApp Login\x1b[0m");
+                            println!();
+                            println!("  Run: \x1b[36mopenclaw-rust channel login whatsapp\x1b[0m");
+                            println!("  Then scan QR code with your phone");
+                        }
+                        "telegram" => {
+                            println!();
+                            println!("\x1b[33m📱 Telegram Setup\x1b[0m");
+                            println!();
+                            println!("  1. Search @BotFather in Telegram");
+                            println!("  2. Send /newbot to create bot");
+                            println!("  3. Run: \x1b[36mopenclaw-rust channel set telegram --config bot_token=YOUR_TOKEN --enable\x1b[0m");
+                        }
+                        "discord" => {
+                            println!();
+                            println!("\x1b[33m📱 Discord Setup\x1b[0m");
+                            println!();
+                            println!("  1. Go to Discord Developer Portal");
+                            println!("  2. Create app and add bot");
+                            println!("  3. Run: \x1b[36mopenclaw-rust channel set discord --config bot_token=YOUR_TOKEN --enable\x1b[0m");
+                        }
+                        _ => {
+                            println!("\x1b[31mUnknown channel: {}\x1b[0m", channel);
+                        }
+                    }
+                }
+                Ok(())
+            }
+
+            ChannelCommand::Status => {
+                println!();
+                println!("\x1b[36m\x1b[1m📡 Channel Status\x1b[0m");
+                println!();
+
+                let channels = vec![
+                    ("telegram", "Telegram"),
+                    ("discord", "Discord"),
+                    ("whatsapp", "WhatsApp"),
+                    ("feishu", "飞书"),
+                    ("dingtalk", "钉钉"),
+                    ("wecom", "企业微信"),
+                    ("slack", "Slack"),
+                ];
+
+                for (name, display) in channels {
+                    let config = manager.get_channel(name);
+                    let enabled = config.map(|c| c.enabled).unwrap_or(false);
+                    let status = if enabled { "\x1b[32m✓ Enabled\x1b[0m" } else { "\x1b[90m○ Disabled\x1b[0m" };
+                    println!("  \x1b[33m{}\x1b[0m  {}", display, status);
+                }
+
+                Ok(())
+            }
+
             ChannelCommand::Set { channel_type, configs, enable } => {
                 let channel_type_lower = channel_type.to_lowercase();
                 
-                // 验证通道类型
                 if !CHANNEL_TYPES.iter().any(|(t, _)| *t == channel_type_lower) {
                     println!("❌ 不支持的通道类型: {}", channel_type);
                     println!("\n支持的通道类型:");
@@ -189,10 +285,8 @@ impl ChannelCommand {
                     return Ok(());
                 }
 
-                // 构建配置
                 let mut config_map = HashMap::new();
                 for (key, value) in configs {
-                    // 尝试解析为 JSON 值
                     let json_value = if value.starts_with('"') && value.ends_with('"') {
                         serde_json::Value::String(value[1..value.len()-1].to_string())
                     } else if value == "true" || value == "false" {
@@ -219,6 +313,7 @@ impl ChannelCommand {
                     println!("   状态: 已启用");
                 }
                 println!("\n使用 'openclaw-rust channel test {}' 测试连接", channel_type);
+                Ok(())
             }
 
             ChannelCommand::Get { channel_type } => {
@@ -227,7 +322,6 @@ impl ChannelCommand {
                     println!("状态: {}", if config.enabled { "已启用" } else { "已禁用" });
                     println!("\n配置:");
                     for (key, value) in &config.config {
-                        // 隐藏敏感信息
                         if key.contains("token") || key.contains("secret") || key.contains("key") {
                             let masked = mask_sensitive_value(value);
                             println!("  {}: {}", key, masked);
@@ -239,6 +333,7 @@ impl ChannelCommand {
                     println!("❌ 未找到通道配置: {}", channel_type);
                     println!("\n使用 'openclaw-rust channel set {}' 创建配置", channel_type);
                 }
+                Ok(())
             }
 
             ChannelCommand::Remove { channel_type } => {
@@ -248,33 +343,7 @@ impl ChannelCommand {
                 } else {
                     println!("❌ 未找到通道配置: {}", channel_type);
                 }
-            }
-
-            ChannelCommand::List => {
-                let channels = manager.list_channels();
-                if channels.is_empty() {
-                    println!("暂无配置的通道");
-                    println!("\n使用方法:");
-                    println!("  openclaw-rust channel set dingtalk --config webhook=https://xxx --enable");
-                    println!("\n支持的通道类型:");
-                    for (t, name) in CHANNEL_TYPES {
-                        println!("  {} - {}", t, name);
-                    }
-                } else {
-                    println!("已配置的通道:");
-                    println!();
-                    for channel in channels {
-                        if let Some(config) = manager.get_channel(channel) {
-                            let status = if config.enabled { "✅ 启用" } else { "⏸️ 禁用" };
-                            let default_marker = if manager.default_channel.as_deref() == Some(channel) {
-                                " (默认)"
-                            } else {
-                                ""
-                            };
-                            println!("  {} {}{}", status, channel, default_marker);
-                        }
-                    }
-                }
+                Ok(())
             }
 
             ChannelCommand::Enable { channel_type } => {
@@ -285,6 +354,7 @@ impl ChannelCommand {
                 } else {
                     println!("❌ 未找到通道配置: {}", channel_type);
                 }
+                Ok(())
             }
 
             ChannelCommand::Disable { channel_type } => {
@@ -295,6 +365,7 @@ impl ChannelCommand {
                 } else {
                     println!("❌ 未找到通道配置: {}", channel_type);
                 }
+                Ok(())
             }
 
             ChannelCommand::Default { channel_type } => {
@@ -305,13 +376,13 @@ impl ChannelCommand {
                 } else {
                     println!("❌ 未找到通道配置: {}", channel_type);
                 }
+                Ok(())
             }
 
             ChannelCommand::Test { channel_type, message, target } => {
                 println!("🔍 测试 {} 通道...", channel_type);
                 
                 if let Some(_config) = manager.get_channel(channel_type) {
-                    // TODO: 实际测试通道连接
                     println!("   消息: {}", message);
                     if let Some(t) = target {
                         println!("   目标: {}", t);
@@ -320,47 +391,12 @@ impl ChannelCommand {
                 } else {
                     println!("❌ 未找到通道配置: {}", channel_type);
                 }
-            }
-
-            ChannelCommand::Help => {
-                println!("通道配置命令帮助");
-                println!("\n支持的通道类型:");
-                for (t, name) in CHANNEL_TYPES {
-                    println!("  {} - {}", t, name);
-                }
-                println!("\n配置示例:");
-                println!();
-                println!("  # 钉钉 (Webhook)");
-                println!("  openclaw-rust channel set dingtalk --config webhook=https://oapi.dingtalk.com/robot/send?access_token=xxx --config secret=SECxxx --enable");
-                println!();
-                println!("  # 企业微信 (Webhook)");
-                println!("  openclaw-rust channel set wecom --config webhook=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx --enable");
-                println!();
-                println!("  # 飞书 (Bot API)");
-                println!("  openclaw-rust channel set feishu --config app_id=cli_xxx --config app_secret=xxx --enable");
-                println!();
-                println!("  # Discord (Webhook)");
-                println!("  openclaw-rust channel set discord --config webhook_url=https://discord.com/api/webhooks/xxx/yyy --enable");
-                println!();
-                println!("  # Microsoft Teams (Webhook)");
-                println!("  openclaw-rust channel set teams --config webhook_url=https://outlook.office.com/webhook/xxx --enable");
-                println!();
-                println!("  # Slack (Webhook)");
-                println!("  openclaw-rust channel set slack --config webhook_url=https://hooks.slack.com/services/xxx --enable");
-                println!();
-                println!("  # WhatsApp (Cloud API)");
-                println!("  openclaw-rust channel set whatsapp --config phone_number_id=123456 --config access_token=EAAxxx --enable");
-                println!();
-                println!("  # Telegram (Bot)");
-                println!("  openclaw-rust channel set telegram --config bot_token=123456:ABC --enable");
+                Ok(())
             }
         }
-
-        Ok(())
     }
 }
 
-/// 隐藏敏感值
 fn mask_sensitive_value(value: &serde_json::Value) -> String {
     let s = value.as_str().unwrap_or("");
     if s.len() <= 8 {

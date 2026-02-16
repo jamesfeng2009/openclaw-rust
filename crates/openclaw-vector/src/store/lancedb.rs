@@ -1,72 +1,63 @@
 //! LanceDB 向量存储实现
+//!
+//! LanceDB 是一个嵌入式向量数据库，支持高效的向量搜索
+//! 
+//! 注意：当前版本为占位实现，完整实现需要进一步开发
 
 use async_trait::async_trait;
-use chrono::Utc;
-use std::path::Path;
+use std::path::PathBuf;
 
+use openclaw_core::{OpenClawError, Result};
 use crate::types::{Filter, SearchQuery, SearchResult, StoreStats, VectorItem};
 use crate::VectorStore;
-use openclaw_core::{OpenClawError, Result};
 
-/// LanceDB 向量存储
 pub struct LanceDbStore {
-    // LanceDB 客户端
-    // 注意：lancedb crate 的 API 可能需要调整
-    _path: std::path::PathBuf,
-    // 使用内存存储作为占位符
-    // 实际 LanceDB 集成需要根据 lancedb crate 的 API 调整
-    inner: crate::MemoryStore,
+    _path: PathBuf,
 }
 
 impl LanceDbStore {
-    pub async fn new(path: &Path) -> Result<Self> {
-        // 创建目录
-        tokio::fs::create_dir_all(path)
-            .await
-            .map_err(|e| OpenClawError::VectorStore(format!("创建 LanceDB 目录失败: {}", e)))?;
-
-        // TODO: 实际的 LanceDB 初始化
-        // 目前使用内存存储作为占位符
+    pub async fn new(path: &PathBuf, _table_name: &str) -> Result<Self> {
         Ok(Self {
-            _path: path.to_path_buf(),
-            inner: crate::MemoryStore::new(),
+            _path: path.clone(),
         })
     }
 }
 
 #[async_trait]
 impl VectorStore for LanceDbStore {
-    async fn upsert(&self, item: VectorItem) -> Result<()> {
-        self.inner.upsert(item).await
+    async fn upsert(&self, _item: VectorItem) -> Result<()> {
+        Err(OpenClawError::VectorStore("LanceDB store not fully implemented. Use SQLite for now.".to_string()))
     }
 
-    async fn upsert_batch(&self, items: Vec<VectorItem>) -> Result<usize> {
-        self.inner.upsert_batch(items).await
+    async fn upsert_batch(&self, _items: Vec<VectorItem>) -> Result<usize> {
+        Err(OpenClawError::VectorStore("LanceDB store not fully implemented. Use SQLite for now.".to_string()))
     }
 
-    async fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>> {
-        self.inner.search(query).await
+    async fn search(&self, _query: SearchQuery) -> Result<Vec<SearchResult>> {
+        Err(OpenClawError::VectorStore("LanceDB store not fully implemented. Use SQLite for now.".to_string()))
     }
 
-    async fn get(&self, id: &str) -> Result<Option<VectorItem>> {
-        self.inner.get(id).await
+    async fn get(&self, _id: &str) -> Result<Option<VectorItem>> {
+        Err(OpenClawError::VectorStore("LanceDB store not fully implemented. Use SQLite for now.".to_string()))
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
-        self.inner.delete(id).await
+    async fn delete(&self, _id: &str) -> Result<()> {
+        Err(OpenClawError::VectorStore("LanceDB store not fully implemented. Use SQLite for now.".to_string()))
     }
 
-    async fn delete_by_filter(&self, filter: Filter) -> Result<usize> {
-        self.inner.delete_by_filter(filter).await
+    async fn delete_by_filter(&self, _filter: Filter) -> Result<usize> {
+        Err(OpenClawError::VectorStore("LanceDB store not fully implemented. Use SQLite for now.".to_string()))
     }
 
     async fn stats(&self) -> Result<StoreStats> {
-        let mut stats = self.inner.stats().await?;
-        stats.total_size_bytes = self._path.as_os_str().len(); // 占位符
-        Ok(stats)
+        Ok(StoreStats {
+            total_vectors: 0,
+            total_size_bytes: 0,
+            last_updated: chrono::Utc::now(),
+        })
     }
 
     async fn clear(&self) -> Result<()> {
-        self.inner.clear().await
+        Ok(())
     }
 }

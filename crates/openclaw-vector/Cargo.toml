@@ -19,6 +19,8 @@ chrono.workspace = true
 uuid.workspace = true
 # lancedb.workspace = true  # 暂时移除
 # qdrant-client.workspace = true  # 暂时移除
+rusqlite.workspace = true
+lancedb.workspace = true
 
 [features]
 default = []

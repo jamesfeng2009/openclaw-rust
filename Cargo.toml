@@ -75,9 +75,15 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 # WebSocket
 tokio-tungstenite = "0.26"
 
-# Vector stores (暂时使用内存存储)
+# Vector stores
 # lancedb = "0.26"  # 需要更新版本
 # qdrant-client = "1.13"
+
+# SQLite with FTS5
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# LanceDB
+lancedb = "0.20"
 
 # AI providers
 async-openai = "0.28"

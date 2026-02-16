@@ -3,12 +3,13 @@
 use std::sync::Arc;
 
 use openclaw_core::{Message, OpenClawError, Result};
-use openclaw_vector::VectorStore;
+use openclaw_vector::{VectorStore, SearchQuery};
 
-use crate::types::{MemoryConfig, MemoryItem, MemoryLevel, MemoryRetrieval};
+use crate::types::{MemoryConfig, MemoryItem, MemoryContent, MemoryLevel, MemoryRetrieval};
 use crate::compressor::MemoryCompressor;
 use crate::scorer::ImportanceScorer;
 use crate::working::WorkingMemory;
+use crate::hybrid_search::{HybridSearchManager, HybridSearchConfig};
 
 /// 记忆管理器 - 统一管理三层记忆
 pub struct MemoryManager {
@@ -18,6 +19,8 @@ pub struct MemoryManager {
     short_term: Vec<MemoryItem>,
     /// 长期记忆 (向量存储)
     long_term: Option<Arc<dyn VectorStore>>,
+    /// 混合搜索管理器
+    hybrid_search: Option<Arc<HybridSearchManager>>,
     /// 配置
     config: MemoryConfig,
     /// 重要性评分器
@@ -32,6 +35,7 @@ impl MemoryManager {
             working: WorkingMemory::new(config.working.clone()),
             short_term: Vec::new(),
             long_term: None,
+            hybrid_search: None,
             scorer: ImportanceScorer::new(),
             compressor: MemoryCompressor::new(config.short_term.clone()),
             config,
@@ -41,6 +45,12 @@ impl MemoryManager {
     /// 设置向量存储后端
     pub fn with_vector_store(mut self, store: Arc<dyn VectorStore>) -> Self {
         self.long_term = Some(store);
+        self
+    }
+
+    /// 设置混合搜索管理器
+    pub fn with_hybrid_search(mut self, search: Arc<HybridSearchManager>) -> Self {
+        self.hybrid_search = Some(search);
         self
     }
 
@@ -99,9 +109,37 @@ impl MemoryManager {
 
         // 3. 从长期记忆检索相关内容
         if self.config.long_term.enabled {
-            if let Some(store) = &self.long_term {
-                // TODO: 向量检索
-                // 目前跳过
+            if let Some(search) = &self.hybrid_search {
+                let config = HybridSearchConfig::default();
+                if let Ok(results) = search.search(_query, None, &config).await {
+                     for result in results {
+                         let content_preview = result.payload.get("content")
+                             .and_then(|v| v.as_str())
+                             .unwrap_or("")
+                             .to_string();
+                         
+                         let token_count = content_preview.len() / 4;
+                        let memory_item = MemoryItem {
+                            id: uuid::Uuid::new_v4(),
+                            level: MemoryLevel::LongTerm,
+                            content: MemoryContent::VectorRef {
+                                vector_id: result.id.clone(),
+                                preview: content_preview,
+                            },
+                            created_at: chrono::Utc::now(),
+                            last_accessed: chrono::Utc::now(),
+                            access_count: 1,
+                            importance_score: result.score,
+                            token_count,
+                            metadata: crate::types::MemoryMetadata::default(),
+                        };
+                        
+                        if current_tokens + token_count <= max_tokens {
+                            retrieval.add(memory_item);
+                            current_tokens += token_count;
+                        }
+                    }
+                }
             }
         }
 

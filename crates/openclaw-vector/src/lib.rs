@@ -11,3 +11,5 @@ pub mod types;
 
 pub use store::*;
 pub use types::*;
+
+pub use openclaw_core::{OpenClawError, Result};
