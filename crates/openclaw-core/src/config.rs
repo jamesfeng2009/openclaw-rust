@@ -19,6 +19,9 @@ pub struct Config {
     pub channels: ChannelsConfig,
     /// 智能体配置
     pub agents: AgentsConfig,
+    /// 设备配置
+    #[serde(default)]
+    pub devices: DevicesConfig,
     /// 工作区配置
     #[serde(default)]
     pub workspaces: WorkspacesConfig,
@@ -33,6 +36,7 @@ impl Default for Config {
             vector: VectorConfig::default(),
             channels: ChannelsConfig::default(),
             agents: AgentsConfig::default(),
+            devices: DevicesConfig::default(),
             workspaces: WorkspacesConfig::default(),
         }
     }
@@ -504,6 +508,88 @@ pub struct WorkspaceConfig {
 
 fn default_true() -> bool {
     true
+}
+
+/// ============== 设备配置 ==============
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DevicesConfig {
+    /// 是否启用设备节点
+    #[serde(default)]
+    pub enabled: bool,
+    /// 支持的计算类别
+    #[serde(default)]
+    pub compute_categories: Vec<ComputeCategoryConfig>,
+    /// 支持的平台
+    #[serde(default)]
+    pub platforms: Vec<PlatformConfig>,
+    /// 设备节点配置
+    #[serde(default)]
+    pub nodes: Vec<NodeConfig>,
+    /// 网络适配器配置
+    #[serde(default)]
+    pub adapters: Vec<AdapterConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComputeCategoryConfig {
+    pub category: String,
+    pub enabled: bool,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlatformConfig {
+    pub platform: String,
+    pub enabled: bool,
+    #[serde(default)]
+    pub capabilities: PlatformCapabilities,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PlatformCapabilities {
+    #[serde(default)]
+    pub min_cpu_cores: Option<u32>,
+    #[serde(default)]
+    pub min_memory_mb: Option<u32>,
+    #[serde(default)]
+    pub has_gpu: bool,
+    #[serde(default)]
+    pub has_npu: bool,
+    #[serde(default)]
+    pub supported_peripherals: Vec<String>,
+    #[serde(default)]
+    pub supported_sensors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeConfig {
+    pub node_type: String,
+    pub enabled: bool,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<CapabilityConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapabilityConfig {
+    pub id: String,
+    pub name: String,
+    pub enabled: bool,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdapterConfig {
+    pub adapter_type: String,
+    pub enabled: bool,
+    #[serde(default)]
+    pub config: HashMap<String, serde_json::Value>,
 }
 
 impl WorkspaceConfig {
