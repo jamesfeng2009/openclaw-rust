@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install protoc
-        uses: arduino/setup-protoc@v4
+        uses: arduino/setup-protoc@v3
         with:
           version: '29'
       - uses: dtolnay/rust-toolchain@stable
@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install protoc
-        uses: arduino/setup-protoc@v4
+        uses: arduino/setup-protoc@v3
         with:
           version: '29'
       - uses: dtolnay/rust-toolchain@stable
@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install protoc
-        uses: arduino/setup-protoc@v4
+        uses: arduino/setup-protoc@v3
         with:
           version: '29'
       - uses: dtolnay/rust-toolchain@stable
@@ -60,7 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install protoc
-        uses: arduino/setup-protoc@v4
+        uses: arduino/setup-protoc@v3
         with:
           version: '29'
       - uses: dtolnay/rust-toolchain@stable
@@ -75,7 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install protoc
-        uses: arduino/setup-protoc@v4
+        uses: arduino/setup-protoc@v3
         with:
           version: '29'
       - uses: dtolnay/rust-toolchain@stable
@@ -90,7 +90,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install protoc
-        uses: arduino/setup-protoc@v4
+        uses: arduino/setup-protoc@v3
         with:
           version: '29'
       - uses: dtolnay/rust-toolchain@stable
@@ -107,7 +107,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install protoc
-        uses: arduino/setup-protoc@v4
+        uses: arduino/setup-protoc@v3
         with:
           version: '29'
       - uses: dtolnay/rust-toolchain@stable
