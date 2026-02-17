@@ -9,6 +9,14 @@ use openclaw_voice::{
     TalkModeBuilder, TalkModeEvent, TtsProvider, VoiceConfigManager,
 };
 use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+use openclaw_voice::provider::ProviderRegistry;
+
+lazy_static! {
+    static ref PROVIDER_REGISTRY: Arc<RwLock<ProviderRegistry>> = Arc::new(RwLock::new(ProviderRegistry::new()));
+}
 
 #[derive(Debug, Subcommand)]
 pub enum VoiceCommand {
@@ -95,6 +103,17 @@ pub enum VoiceCommand {
 }
 
 impl VoiceCommand {
+    /// 初始化全局提供商注册表
+    pub fn init_registry(manager: &VoiceConfigManager) {
+        if let Some(ref custom) = manager.voice.custom_providers {
+            let registry = PROVIDER_REGISTRY.clone();
+            tokio::runtime::Handle::current().block_on(async move {
+                let reg = registry.write().await;
+                reg.load_from_config(custom).await;
+            });
+        }
+    }
+
     /// 执行命令
     pub async fn execute(&self) -> Result<(), OpenClawError> {
         let mut manager = VoiceConfigManager::load();
@@ -118,10 +137,17 @@ impl VoiceCommand {
                         println!("✅ 已设置 OpenAI API Key");
                     }
                     "azure" => {
-                        println!("⚠️  Azure Speech 尚未实现");
+                        manager.set_stt_api_key(SttProvider::Azure, api_key.clone());
+                        if let Some(base_url) = url {
+                            manager.set_azure_region(base_url.clone());
+                        }
+                        manager.save()?;
+                        println!("✅ 已设置 Azure Speech API Key");
                     }
                     "google" => {
-                        println!("⚠️  Google Speech 尚未实现");
+                        manager.set_stt_api_key(SttProvider::Google, api_key.clone());
+                        manager.save()?;
+                        println!("✅ 已设置 Google Speech API Key");
                     }
                     _ => {
                         println!("❌ 不支持的提供商: {}", provider);

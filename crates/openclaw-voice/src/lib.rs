@@ -23,6 +23,7 @@ pub mod types;
 pub mod config;
 pub mod wake;
 pub mod voice_agent;
+pub mod provider;
 
 pub use stt::*;
 pub use tts::*;
@@ -32,3 +33,4 @@ pub use types::*;
 pub use config::*;
 pub use wake::*;
 pub use voice_agent::*;
+pub use provider::{ProviderRegistry, CustomProviderConfig, CustomTtsConfig, CustomSttConfig};

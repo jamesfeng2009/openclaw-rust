@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::provider::CustomProviderConfig;
+
 /// STT 提供商
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -14,6 +16,8 @@ pub enum SttProvider {
     Azure,
     /// Google Cloud Speech
     Google,
+    /// 自定义提供商 (用户配置)
+    Custom(String),
 }
 
 impl Default for SttProvider {
@@ -36,6 +40,8 @@ pub enum TtsProvider {
     Google,
     /// ElevenLabs TTS
     ElevenLabs,
+    /// 自定义提供商 (用户配置)
+    Custom(String),
 }
 
 impl Default for TtsProvider {
@@ -218,6 +224,9 @@ pub struct VoiceConfig {
     pub tts_config: TtsConfig,
     /// 是否启用
     pub enabled: bool,
+    /// 自定义提供商配置
+    #[serde(default)]
+    pub custom_providers: Option<CustomProviderConfig>,
 }
 
 impl Default for VoiceConfig {
@@ -228,6 +237,7 @@ impl Default for VoiceConfig {
             stt_config: SttConfig::default(),
             tts_config: TtsConfig::default(),
             enabled: false,
+            custom_providers: None,
         }
     }
 }
@@ -246,6 +256,12 @@ pub struct SttConfig {
     pub language: Option<String>,
     /// 本地模型路径
     pub local_model_path: Option<String>,
+    /// Azure Speech API Key
+    pub azure_api_key: Option<String>,
+    /// Azure Speech 区域
+    pub azure_region: Option<String>,
+    /// Google Cloud API Key
+    pub google_api_key: Option<String>,
 }
 
 impl Default for SttConfig {
@@ -256,6 +272,9 @@ impl Default for SttConfig {
             whisper_model: WhisperModel::default(),
             language: None,
             local_model_path: None,
+            azure_api_key: None,
+            azure_region: None,
+            google_api_key: None,
         }
     }
 }
@@ -284,6 +303,12 @@ pub struct TtsConfig {
     /// ElevenLabs Model ID
     #[serde(default = "default_elevenlabs_model")]
     pub elevenlabs_model: String,
+    /// Azure Speech API Key
+    pub azure_api_key: Option<String>,
+    /// Azure Speech 区域
+    pub azure_region: Option<String>,
+    /// Google Cloud API Key
+    pub google_api_key: Option<String>,
 }
 
 fn default_speed() -> f32 {
@@ -305,6 +330,9 @@ impl Default for TtsConfig {
             default_format: AudioFormat::Mp3,
             elevenlabs_api_key: None,
             elevenlabs_model: "eleven_multilingual_v2".to_string(),
+            azure_api_key: None,
+            azure_region: None,
+            google_api_key: None,
         }
     }
 }

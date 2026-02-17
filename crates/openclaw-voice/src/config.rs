@@ -55,6 +55,12 @@ impl VoiceConfigManager {
             SttProvider::OpenAI => {
                 self.voice.stt_config.openai_api_key = Some(api_key);
             }
+            SttProvider::Azure => {
+                self.voice.stt_config.azure_api_key = Some(api_key);
+            }
+            SttProvider::Google => {
+                self.voice.stt_config.google_api_key = Some(api_key);
+            }
             _ => {}
         }
     }
@@ -65,6 +71,12 @@ impl VoiceConfigManager {
             TtsProvider::OpenAI => {
                 self.voice.tts_config.openai_api_key = Some(api_key);
             }
+            TtsProvider::Azure => {
+                self.voice.tts_config.azure_api_key = Some(api_key);
+            }
+            TtsProvider::Google => {
+                self.voice.tts_config.google_api_key = Some(api_key);
+            }
             _ => {}
         }
     }
@@ -73,6 +85,12 @@ impl VoiceConfigManager {
     pub fn set_openai_base_url(&mut self, base_url: String) {
         self.voice.stt_config.openai_base_url = Some(base_url.clone());
         self.voice.tts_config.openai_base_url = Some(base_url);
+    }
+
+    /// 设置 Azure Region
+    pub fn set_azure_region(&mut self, region: String) {
+        self.voice.stt_config.azure_region = Some(region.clone());
+        self.voice.tts_config.azure_region = Some(region);
     }
 
     /// 启用/禁用语音功能
@@ -97,6 +115,7 @@ pub fn default_voice_config() -> VoiceConfig {
         stt_config: SttConfig::default(),
         tts_config: TtsConfig::default(),
         enabled: false,
+        custom_providers: None,
     }
 }
 

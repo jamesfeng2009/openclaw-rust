@@ -1,5 +1,8 @@
 //! OpenClaw Rust CLI - 命令行工具
 
+#[macro_use]
+extern crate lazy_static;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
