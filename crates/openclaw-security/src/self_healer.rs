@@ -398,12 +398,7 @@ impl SelfHealer {
                         }
                     }
                 }
-                _ = async {
-                    if let Some(ref mut rx) = shutdown_rx {
-                        rx.await.ok();
-                    }
-                    std::future::pending::<()>()
-                } => {
+                _ = std::future::pending::<()>() => {
                     info!("Auto-recovery loop received shutdown signal");
                     break;
                 }

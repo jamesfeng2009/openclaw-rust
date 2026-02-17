@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          profile: minimal
+      - name: Build release
+        run: |
+          cargo build --release --bin openclaw-rust
+          cargo build --release --bin openclaw-cli
+      - name: Create artifacts
+        run: |
+          tar -czvf openclaw-rust-x86_64-unknown-linux-gnu.tar.gz \
+            -C target/release openclaw-rust openclaw-cli
+      - name: Upload artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: openclaw-rust-x86_64-unknown-linux-gnu.tar.gz
+          generate_release_notes: true
