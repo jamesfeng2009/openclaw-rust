@@ -52,7 +52,7 @@ openclaw-rust api-key validate openai sk-test
 
 ## 📁 配置文件位置
 
-默认配置文件路径：`~/.openclaw/user_config.json`
+默认配置文件路径：`~/.openclaw-rust/user_config.json`
 
 ### 配置文件示例
 
@@ -142,7 +142,7 @@ openclaw api-key set custom-provider your-api-key \
 
 ```bash
 # 设置配置文件权限（仅当前用户可读写）
-chmod 600 ~/.openclaw/user_config.json
+chmod 600 ~/.openclaw-rust/user_config.json
 ```
 
 ### 2. 环境变量（推荐）
@@ -281,8 +281,8 @@ openclaw-rust api-key get openai
 
 ```bash
 # 修复文件权限
-chmod 600 ~/.openclaw/user_config.json
-chown $USER:$USER ~/.openclaw/user_config.json
+chmod 600 ~/.openclaw-rust/user_config.json
+chown $USER:$USER ~/.openclaw-rust/user_config.json
 ```
 
 ---

@@ -2,6 +2,13 @@
 //!
 //! 提供设备能力节点：相机、屏幕录制、定位、通知、系统命令等
 //! 以及弹性计算和边缘计算的设备抽象层
+//!
+//! ## 模块架构
+//!
+//! - **平台层**: Platform 检测和分类
+//! - **设备层**: Device/Adapter 抽象
+//! - **HAL 层**: GPIO/I2C/SPI/Serial 硬件抽象
+//! - **框架层**: ROS2/MQTT/CAN 协议集成
 
 use std::sync::Arc;
 
@@ -21,6 +28,15 @@ pub mod registry;
 pub mod device_trait;
 pub mod embedded;
 
+// HAL 硬件抽象层
+pub mod hal;
+
+// 框架集成层
+pub mod framework;
+
+// 模块管理器
+pub mod modules;
+
 pub use nodes::*;
 pub use camera::*;
 pub use screen::*;
@@ -35,6 +51,22 @@ pub use adapter::*;
 pub use registry::*;
 pub use device_trait::*;
 pub use embedded::*;
+
+// HAL 硬件抽象层导出
+pub use hal::*;
+pub use hal::gpio::*;
+pub use hal::i2c::*;
+pub use hal::spi::*;
+pub use hal::serial::*;
+
+// 框架集成层导出
+pub use framework::*;
+pub use framework::ros2::*;
+pub use framework::mqtt::*;
+pub use framework::can::*;
+
+// 模块管理器导出
+pub use modules::*;
 
 static DEVICE_REGISTRY: std::sync::OnceLock<Arc<registry::DeviceRegistry>> = std::sync::OnceLock::new();
 

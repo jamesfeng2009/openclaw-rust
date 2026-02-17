@@ -22,8 +22,8 @@ pub struct FileTrackerConfig {
 impl Default for FileTrackerConfig {
     fn default() -> Self {
         Self {
-            data_dir: PathBuf::from(".openclaw/file_tracker"),
-            index_file: PathBuf::from(".openclaw/file_tracker/index.json"),
+            data_dir: PathBuf::from(".openclaw-rust/file_tracker"),
+            index_file: PathBuf::from(".openclaw-rust/file_tracker/index.json"),
         }
     }
 }

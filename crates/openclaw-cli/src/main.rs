@@ -81,7 +81,7 @@ enum Commands {
     /// Initialize configuration
     Init {
         /// Configuration file path
-        #[arg(short, long, default_value = "~/.openclaw/openclaw.json")]
+        #[arg(short, long, default_value = "~/.openclaw-rust/openclaw.json")]
         config: String,
     },
     /// Interactive setup wizard

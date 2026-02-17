@@ -140,7 +140,7 @@ fn check_cargo() -> CheckResult {
 /// 检查配置文件
 fn check_config_file() -> CheckResult {
     let config_path = dirs::home_dir()
-        .map(|h| h.join(".openclaw").join("openclaw.json"));
+        .map(|h| h.join(".openclaw-rust").join("openclaw.json"));
 
     match config_path {
         Some(path) if path.exists() => {
@@ -191,7 +191,7 @@ fn check_api_keys() -> CheckResult {
             name: "API 密钥".to_string(),
             status: CheckStatus::Warning,
             message: format!("缺少: {}", missing_keys.join(", ")),
-            fix_hint: Some("在 ~/.openclaw/openclaw.json 中设置 API 密钥，或设置环境变量".to_string()),
+            fix_hint: Some("在 ~/.openclaw-rust/openclaw.json 中设置 API 密钥，或设置环境变量".to_string()),
         }
     }
 }
@@ -334,7 +334,7 @@ fn run_fixes(results: &[CheckResult]) -> Result<()> {
                 "配置文件" => {
                     // 创建默认配置
                     if let Some(home) = dirs::home_dir() {
-                        let config_dir = home.join(".openclaw");
+                        let config_dir = home.join(".openclaw-rust");
                         std::fs::create_dir_all(&config_dir)?;
                         let config_path = config_dir.join("openclaw.json");
                         

@@ -25,8 +25,8 @@ pub struct MemoryPipelineConfig {
 impl Default for MemoryPipelineConfig {
     fn default() -> Self {
         Self {
-            workspace_path: PathBuf::from(".openclaw/agents"),
-            index_path: PathBuf::from(".openclaw/indexes"),
+            workspace_path: PathBuf::from(".openclaw-rust/agents"),
+            index_path: PathBuf::from(".openclaw-rust/indexes"),
             chunk_size: 400,
             chunk_overlap: 50,
             recall_config: RecallConfig::default(),

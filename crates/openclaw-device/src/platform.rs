@@ -44,12 +44,14 @@ pub enum Platform {
     RaspberryPi2,
     RaspberryPi3,
     RaspberryPi4,
+    RaspberryPi5,
     OrangePi,
     BananaPi,
     RockchipRk3588,
     NvidiaJetsonNano,
     NvidiaJetsonXavier,
     NvidiaJetsonOrin,
+    NvidiaJetsonOrinNano,
     GoogleCoral,
     
     // Arduino
@@ -63,10 +65,13 @@ pub enum Platform {
     Esp32S2,
     Esp32S3,
     Esp32C3,
+    Esp32C6,
+    Esp32P4,
     Stm32F1,
     Stm32F4,
     Stm32H7,
     RpiPico,
+    RpiPicoW,
     Nrf52,
     RiscV,
     
@@ -84,9 +89,9 @@ impl Platform {
             Self::AndroidAuto | Self::AppleCarPlay | Self::AutomotiveGradeLinux => ComputeCategory::Edge,
             
             // 边缘计算 - ARM 开发板
-            Self::RaspberryPi | Self::RaspberryPi2 | Self::RaspberryPi3 | Self::RaspberryPi4
+            Self::RaspberryPi | Self::RaspberryPi2 | Self::RaspberryPi3 | Self::RaspberryPi4 | Self::RaspberryPi5
             | Self::OrangePi | Self::BananaPi | Self::RockchipRk3588
-            | Self::NvidiaJetsonNano | Self::NvidiaJetsonXavier | Self::NvidiaJetsonOrin
+            | Self::NvidiaJetsonNano | Self::NvidiaJetsonXavier | Self::NvidiaJetsonOrin | Self::NvidiaJetsonOrinNano
             | Self::GoogleCoral => ComputeCategory::Edge,
             
             // 边缘计算 - 标准平台
@@ -98,9 +103,9 @@ impl Platform {
             Self::ArduinoUno | Self::ArduinoNano | Self::ArduinoMega | Self::ArduinoDue => ComputeCategory::Embedded,
             
             // 嵌入式 - 其他
-            Self::Esp32 | Self::Esp32S2 | Self::Esp32S3 | Self::Esp32C3
+            Self::Esp32 | Self::Esp32S2 | Self::Esp32S3 | Self::Esp32C3 | Self::Esp32C6 | Self::Esp32P4
             | Self::Stm32F1 | Self::Stm32F4 | Self::Stm32H7
-            | Self::RpiPico | Self::Nrf52 | Self::RiscV => ComputeCategory::Embedded,
+            | Self::RpiPico | Self::RpiPicoW | Self::Nrf52 | Self::RiscV => ComputeCategory::Embedded,
             
             Self::Unknown => ComputeCategory::Edge,
         }
@@ -129,12 +134,14 @@ impl Platform {
             Self::RaspberryPi2 => "raspberry_pi_2",
             Self::RaspberryPi3 => "raspberry_pi_3",
             Self::RaspberryPi4 => "raspberry_pi_4",
+            Self::RaspberryPi5 => "raspberry_pi_5",
             Self::OrangePi => "orange_pi",
             Self::BananaPi => "banana_pi",
             Self::RockchipRk3588 => "rockchip_rk3588",
             Self::NvidiaJetsonNano => "nvidia_jetson_nano",
             Self::NvidiaJetsonXavier => "nvidia_jetson_xavier",
             Self::NvidiaJetsonOrin => "nvidia_jetson_orin",
+            Self::NvidiaJetsonOrinNano => "nvidia_jetson_orin_nano",
             Self::GoogleCoral => "google_coral",
             Self::ArduinoUno => "arduino_uno",
             Self::ArduinoNano => "arduino_nano",
@@ -144,10 +151,13 @@ impl Platform {
             Self::Esp32S2 => "esp32s2",
             Self::Esp32S3 => "esp32s3",
             Self::Esp32C3 => "esp32c3",
+            Self::Esp32C6 => "esp32c6",
+            Self::Esp32P4 => "esp32p4",
             Self::Stm32F1 => "stm32f1",
             Self::Stm32F4 => "stm32f4",
             Self::Stm32H7 => "stm32h7",
             Self::RpiPico => "rpi_pico",
+            Self::RpiPicoW => "rpi_pico_w",
             Self::Nrf52 => "nrf52",
             Self::RiscV => "risc_v",
             Self::Unknown => "unknown",

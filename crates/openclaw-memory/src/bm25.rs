@@ -257,7 +257,7 @@ pub struct Bm25Config {
 impl Default for Bm25Config {
     fn default() -> Self {
         Self {
-            index_path: PathBuf::from(".openclaw/indexes/bm25"),
+            index_path: PathBuf::from(".openclaw-rust/indexes/bm25"),
             default_limit: 10,
             min_score: 0.1,
         }

@@ -474,7 +474,7 @@ pub struct AgentDefaults {
 impl Default for AgentDefaults {
     fn default() -> Self {
         Self {
-            workspace: PathBuf::from("~/.openclaw/workspace"),
+            workspace: PathBuf::from("~/.openclaw-rust/workspace"),
         }
     }
 }

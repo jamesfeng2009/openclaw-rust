@@ -733,7 +733,7 @@ pub async fn execute(cmd: DaemonCommand) -> Result<()> {
 
 fn get_default_pid_path() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    PathBuf::from(format!("{}/.openclaw/openclaw.pid", home))
+    PathBuf::from(format!("{}/.openclaw-rust/openclaw.pid", home))
 }
 
 #[cfg(target_os = "macos")]

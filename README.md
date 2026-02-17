@@ -216,7 +216,7 @@ cargo run -- daemon uninstall
 
 ## ⚙️ 配置
 
-配置文件位于 `~/.openclaw/openclaw.json`:
+配置文件位于 `~/.openclaw-rust/openclaw.json`:
 
 ```json
 {

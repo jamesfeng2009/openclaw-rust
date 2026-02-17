@@ -24,7 +24,7 @@
 
 #### 步骤3：配置 OpenClaw Rust
 
-编辑 `~/.openclaw/openclaw.json`:
+编辑 `~/.openclaw-rust/openclaw.json`:
 
 ```json
 {
@@ -117,7 +117,7 @@ https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx-xxx-xxx-xxx
 
 #### 步骤3：配置 OpenClaw Rust
 
-编辑 `~/.openclaw/openclaw.json`:
+编辑 `~/.openclaw-rust/openclaw.json`:
 
 ```json
 {

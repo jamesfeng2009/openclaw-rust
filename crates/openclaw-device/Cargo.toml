@@ -7,6 +7,18 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+hal = []
+framework = []
+ros2 = ["framework"]
+mqtt = ["framework"]
+can = ["framework"]
+gpio = ["hal"]
+i2c = ["hal"]
+spi = ["hal"]
+serial = ["hal"]
+
 [dependencies]
 openclaw-core = { path = "../openclaw-core" }
 openclaw-tools = { path = "../openclaw-tools" }

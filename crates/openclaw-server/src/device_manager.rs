@@ -92,6 +92,7 @@ impl DeviceManager {
         use openclaw_device::Platform;
         
         let platform = match s.to_lowercase().as_str() {
+            // 弹性计算
             "cloud_server" => Platform::CloudServer,
             "docker" => Platform::Docker,
             "kubernetes" => Platform::Kubernetes,
@@ -103,14 +104,47 @@ impl DeviceManager {
             "macos_apple_silicon" => Platform::MacOSAppleSilicon,
             "android" => Platform::Android,
             "ios" => Platform::iOS,
+            
+            // ARM 开发板
             "raspberry_pi" | "rpi" => Platform::RaspberryPi,
+            "raspberry_pi_2" | "rpi2" => Platform::RaspberryPi2,
+            "raspberry_pi_3" | "rpi3" => Platform::RaspberryPi3,
             "raspberry_pi_4" | "rpi4" => Platform::RaspberryPi4,
+            "raspberry_pi_5" | "rpi5" => Platform::RaspberryPi5,
             "orange_pi" => Platform::OrangePi,
+            "banana_pi" => Platform::BananaPi,
+            "rockchip_rk3588" | "rk3588" => Platform::RockchipRk3588,
             "nvidia_jetson_nano" => Platform::NvidiaJetsonNano,
             "nvidia_jetson_xavier" => Platform::NvidiaJetsonXavier,
             "nvidia_jetson_orin" => Platform::NvidiaJetsonOrin,
+            "nvidia_jetson_orin_nano" => Platform::NvidiaJetsonOrinNano,
+            "google_coral" => Platform::GoogleCoral,
+            
+            // Arduino
+            "arduino_uno" => Platform::ArduinoUno,
+            "arduino_nano" => Platform::ArduinoNano,
+            "arduino_mega" => Platform::ArduinoMega,
+            "arduino_due" => Platform::ArduinoDue,
+            
+            // ESP32
             "esp32" => Platform::Esp32,
-            "stm32" => Platform::Stm32F4,
+            "esp32s2" | "esp32_s2" => Platform::Esp32S2,
+            "esp32s3" | "esp32_s3" => Platform::Esp32S3,
+            "esp32c3" | "esp32_c3" => Platform::Esp32C3,
+            "esp32c6" | "esp32_c6" => Platform::Esp32C6,
+            "esp32p4" | "esp32_p4" => Platform::Esp32P4,
+            
+            // STM32
+            "stm32f1" => Platform::Stm32F1,
+            "stm32f4" => Platform::Stm32F4,
+            "stm32h7" => Platform::Stm32H7,
+            
+            // 其他嵌入式
+            "rpi_pico" | "pico" => Platform::RpiPico,
+            "rpi_pico_w" | "pico_w" => Platform::RpiPicoW,
+            "nrf52" => Platform::Nrf52,
+            "risc_v" | "riscv" => Platform::RiscV,
+            
             _ => {
                 tracing::warn!("Unknown platform: {}, using Unknown", s);
                 Platform::Unknown
