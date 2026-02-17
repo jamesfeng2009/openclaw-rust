@@ -191,10 +191,38 @@ impl MemoryManager {
     /// 归档到长期记忆
     async fn archive_to_long_term(
         &self,
-        _store: &dyn VectorStore,
-        _item: MemoryItem,
+        store: &dyn VectorStore,
+        mut item: MemoryItem,
     ) -> Result<()> {
-        // TODO: 向量化并存储
+        let text = item.content.to_text();
+        let vector_id = item.id.to_string();
+        
+        let embedding = if let Some(provider) = &self.embedding_provider {
+            provider.embed(&text).await?
+        } else {
+            return Err(OpenClawError::Config("未配置嵌入向量提供者".to_string()));
+        };
+
+        let vector_item = openclaw_vector::VectorItem {
+            id: vector_id.clone(),
+            vector: embedding,
+            payload: serde_json::json!({
+                "memory_id": item.id.to_string(),
+                "level": item.level,
+                "importance": item.importance_score,
+                "text_preview": if text.len() > 200 { &text[..200] } else { &text },
+            }),
+            created_at: item.created_at,
+        };
+
+        store.upsert(vector_item).await?;
+
+        item.content = crate::types::MemoryContent::VectorRef {
+            vector_id,
+            preview: if text.len() > 200 { format!("{}...", &text[..200]) } else { text },
+        };
+        item.level = MemoryLevel::LongTerm;
+        
         Ok(())
     }
 }
@@ -229,5 +257,27 @@ mod tests {
 
         let stats = manager.stats();
         assert_eq!(stats.working_count, 2);
+    }
+
+    #[test]
+    fn test_memory_content_to_text() {
+        use crate::types::MemoryContent;
+        
+        let content = MemoryContent::Message {
+            message: Message::user("Hello"),
+        };
+        assert_eq!(content.to_text(), "Hello");
+        
+        let summary = MemoryContent::Summary {
+            text: "Summary text".to_string(),
+            original_count: 5,
+        };
+        assert_eq!(summary.to_text(), "Summary text");
+        
+        let vector_ref = MemoryContent::VectorRef {
+            vector_id: "123".to_string(),
+            preview: "Preview text".to_string(),
+        };
+        assert_eq!(vector_ref.to_text(), "Preview text");
     }
 }

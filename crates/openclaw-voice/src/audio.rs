@@ -4,7 +4,6 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use openclaw_core::{OpenClawError, Result};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::collections::VecDeque;
 use std::sync::Mutex;
 
 /// 音频格式信息

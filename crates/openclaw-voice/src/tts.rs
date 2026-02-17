@@ -1,13 +1,11 @@
 //! 语音合成 (TTS) 模块
 
 use async_trait::async_trait;
+use base64::Engine;
 use openclaw_core::{OpenClawError, Result};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 
-use crate::types::{
-    AudioFormat, OpenAIVoice, SynthesisOptions, TtsConfig, TtsModel, TtsProvider,
-};
+use crate::types::{AudioFormat, SynthesisOptions, TtsConfig, TtsProvider};
 
 /// 语音合成 Trait
 #[async_trait]
@@ -327,13 +325,220 @@ pub fn create_tts(provider: TtsProvider, config: TtsConfig) -> Box<dyn TextToSpe
     match provider {
         TtsProvider::OpenAI => Box::new(OpenAITts::new(config.clone())),
         TtsProvider::Edge => Box::new(EdgeTts::new()),
-        TtsProvider::Azure => {
-            unimplemented!("Azure TTS 尚未实现")
-        }
-        TtsProvider::Google => {
-            unimplemented!("Google TTS 尚未实现")
-        }
+        TtsProvider::Azure => Box::new(AzureTts::new(config)),
+        TtsProvider::Google => Box::new(GoogleTts::new(config)),
         TtsProvider::ElevenLabs => Box::new(ElevenLabsTts::new(config)),
+        TtsProvider::Custom(_) => Box::new(OpenAITts::new(config)),
+    }
+}
+
+/// Azure TTS
+pub struct AzureTts {
+    config: TtsConfig,
+    client: Client,
+}
+
+impl AzureTts {
+    pub fn new(config: TtsConfig) -> Self {
+        Self {
+            config,
+            client: Client::new(),
+        }
+    }
+
+    fn get_endpoint(&self) -> Result<String> {
+        let region = self.config.azure_region.as_ref()
+            .ok_or_else(|| OpenClawError::Config("Azure region 未配置".to_string()))?;
+        Ok(format!(
+            "https://{}.tts.speech.microsoft.com/cognitiveservices/v1",
+            region
+        ))
+    }
+
+    fn get_api_key(&self) -> Result<String> {
+        self.config.azure_api_key.clone()
+            .ok_or_else(|| OpenClawError::Config("Azure API Key 未配置".to_string()))
+    }
+}
+
+#[async_trait]
+impl TextToSpeech for AzureTts {
+    fn provider(&self) -> TtsProvider {
+        TtsProvider::Azure
+    }
+
+    async fn synthesize(
+        &self,
+        text: &str,
+        options: Option<SynthesisOptions>,
+    ) -> Result<Vec<u8>> {
+        let api_key = self.get_api_key()?;
+        let endpoint = self.get_endpoint()?;
+        let opts = options.unwrap_or_default();
+        
+        let voice = opts.voice.unwrap_or_else(|| "zh-CN-XiaoxiaoNeural".to_string());
+        let speed = opts.speed.unwrap_or(1.0);
+        let pitch = opts.pitch.unwrap_or(0.0);
+
+        let ssml = format!(
+            r#"<speak version='1.0' xml:lang='zh-CN'><voice name='{}'><prosody rate='{}%' pitch='{}%'>{}</prosody></voice></speak>"#,
+            voice,
+            (speed - 1.0) * 100.0,
+            pitch * 10.0,
+            text
+        );
+
+        let response = self.client
+            .post(&endpoint)
+            .header("Ocp-Apim-Subscription-Key", api_key)
+            .header("Content-Type", "application/ssml+xml")
+            .header("X-Microsoft-OutputFormat", "audio-24khz-48kbitrate-mono-mp3")
+            .body(ssml)
+            .send()
+            .await
+            .map_err(|e| OpenClawError::Http(format!("Azure TTS 请求失败: {}", e)))?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(OpenClawError::AIProvider(format!(
+                "Azure TTS 错误: {} - {}",
+                status, error_text
+            )));
+        }
+
+        let audio_data = response.bytes().await
+            .map_err(|e| OpenClawError::Http(format!("读取音频数据失败: {}", e)))?;
+
+        Ok(audio_data.to_vec())
+    }
+
+    async fn is_available(&self) -> bool {
+        self.config.azure_api_key.is_some() && self.config.azure_region.is_some()
+    }
+
+    fn available_voices(&self) -> Vec<String> {
+        vec![
+            "zh-CN-XiaoxiaoNeural".to_string(),
+            "zh-CN-YunxiNeural".to_string(),
+            "zh-CN-YunyangNeural".to_string(),
+            "en-US-AriaNeural".to_string(),
+            "en-US-GuyNeural".to_string(),
+            "ja-JP-NanamiNeural".to_string(),
+            "ko-JI-YoungjiNeural".to_string(),
+        ]
+    }
+}
+
+/// Google Cloud TTS
+pub struct GoogleTts {
+    config: TtsConfig,
+    client: Client,
+}
+
+impl GoogleTts {
+    pub fn new(config: TtsConfig) -> Self {
+        Self {
+            config,
+            client: Client::new(),
+        }
+    }
+
+    fn get_api_key(&self) -> Result<String> {
+        self.config.google_api_key.clone()
+            .ok_or_else(|| OpenClawError::Config("Google API Key 未配置".to_string()))
+    }
+}
+
+#[async_trait]
+impl TextToSpeech for GoogleTts {
+    fn provider(&self) -> TtsProvider {
+        TtsProvider::Google
+    }
+
+    async fn synthesize(
+        &self,
+        text: &str,
+        options: Option<SynthesisOptions>,
+    ) -> Result<Vec<u8>> {
+        let api_key = self.get_api_key()?;
+        let opts = options.unwrap_or_default();
+        
+        let voice = opts.voice.unwrap_or_else(|| "en-US-Neural2-F".to_string());
+        let speed = opts.speed.unwrap_or(1.0);
+        let pitch = opts.pitch.unwrap_or(0.0);
+
+        let (language_code, voice_name) = if voice.contains('-') {
+            let parts: Vec<&str> = voice.split('-').collect();
+            if parts.len() >= 2 {
+                (format!("{}-{}", parts[0], parts[1]), voice.clone())
+            } else {
+                ("en-US".to_string(), voice)
+            }
+        } else {
+            ("en-US".to_string(), format!("en-US-Neural2-{}", if voice == "male" { "M" } else { "F" }))
+        };
+
+        let request_body = serde_json::json!({
+            "input": { "text": text },
+            "voice": {
+                "languageCode": language_code,
+                "name": voice_name
+            },
+            "audioConfig": {
+                "audioEncoding": "MP3",
+                "speakingRate": speed,
+                "pitch": pitch
+            }
+        });
+
+        let url = format!(
+            "https://texttospeech.googleapis.com/v1/text:synthesize?key={}",
+            api_key
+        );
+
+        let response = self.client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| OpenClawError::Http(format!("Google TTS 请求失败: {}", e)))?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(OpenClawError::AIProvider(format!(
+                "Google TTS 错误: {} - {}",
+                status, error_text
+            )));
+        }
+
+        let json: serde_json::Value = response.json().await
+            .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
+
+        let audio_content = json.get("audioContent")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| OpenClawError::Config("响应中未找到 audioContent".to_string()))?;
+
+        let audio_data = base64::engine::general_purpose::STANDARD.decode(audio_content)
+            .map_err(|e| OpenClawError::Config(format!("Base64 解码失败: {}", e)))?;
+
+        Ok(audio_data)
+    }
+
+    async fn is_available(&self) -> bool {
+        self.config.google_api_key.is_some()
+    }
+
+    fn available_voices(&self) -> Vec<String> {
+        vec![
+            "en-US-Neural2-F".to_string(),
+            "en-US-Neural2-M".to_string(),
+            "zh-CN-Neural2-A".to_string(),
+            "ja-JP-Neural2-B".to_string(),
+            "ko-KR-Neural2-A".to_string(),
+        ]
     }
 }
 

@@ -43,6 +43,18 @@ pub enum MemoryContent {
     VectorRef { vector_id: String, preview: String },
 }
 
+impl MemoryContent {
+    pub fn to_text(&self) -> String {
+        match self {
+            MemoryContent::Message { message } => {
+                message.text_content().unwrap_or_default().to_string()
+            }
+            MemoryContent::Summary { text, .. } => text.clone(),
+            MemoryContent::VectorRef { preview, .. } => preview.clone(),
+        }
+    }
+}
+
 /// 记忆元数据
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MemoryMetadata {

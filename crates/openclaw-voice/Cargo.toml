@@ -19,6 +19,7 @@ thiserror.workspace = true
 chrono.workspace = true
 uuid.workspace = true
 base64 = "0.22"
+zip = "2.1"
 
 # 音频处理
 cpal = "0.15"           # 音频 I/O

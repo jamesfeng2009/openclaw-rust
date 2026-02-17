@@ -3,11 +3,12 @@
 mod local;
 
 use async_trait::async_trait;
+use base64::Engine;
 use openclaw_core::{OpenClawError, Result};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-use crate::types::{SttConfig, SttProvider, TranscriptionResult, WhisperModel};
+use crate::types::{SttConfig, SttProvider, TranscriptionResult};
 
 pub use local::{LocalWhisperConfig, LocalWhisperStt, WhisperModelInfo, WhisperModelType};
 
@@ -150,6 +151,215 @@ struct WhisperResponse {
     duration: Option<f64>,
 }
 
+/// Azure Speech STT
+ pub struct AzureStt {
+     config: SttConfig,
+     client: Client,
+ }
+
+ impl AzureStt {
+     pub fn new(config: SttConfig) -> Self {
+         Self {
+             config,
+             client: Client::new(),
+         }
+     }
+
+     fn get_endpoint(&self) -> Result<String> {
+         let region = self.config.azure_region.as_ref()
+             .ok_or_else(|| OpenClawError::Config("Azure region 未配置".to_string()))?;
+         Ok(format!(
+             "https://{}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1",
+             region
+         ))
+     }
+
+     fn get_api_key(&self) -> Result<String> {
+         self.config.azure_api_key.clone()
+             .ok_or_else(|| OpenClawError::Config("Azure API Key 未配置".to_string()))
+     }
+ }
+
+#[async_trait]
+impl SpeechToText for AzureStt {
+    fn provider(&self) -> SttProvider {
+        SttProvider::Azure
+    }
+
+    async fn transcribe(
+        &self,
+        audio_data: &[u8],
+        language: Option<&str>,
+    ) -> Result<TranscriptionResult> {
+        let api_key = self.get_api_key()?;
+        let endpoint = self.get_endpoint()?;
+        
+        let lang = language.or(self.config.language.as_deref()).unwrap_or("zh-CN");
+
+        let form = reqwest::multipart::Form::new()
+            .text("language", lang.to_string())
+            .text("format", "detailed")
+            .part(
+                "file",
+                reqwest::multipart::Part::bytes(audio_data.to_vec())
+                    .file_name("audio.wav")
+                    .mime_str("audio/wav")
+                    .map_err(|e| OpenClawError::Http(format!("创建 multipart 失败: {}", e)))?,
+            );
+
+        let response = self.client
+            .post(&endpoint)
+            .header("Ocp-Apim-Subscription-Key", api_key)
+            .multipart(form)
+            .send()
+            .await
+            .map_err(|e| OpenClawError::Http(format!("Azure STT 请求失败: {}", e)))?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(OpenClawError::AIProvider(format!(
+                "Azure STT 错误: {} - {}",
+                status, error_text
+            )));
+        }
+
+        let result: AzureSttResponse = response.json().await
+            .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
+
+        Ok(TranscriptionResult {
+            text: result.DisplayText,
+            language: Some(lang.to_string()),
+            duration: result.Duration.map(|d| d as f64 / 1000.0),
+            confidence: None,
+        })
+    }
+
+    async fn is_available(&self) -> bool {
+        self.config.azure_api_key.is_some() && self.config.azure_region.is_some()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct AzureSttResponse {
+    DisplayText: String,
+    Duration: Option<i64>,
+    Offset: Option<i64>,
+}
+
+/// Google Cloud STT
+pub struct GoogleStt {
+    config: SttConfig,
+    client: Client,
+}
+
+impl GoogleStt {
+    pub fn new(config: SttConfig) -> Self {
+        Self {
+            config,
+            client: Client::new(),
+        }
+    }
+
+    fn get_api_key(&self) -> Result<String> {
+        self.config.google_api_key.clone()
+            .ok_or_else(|| OpenClawError::Config("Google API Key 未配置".to_string()))
+    }
+}
+
+#[async_trait]
+impl SpeechToText for GoogleStt {
+    fn provider(&self) -> SttProvider {
+        SttProvider::Google
+    }
+
+    async fn transcribe(
+        &self,
+        audio_data: &[u8],
+        language: Option<&str>,
+    ) -> Result<TranscriptionResult> {
+        let api_key = self.get_api_key()?;
+        let lang = language.or(self.config.language.as_deref()).unwrap_or("zh-CN");
+
+        let audio_base64 = base64::engine::general_purpose::STANDARD.encode(audio_data);
+
+        let request_body = serde_json::json!({
+            "config": {
+                "encoding": "LINEAR16",
+                "sampleRateHertz": 16000,
+                "languageCode": lang
+            },
+            "audio": {
+                "content": audio_base64
+            }
+        });
+
+        let url = format!(
+            "https://speech.googleapis.com/v1/speech:recognize?key={}",
+            api_key
+        );
+
+        let response = self.client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| OpenClawError::Http(format!("Google STT 请求失败: {}", e)))?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(OpenClawError::AIProvider(format!(
+                "Google STT 错误: {} - {}",
+                status, error_text
+            )));
+        }
+
+        let result: GoogleSttResponse = response.json().await
+            .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
+
+        let mut text = String::new();
+        if let Some(results) = result.results {
+            for result in results {
+                if let Some(alternatives) = result.alternatives {
+                    if let Some(alt) = alternatives.first() {
+                        text = alt.transcript.clone();
+                        break;
+                    }
+                }
+            }
+        }
+
+        Ok(TranscriptionResult {
+            text,
+            language: Some(lang.to_string()),
+            duration: None,
+            confidence: None,
+        })
+    }
+
+    async fn is_available(&self) -> bool {
+        self.config.google_api_key.is_some()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct GoogleSttResponse {
+    results: Option<Vec<GoogleSttResult>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GoogleSttResult {
+    alternatives: Option<Vec<GoogleSttAlternative>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GoogleSttAlternative {
+    transcript: String,
+    confidence: Option<f32>,
+}
+
 /// 创建 STT 实例
 pub fn create_stt(provider: SttProvider, config: SttConfig) -> Box<dyn SpeechToText> {
     match provider {
@@ -162,12 +372,9 @@ pub fn create_stt(provider: SttProvider, config: SttConfig) -> Box<dyn SpeechToT
             };
             Box::new(LocalWhisperStt::new(local_config))
         }
-        SttProvider::Azure => {
-            unimplemented!("Azure Speech 尚未实现")
-        }
-        SttProvider::Google => {
-            unimplemented!("Google Speech 尚未实现")
-        }
+        SttProvider::Azure => Box::new(AzureStt::new(config)),
+        SttProvider::Google => Box::new(GoogleStt::new(config)),
+        SttProvider::Custom(_) => Box::new(OpenAIWhisperStt::new(config)),
     }
 }
 

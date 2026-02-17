@@ -16,6 +16,7 @@ mod doctor_cmd;
 mod daemon_cmd;
 mod message_cmd;
 mod agent_cmd;
+mod skill_cmd;
 
 #[derive(Parser)]
 #[command(name = "openclaw-rust")]
@@ -71,6 +72,11 @@ enum Commands {
     Voice {
         #[command(subcommand)]
         command: voice_cmd::VoiceCommand,
+    },
+    /// Skill marketplace commands
+    Skill {
+        #[command(subcommand)]
+        command: skill_cmd::SkillCommand,
     },
     /// Initialize configuration
     Init {
@@ -177,6 +183,9 @@ async fn main() -> Result<()> {
         }
         Commands::Voice { command } => {
             command.execute().await?;
+        }
+        Commands::Skill { command } => {
+            skill_cmd::execute(command).await?;
         }
         Commands::Init { config } => {
             commands::init::run(&config).await?;

@@ -83,6 +83,9 @@ pub struct AiConfig {
     pub token_budget: TokenBudget,
     #[serde(default)]
     pub auth_profiles: Vec<AuthProfile>,
+    /// 是否使用精确的 token 计数 (tiktoken)
+    #[serde(default)]
+    pub use_accurate_token_count: bool,
 }
 
 impl Default for AiConfig {
@@ -92,6 +95,7 @@ impl Default for AiConfig {
             providers: vec![],
             token_budget: TokenBudget::default(),
             auth_profiles: vec![],
+            use_accurate_token_count: false,
         }
     }
 }

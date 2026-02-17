@@ -7,6 +7,7 @@ use openclaw_core::OpenClawError;
 use openclaw_voice::{
     SttProvider, SynthesisOptions,
     TalkModeBuilder, TalkModeEvent, TtsProvider, VoiceConfigManager,
+    AudioUtils, AudioPlayer,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -353,12 +354,31 @@ impl VoiceCommand {
 
             VoiceCommand::CheckMic => {
                 println!("🎤 检查麦克风...");
-                // TODO: 实现麦克风检测
-                println!("⚠️  麦克风检测功能开发中");
-                println!();
-                println!("手动测试方法:");
-                println!("  1. 确保系统已授权麦克风权限");
-                println!("  2. 使用 'openclaw-rust voice talk' 测试录音");
+                
+                match AudioUtils::get_input_device_info() {
+                    Ok((name, info)) => {
+                        println!("✅ 找到麦克风: {}", name);
+                        println!("   - 采样率: {} Hz", info.sample_rate);
+                        println!("   - 声道数: {}", info.channels);
+                        println!("   - 位深度: {} bit", info.bits_per_sample);
+                    }
+                    Err(e) => {
+                        println!("❌ 麦克风检测失败: {}", e);
+                        println!();
+                        println!("请检查:");
+                        println!("  1. 系统已授权麦克风权限");
+                        println!("  2. 麦克风已正确连接");
+                    }
+                }
+                
+                let input_devices = AudioUtils::list_input_devices().unwrap_or_default();
+                if !input_devices.is_empty() {
+                    println!();
+                    println!("📋 输入设备列表:");
+                    for (i, device) in input_devices.iter().enumerate() {
+                        println!("   {}. {}", i + 1, device);
+                    }
+                }
             }
 
             VoiceCommand::Play { audio_file } => {
@@ -369,13 +389,40 @@ impl VoiceCommand {
                 }
 
                 println!("▶️  播放音频: {}", audio_file);
-                // TODO: 实现音频播放
-                println!("⚠️  音频播放功能开发中");
-                println!();
-                println!("临时方案: 使用系统播放器");
-                println!("  macOS: open {}", audio_file);
-                println!("  Linux: xdg-open {}", audio_file);
-                println!("  Windows: start {}", audio_file);
+                
+                let player = AudioPlayer::new();
+                match player.play_file(&path) {
+                    Ok(_) => {
+                        println!("✅ 播放完成");
+                    }
+                    Err(e) => {
+                        println!("❌ 播放失败: {}", e);
+                        println!();
+                        println!("尝试使用系统播放器...");
+                        #[cfg(target_os = "macos")]
+                        {
+                            std::process::Command::new("open")
+                                .arg(audio_file)
+                                .spawn()
+                                .ok();
+                        }
+                        #[cfg(target_os = "linux")]
+                        {
+                            std::process::Command::new("xdg-open")
+                                .arg(audio_file)
+                                .spawn()
+                                .ok();
+                        }
+                        #[cfg(target_os = "windows")]
+                        {
+                            std::process::Command::new("start")
+                                .arg("")
+                                .arg(audio_file)
+                                .spawn()
+                                .ok();
+                        }
+                    }
+                }
             }
         }
 
@@ -405,5 +452,24 @@ mod tests {
             mask_api_key("sk-1234567890abcdef"),
             "sk-12345****cdef"
         );
+    }
+
+    #[test]
+    fn test_voice_command_parsing() {
+        use clap::Parser;
+        
+        #[derive(Parser)]
+        struct Cli {
+            #[command(subcommand)]
+            voice: VoiceCommand,
+        }
+        
+        let check_mic = VoiceCommand::CheckMic;
+        assert!(matches!(check_mic, VoiceCommand::CheckMic));
+        
+        let play = VoiceCommand::Play { 
+            audio_file: "test.mp3".to_string() 
+        };
+        assert!(matches!(play, VoiceCommand::Play { .. }));
     }
 }

@@ -7,6 +7,10 @@ use openclaw_core::{OpenClawError, Result};
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
 
+fn zip_err(e: zip::result::ZipError) -> OpenClawError {
+    OpenClawError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+}
+
 /// 唤醒词配置
 #[derive(Debug, Clone)]
 pub struct WakeWordConfig {
@@ -287,7 +291,41 @@ impl VoskWakeDetector {
         let bytes = response.bytes().await
             .map_err(|e| OpenClawError::Http(format!("读取模型数据失败: {}", e)))?;
 
-        // TODO: 解压 zip 文件
+        let zip_path = model_path.with_extension("zip");
+        
+        std::fs::write(&zip_path, &bytes)?;
+        
+        println!("📦 解压 Vosk 模型...");
+        
+        let file = std::fs::File::open(&zip_path)?;
+        
+        let mut archive = zip::ZipArchive::new(file).map_err(zip_err)?;
+        
+        let extract_dir = models_dir.join(filename.trim_end_matches(".zip"));
+        
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i).map_err(zip_err)?;
+            
+            let outpath = match file.enclosed_name() {
+                Some(path) => extract_dir.join(path),
+                None => continue,
+            };
+            
+            if file.name().ends_with('/') {
+                std::fs::create_dir_all(&outpath)?;
+            } else {
+                if let Some(parent) = outpath.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                
+                let mut outfile = std::fs::File::create(&outpath)?;
+                std::io::copy(&mut file, &mut outfile)?;
+            }
+        }
+        
+        std::fs::remove_file(&zip_path)?;
+        
+        println!("✅ 模型已解压到: {}", extract_dir.display());
 
         Ok(model_path.to_string_lossy().to_string())
     }

@@ -92,15 +92,29 @@ impl AICompressor {
     pub async fn compress_with_ai(
         &self,
         items: Vec<MemoryItem>,
-        _ai_provider: &dyn crate::AICompressProvider,
+        ai_provider: &dyn AICompressProvider,
     ) -> Result<MemoryItem> {
-        // TODO: 实现基于 AI 的智能摘要
-        // 1. 提取关键信息
-        // 2. 保留重要实体
-        // 3. 生成连贯的摘要
+        let messages: Vec<Message> = items
+            .iter()
+            .filter_map(|item| {
+                if let crate::types::MemoryContent::Message { message } = &item.content {
+                    Some(message.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-        let compressor = MemoryCompressor::new(self.config.clone());
-        compressor.compress(items).await
+        if messages.is_empty() {
+            return Err(OpenClawError::AIProvider("没有可摘要的消息".to_string()));
+        }
+
+        let summary_text = ai_provider.generate_summary(&messages).await?;
+        
+        let original_tokens: usize = items.iter().map(|i| i.token_count).sum();
+        let summary_tokens = (original_tokens as f32 * 0.25) as usize;
+
+        Ok(MemoryItem::summary(summary_text, messages.len(), summary_tokens))
     }
 }
 
@@ -113,7 +127,6 @@ pub trait AICompressProvider: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openclaw_core::Role;
 
     #[tokio::test]
     async fn test_compressor() {

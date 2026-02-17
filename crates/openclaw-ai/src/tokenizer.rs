@@ -1,6 +1,7 @@
 //! Token 计数器
 
 use openclaw_core::{Message, Result};
+use tiktoken_rs::{cl100k_base, o200k_base, CoreBPE};
 
 /// Token 计数器 Trait
 pub trait TokenCounter: Send + Sync {
@@ -78,35 +79,50 @@ impl TokenCounter for SimpleTokenCounter {
     }
 }
 
-/// Tiktoken 计数器 (实际实现需要 tiktoken-rs)
+/// Tiktoken 计数器 (实际使用 tiktoken-rs)
 pub struct TiktokenCounter {
-    encoder: Option<String>,
+    bpe: CoreBPE,
 }
 
 impl TiktokenCounter {
-    pub fn new(encoder: Option<String>) -> Result<Self> {
-        Ok(Self { encoder })
+    pub fn new(encoder: &str) -> Result<Self> {
+        let bpe = match encoder {
+            "o200k_base" => o200k_base(),
+            "cl100k_base" | _ => cl100k_base(),
+        }.map_err(|e| openclaw_core::OpenClawError::TokenCount(format!("加载分词器失败: {}", e)))?;
+        
+        Ok(Self { bpe })
     }
 
-    pub fn for_model(model: &str) -> Self {
-        let encoder = if model.starts_with("gpt-4") {
-            Some("cl100k_base".to_string())
-        } else if model.starts_with("gpt-3.5") {
-            Some("cl100k_base".to_string())
-        } else if model.starts_with("claude") {
-            Some("cl100k_base".to_string())
+    pub fn for_model(model: &str) -> Result<Self> {
+        let encoder = if model.starts_with("gpt-4o") || model.starts_with("o1") {
+            "o200k_base"
         } else {
-            None
+            "cl100k_base"
         };
-        Self { encoder }
+        Self::new(encoder)
     }
 }
 
 impl TokenCounter for TiktokenCounter {
     fn count(&self, text: &str) -> usize {
-        // TODO: 使用 tiktoken-rs 实际计算
-        // 目前回退到简单估算
-        SimpleTokenCounter::new().count(text)
+        self.bpe.encode_with_special_tokens(text).len()
+    }
+}
+
+/// 创建 Token 计数器
+/// 
+/// # Arguments
+/// * `use_accurate` - 是否使用精确的 tiktoken 计数
+/// * `model` - 模型名称，用于选择正确的编码器
+/// 
+/// # Returns
+/// 返回 Box<dyn TokenCounter>，调用方可以通过dyn Trait使用
+pub fn create_token_counter(use_accurate: bool, model: &str) -> Result<Box<dyn TokenCounter>> {
+    if use_accurate {
+        Ok(Box::new(TiktokenCounter::for_model(model)?))
+    } else {
+        Ok(Box::new(SimpleTokenCounter::new()))
     }
 }
 
@@ -132,5 +148,45 @@ mod tests {
         let mixed_text = "Hello 你好 World 世界";
         let mixed_count = counter.count(mixed_text);
         assert!(mixed_count > 0);
+    }
+
+    #[test]
+    fn test_tiktoken_counter() {
+        let counter = TiktokenCounter::for_model("gpt-4").unwrap();
+        
+        let en_text = "Hello, this is a test message for token counting.";
+        let en_count = counter.count(en_text);
+        assert!(en_count > 0);
+
+        let zh_text = "这是一个中文测试消息";
+        let zh_count = counter.count(zh_text);
+        assert!(zh_count > 0);
+
+        let mixed_text = "Hello 你好 World 世界";
+        let mixed_count = counter.count(mixed_text);
+        assert!(mixed_count > 0);
+    }
+
+    #[test]
+    fn test_tiktoken_counter_gpt4o() {
+        let counter = TiktokenCounter::for_model("gpt-4o").unwrap();
+        
+        let text = "Hello, world!";
+        let count = counter.count(text);
+        assert!(count > 0);
+    }
+
+    #[test]
+    fn test_create_token_counter_simple() {
+        let counter = create_token_counter(false, "gpt-4").unwrap();
+        let count = counter.count("Hello, world!");
+        assert!(count > 0);
+    }
+
+    #[test]
+    fn test_create_token_counter_tiktoken() {
+        let counter = create_token_counter(true, "gpt-4").unwrap();
+        let count = counter.count("Hello, world!");
+        assert!(count > 0);
     }
 }

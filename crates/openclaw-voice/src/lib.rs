@@ -28,7 +28,7 @@ pub mod provider;
 pub use stt::*;
 pub use tts::*;
 pub use talk_mode::*;
-pub use audio::AudioUtils;
+pub use audio::{AudioUtils, AudioPlayer};
 pub use types::*;
 pub use config::*;
 pub use wake::*;
