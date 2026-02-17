@@ -68,7 +68,13 @@
 - **技能平台**: 触发器, 工具绑定, 执行管理
 - **技能系统**: ClawHub/内置/托管/工作区技能管理
 - **设备节点**: 相机拍照/录像, 屏幕录制, 定位, 通知推送, 系统命令
-- **嵌入式设备**: ESP32/STM32/Arduino/RPi Pico 等设备通过 HTTP REST 控制
+- **嵌入式设备**: 
+  - ARM 开发板: Raspberry Pi (1-5), OrangePi, BananaPi, Rockchip RK3588, Nvidia Jetson (Nano/Xavier/Orin), Google Coral
+  - Arduino 系列: Uno, Nano, Mega, Due
+  - ESP32 系列: ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-P4
+  - STM32 系列: STM32F1, STM32F4, STM32H7
+  - 其他: RPi Pico/PicoW, NRF52, RISC-V
+  - 以上设备均通过 HTTP REST / HAL / Framework 接口控制
 - **MCP 集成**: Model Context Protocol 客户端，支持 Stdio/HTTP/SSE 传输方式，工具/资源/提示词调用
 
 ### 💬 消息处理
@@ -101,10 +107,11 @@ openclaw-rust/
 │   ├── openclaw-canvas    # 实时协作画布
 │   ├── openclaw-browser   # 浏览器控制
 │   ├── openclaw-sandbox   # Docker/WASM 双轨沙箱
-│   ├── openclaw-tools     # 工具生态 (技能系统)
-│   ├── openclaw-device   # 设备节点 (相机/屏幕/定位/通知) + 嵌入式设备 (ESP32/STM32/Arduino)
-│   ├── openclaw-security # 安全模块 (输入过滤/权限控制)
-│   └── openclaw-cli       # 命令行工具
+│   ├── openclaw-tools     # 工具生态 (技能系统/Cron/Webhook)
+│   ├── openclaw-device   # 设备节点 + 嵌入式设备
+│   ├── openclaw-security # 安全模块
+│   ├── openclaw-cli       # 命令行工具
+│   └── openclaw-testing  # 测试工具
 ├── Cargo.toml
 └── README.md
 ```
