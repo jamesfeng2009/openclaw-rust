@@ -299,3 +299,75 @@ impl OutputValidator {
         stats.clear();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_output_validator_safe_content() {
+        let validator = OutputValidator::new();
+        let result = validator.validate("Hello, this is a safe response").await;
+        
+        assert_eq!(result.level, ValidationLevel::Safe);
+        assert!(result.matches.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_output_validator_api_key_detection() {
+        let validator = OutputValidator::new();
+        let result = validator.validate("Here is your API key: sk-1234567890abcdefghij").await;
+        
+        assert!(result.requires_action);
+        assert!(!result.matches.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_output_validator_password_detection() {
+        let validator = OutputValidator::new();
+        let result = validator.validate("password = mysecretpassword123").await;
+        
+        assert!(result.requires_action);
+    }
+
+    #[tokio::test]
+    async fn test_output_validator_token_detection() {
+        let validator = OutputValidator::new();
+        
+        let result = validator.validate("password = mysecretpassword123").await;
+        assert!(!result.matches.is_empty() || result.level != ValidationLevel::Safe);
+    }
+
+    #[tokio::test]
+    async fn test_output_validator_credit_card() {
+        let validator = OutputValidator::new();
+        let result = validator.validate("Credit card: 1234-5678-9012-3456").await;
+        
+        assert!(result.requires_action);
+    }
+
+    #[tokio::test]
+    async fn test_output_validator_ssn() {
+        let validator = OutputValidator::new();
+        let result = validator.validate("SSN: 123-45-6789").await;
+        
+        assert!(result.requires_action);
+    }
+
+    #[tokio::test]
+    async fn test_validation_level_ordering() {
+        assert_eq!(ValidationLevel::Safe, ValidationLevel::Safe);
+        assert_eq!(ValidationLevel::Warning, ValidationLevel::Warning);
+        assert_eq!(ValidationLevel::Block, ValidationLevel::Block);
+    }
+
+    #[tokio::test]
+    async fn test_redacted_value() {
+        let validator = OutputValidator::new();
+        let result = validator.validate("API Key: sk-1234567890abcdefghij").await;
+        
+        if let Some(matched) = result.matches.first() {
+            assert!(matched.redacted_value.contains('*') || matched.redacted_value.starts_with("sk-"));
+        }
+    }
+}

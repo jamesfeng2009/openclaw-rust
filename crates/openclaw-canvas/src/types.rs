@@ -362,3 +362,92 @@ impl Layer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_color_creation() {
+        let color = Color::new(255, 128, 64, 255);
+        assert_eq!(color.r, 255);
+        assert_eq!(color.g, 128);
+        assert_eq!(color.b, 64);
+        assert_eq!(color.a, 255);
+    }
+
+    #[test]
+    fn test_color_hex() {
+        let color = Color::from_hex("#FF8040").unwrap();
+        assert_eq!(color.r, 255);
+        assert_eq!(color.g, 128);
+        assert_eq!(color.b, 64);
+    }
+
+    #[test]
+    fn test_point_distance() {
+        let p1 = Point::new(0.0, 0.0);
+        let p2 = Point::new(3.0, 4.0);
+        assert!((p1.distance_to(&p2) - 5.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_rect_creation() {
+        let rect = Rect::new(10.0, 20.0, 100.0, 50.0);
+        assert_eq!(rect.x, 10.0);
+        assert_eq!(rect.y, 20.0);
+        assert_eq!(rect.width, 100.0);
+        assert_eq!(rect.height, 50.0);
+    }
+
+    #[test]
+    fn test_rect_contains() {
+        let rect = Rect::new(0.0, 0.0, 100.0, 100.0);
+        assert!(rect.contains(&Point::new(50.0, 50.0)));
+        assert!(!rect.contains(&Point::new(150.0, 50.0)));
+    }
+
+    #[test]
+    fn test_stroke_style_default() {
+        let style = StrokeStyle::default();
+        assert_eq!(style.width, 1.0);
+    }
+
+    #[test]
+    fn test_fill_style_default() {
+        let style = FillStyle::default();
+        let _ = style.color;
+    }
+
+    #[test]
+    fn test_viewport_default() {
+        let viewport = Viewport::default();
+        assert_eq!(viewport.x, 0.0);
+        assert_eq!(viewport.y, 0.0);
+        assert_eq!(viewport.zoom, 1.0);
+    }
+
+    #[test]
+    fn test_layer_creation() {
+        let layer = Layer::new("Test Layer".to_string(), 0);
+        assert_eq!(layer.name, "Test Layer");
+        assert!(layer.visible);
+        assert!(!layer.locked);
+        assert_eq!(layer.opacity, 1.0);
+    }
+
+    #[test]
+    fn test_tool_default() {
+        let tool = Tool::default();
+        assert_eq!(tool, Tool::Select);
+    }
+
+    #[test]
+    fn test_transform_default() {
+        let transform = Transform::default();
+        assert_eq!(transform.translate_x, 0.0);
+        assert_eq!(transform.translate_y, 0.0);
+        assert_eq!(transform.scale_x, 1.0);
+        assert_eq!(transform.scale_y, 1.0);
+    }
+}

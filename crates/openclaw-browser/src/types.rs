@@ -423,3 +423,104 @@ pub enum JsResult {
     Array(Vec<JsResult>),
     Object(HashMap<String, JsResult>),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_browser_config_default() {
+        let config = BrowserConfig::default();
+        assert!(config.headless);
+        assert_eq!(config.width, 1920);
+        assert_eq!(config.height, 1080);
+        assert_eq!(config.timeout_ms, 30000);
+    }
+
+    #[test]
+    fn test_browser_config_headless() {
+        let config = BrowserConfig::headless();
+        assert!(config.headless);
+    }
+
+    #[test]
+    fn test_browser_config_headed() {
+        let config = BrowserConfig::headed();
+        assert!(!config.headless);
+    }
+
+    #[test]
+    fn test_browser_config_with_size() {
+        let config = BrowserConfig::default().with_size(1280, 720);
+        assert_eq!(config.width, 1280);
+        assert_eq!(config.height, 720);
+    }
+
+    #[test]
+    fn test_browser_config_with_user_agent() {
+        let config = BrowserConfig::default().with_user_agent("TestAgent/1.0".to_string());
+        assert_eq!(config.user_agent, Some("TestAgent/1.0".to_string()));
+    }
+
+    #[test]
+    fn test_browser_config_with_args() {
+        let config = BrowserConfig::default()
+            .with_arg("--disable-extensions".to_string())
+            .with_arg("--disable-popup-blocking".to_string());
+        assert_eq!(config.args.len(), 2);
+    }
+
+    #[test]
+    fn test_browser_config_with_timeout() {
+        let config = BrowserConfig::default().with_timeout(60000);
+        assert_eq!(config.timeout_ms, 60000);
+    }
+
+    #[test]
+    fn test_selector_css() {
+        let selector = Selector::css(".class#id");
+        assert_eq!(selector.css, Some(".class#id".to_string()));
+        assert!(selector.xpath.is_none());
+    }
+
+    #[test]
+    fn test_selector_xpath() {
+        let selector = Selector::xpath("//div[@class='test']");
+        assert_eq!(selector.xpath, Some("//div[@class='test']".to_string()));
+        assert!(selector.css.is_none());
+    }
+
+    #[test]
+    fn test_selector_text() {
+        let selector = Selector::text("Click here");
+        assert_eq!(selector.text, Some("Click here".to_string()));
+    }
+
+    #[test]
+    fn test_screenshot_options_default() {
+        let options = ScreenshotOptions::default();
+        assert!(!options.full_page);
+        assert_eq!(options.format, ScreenshotFormat::Png);
+    }
+
+    #[test]
+    fn test_pdf_options_default() {
+        let options = PdfOptions::default();
+        assert_eq!(options.format, Some(PaperFormat::A4));
+        assert!(!options.print_background);
+    }
+
+    #[test]
+    fn test_wait_until_values() {
+        assert_eq!(WaitUntil::Load, WaitUntil::Load);
+        assert_eq!(WaitUntil::DomContentLoaded, WaitUntil::DomContentLoaded);
+        assert_eq!(WaitUntil::NetworkIdle, WaitUntil::NetworkIdle);
+    }
+
+    #[test]
+    fn test_mouse_button_values() {
+        assert_eq!(MouseButton::Left, MouseButton::Left);
+        assert_eq!(MouseButton::Right, MouseButton::Right);
+        assert_eq!(MouseButton::Middle, MouseButton::Middle);
+    }
+}

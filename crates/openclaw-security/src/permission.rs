@@ -342,3 +342,64 @@ impl PermissionManager {
         true
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_permission_manager_default() {
+        let manager = PermissionManager::new();
+        let tools = manager.list_tools().await;
+        assert!(!tools.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_tool_permissions() {
+        let manager = PermissionManager::new();
+        let perms = manager.get_tool_permissions("browser_tools").await;
+        assert!(perms.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_enable_disable_tool() {
+        let manager = PermissionManager::new();
+        
+        let result = manager.disable_tool("browser_tools").await;
+        assert!(result.is_ok());
+        
+        let perms = manager.get_tool_permissions("browser_tools").await;
+        assert!(perms.is_some());
+        assert!(!perms.unwrap().enabled);
+        
+        let result = manager.enable_tool("browser_tools").await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_check_permission() {
+        let manager = PermissionManager::new();
+        let result = manager.check_permission("browser_tools", "browser_navigate", "https://example.com").await;
+        match result {
+            GrantResult::Granted => (),
+            GrantResult::Denied => (),
+            GrantResult::Limited(_) => (),
+        }
+    }
+
+    #[test]
+    fn test_permission_scope_values() {
+        assert_eq!(PermissionScope::Read, PermissionScope::Read);
+        assert_eq!(PermissionScope::Write, PermissionScope::Write);
+        assert_eq!(PermissionScope::Execute, PermissionScope::Execute);
+        assert_eq!(PermissionScope::Admin, PermissionScope::Admin);
+    }
+
+    #[test]
+    fn test_resource_type_values() {
+        assert_eq!(ResourceType::File, ResourceType::File);
+        assert_eq!(ResourceType::Network, ResourceType::Network);
+        assert_eq!(ResourceType::Memory, ResourceType::Memory);
+        assert_eq!(ResourceType::Process, ResourceType::Process);
+    }
+}

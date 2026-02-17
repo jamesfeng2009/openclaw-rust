@@ -302,3 +302,43 @@ impl Default for ServiceOrchestrator {
         Self::new(OrchestratorConfig::default())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_orchestrator_config_default() {
+        let config = OrchestratorConfig::default();
+        assert!(!config.enable_agents);
+        assert!(!config.enable_channels);
+        assert!(!config.enable_voice);
+        assert!(!config.enable_canvas);
+    }
+
+    #[test]
+    fn test_agent_service_state_default() {
+        let state = AgentServiceState::default();
+        let agents = state.agents.blocking_read();
+        assert!(agents.is_empty());
+    }
+
+    #[test]
+    fn test_channel_service_state_default() {
+        let state = ChannelServiceState::default();
+        let _ = state.manager;
+    }
+
+    #[test]
+    fn test_canvas_service_state_default() {
+        let state = CanvasServiceState::default();
+        let _ = state.manager;
+    }
+
+    #[tokio::test]
+    async fn test_service_orchestrator_new() {
+        let orchestrator = ServiceOrchestrator::new(OrchestratorConfig::default());
+        let running = orchestrator.running.read().await;
+        assert!(!*running);
+    }
+}

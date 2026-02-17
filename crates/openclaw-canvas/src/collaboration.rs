@@ -331,3 +331,33 @@ impl Default for UserColorGenerator {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_user_info_creation() {
+        let info = UserInfo {
+            id: "user1".to_string(),
+            name: "Test User".to_string(),
+            color: Color::new(255, 0, 0, 255),
+            avatar_url: None,
+        };
+        assert_eq!(info.name, "Test User");
+    }
+
+    #[test]
+    fn test_collab_session_creation() {
+        let session = CollabSession::new("canvas1".to_string());
+        assert_eq!(session.canvas_id, "canvas1".to_string());
+    }
+
+    #[test]
+    fn test_user_color_generator() {
+        let generator = UserColorGenerator::new();
+        let color1 = generator.next();
+        let color2 = generator.next();
+        assert_ne!(color1, color2);
+    }
+}
