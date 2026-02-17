@@ -4,6 +4,13 @@
 //! - 工作记忆 (Working Memory): 最近消息，高优先级
 //! - 短期记忆 (Short-term Memory): 压缩摘要，中优先级
 //! - 长期记忆 (Long-term Memory): 向量存储，低优先级
+//!
+//! 同时支持 OpenClaw 风格的 Markdown 记忆系统：
+//! - AGENTS.md: 智能体操作指南
+//! - SOUL.md: 个性设定
+//! - USER.md: 用户信息
+//! - memory/YYYY-MM-DD.md: 每日记忆
+//! - MEMORY.md: 长期记忆汇总
 
 pub mod ai_adapter;
 pub mod compressor;
@@ -17,6 +24,7 @@ pub mod scorer;
 pub mod store;
 pub mod types;
 pub mod working;
+pub mod workspace;
 
 pub use compressor::*;
 pub use config::*;
@@ -29,3 +37,4 @@ pub use scorer::*;
 pub use store::*;
 pub use types::*;
 pub use working::*;
+pub use workspace::*;
