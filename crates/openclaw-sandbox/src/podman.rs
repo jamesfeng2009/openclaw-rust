@@ -365,7 +365,7 @@ impl PodmanClient {
     pub async fn stop_sandbox(&self, sandbox_id: &SandboxId) -> Result<(), PodmanError> {
         let container_id = self.get_container_id(sandbox_id).await?;
 
-        let output = self.run_command(&["stop", "-t", "10", &container_id])?;
+        let _output = self.run_command(&["stop", "-t", "10", &container_id])?;
 
         // 更新状态
         {
@@ -384,7 +384,7 @@ impl PodmanClient {
     pub async fn remove_sandbox(&self, sandbox_id: &SandboxId) -> Result<(), PodmanError> {
         let container_id = self.get_container_id(sandbox_id).await?;
 
-        let output = self.run_command(&["rm", "--force", &container_id])?;
+        let _output = self.run_command(&["rm", "--force", &container_id])?;
 
         // 移除记录
         {

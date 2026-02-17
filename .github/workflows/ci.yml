@@ -16,6 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install protoc
+        uses: arduino/setup-protoc@v4
+        with:
+          version: '29'
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -27,6 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install protoc
+        uses: arduino/setup-protoc@v4
+        with:
+          version: '29'
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -98,6 +106,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install protoc
+        uses: arduino/setup-protoc@v4
+        with:
+          version: '29'
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview

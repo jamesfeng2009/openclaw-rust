@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -150,7 +149,7 @@ impl ServiceOrchestrator {
         &self,
         agent_id: &str,
         message: String,
-        session_id: Option<String>,
+        _session_id: Option<String>,
     ) -> Result<String> {
         let agent = self
             .get_agent(agent_id)

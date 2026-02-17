@@ -38,7 +38,7 @@ pub trait DeviceAdapter: Send + Sync {
     async fn init(&self) -> AdapterResult<()>;
 
     /// 适配器配置回调
-    fn configure(&self, config: &mut AdapterConfig) {
+    fn configure(&self, _config: &mut AdapterConfig) {
         // 默认空实现
     }
 }
@@ -75,7 +75,7 @@ pub struct Adapters;
 impl Adapters {
     /// 根据平台和能力自动选择适配器
     pub fn auto_select(
-        platform: &Platform,
+        _platform: &Platform,
         capabilities: &DeviceCapabilities,
     ) -> Vec<Arc<dyn DeviceAdapter>> {
         let mut adapters: Vec<Arc<dyn DeviceAdapter>> = Vec::new();

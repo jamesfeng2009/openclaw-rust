@@ -11,13 +11,11 @@ use axum::{
 };
 use futures::{SinkExt, StreamExt};
 use openclaw_canvas::{
-    CanvasId, CanvasManager, CanvasOps, CanvasState, CollabEvent, CollabManager, DrawAction,
-    DrawHistory, Element, ElementUpdate, Point, Shape, Tool, UserColorGenerator, UserCursor,
-    UserInfo, Viewport, WsMessage,
+    CanvasId, CanvasManager, CanvasOps, CanvasState, CollabEvent, CollabManager, DrawAction, Element, ElementUpdate, UserColorGenerator, UserCursor,
+    UserInfo, WsMessage,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{debug, info};
 
 /// 画布 API 状态

@@ -6,7 +6,7 @@
 //! - 技能市场 (Skill Marketplace) - 共享和发现技能
 //! - 版本管理 - 技能版本控制
 
-use crate::skills::{SkillError, SkillPlatform};
+use crate::skills::SkillPlatform;
 use crate::types::{Skill, SkillCategory, SkillTrigger, ToolBinding};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

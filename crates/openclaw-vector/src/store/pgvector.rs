@@ -197,7 +197,7 @@ impl VectorStore for PgVectorStore {
         for row in rows {
             let id: String = row.get(0);
             let vector_str: String = row.get(1);
-            let content: Option<String> = row.get(2);
+            let _content: Option<String> = row.get(2);
             let payload_json: Option<String> = row.get(3);
 
             let stored_vector = Self::string_to_vector(&vector_str);

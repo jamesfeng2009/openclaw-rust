@@ -3,7 +3,6 @@
 use crate::page::Page;
 use crate::types::*;
 use chromiumoxide::browser::{Browser as ChromiumBrowser, BrowserConfig as ChromiumConfig};
-use chromiumoxide_cdp::cdp::browser_protocol::page::CaptureScreenshotFormat;
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;

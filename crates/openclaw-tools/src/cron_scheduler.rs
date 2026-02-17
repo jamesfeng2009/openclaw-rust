@@ -6,15 +6,15 @@
 //! - 任务执行和错误处理
 //! - 下次执行时间计算
 
-use crate::types::{Schedule, ScheduleTask, TaskAction, TaskId};
-use chrono::{DateTime, TimeZone, Utc};
+use crate::types::{TaskAction, TaskId};
+use chrono::{DateTime, Utc};
 use cron::Schedule as CronSchedule;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info};
 
 /// Cron 调度器错误
 #[derive(Debug, Error)]
@@ -410,7 +410,7 @@ pub mod cron_utils {
 
     /// 生成人类可读的描述
     pub fn describe(expr: &str) -> Result<String, CronError> {
-        let schedule = parse_cron_expression(expr)?;
+        let _schedule = parse_cron_expression(expr)?;
         let next = get_next_run(expr)?;
 
         Ok(format!(

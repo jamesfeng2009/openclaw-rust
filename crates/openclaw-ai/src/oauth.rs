@@ -13,14 +13,12 @@
 //! - Token 刷新和过期处理
 //! - Auth Profile 轮换
 
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
-use openclaw_core::config::{AuthConfig, AuthProfile};
+use openclaw_core::config::AuthProfile;
 
 pub type Result<T> = std::result::Result<T, OAuthError>;
 

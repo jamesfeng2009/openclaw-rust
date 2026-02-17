@@ -18,7 +18,7 @@ impl NotificationManager {
 
         #[cfg(target_os = "macos")]
         {
-            let icon_arg = icon.unwrap_or("SF Symbols:bell.fill");
+            let _icon_arg = icon.unwrap_or("SF Symbols:bell.fill");
 
             let output = Command::new("osascript")
                 .args([

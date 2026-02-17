@@ -3,7 +3,6 @@
 //! 自动检测设备的 CPU、内存、存储、网络、GPU 等能力
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeviceCapabilities {
@@ -99,7 +98,7 @@ impl DeviceCapabilities {
     }
 
     fn detect_sensors() -> Vec<SensorType> {
-        let mut sensors = Vec::new();
+        let sensors = Vec::new();
 
         #[cfg(target_os = "linux")]
         {

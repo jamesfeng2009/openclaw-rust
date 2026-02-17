@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use openclaw_agent::task::{TaskInput, TaskRequest, TaskType};
-use openclaw_agent::{Agent, AgentConfig, AgentInfo, AgentType, BaseAgent};
+use openclaw_agent::{Agent, AgentInfo, BaseAgent};
 use openclaw_core::{Content, Message, OpenClawError, Result, Role};
 
 #[derive(Clone)]
@@ -42,7 +42,7 @@ impl AgentService {
         &self,
         agent_id: &str,
         message: String,
-        session_id: Option<String>,
+        _session_id: Option<String>,
     ) -> Result<String> {
         let agent = self
             .get_agent(agent_id)

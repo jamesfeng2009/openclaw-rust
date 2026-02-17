@@ -427,7 +427,7 @@ impl SelfHealer {
             self.check_interval
         );
 
-        let mut shutdown_rx = shutdown_signal;
+        let _shutdown_rx = shutdown_signal;
 
         loop {
             tokio::select! {

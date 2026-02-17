@@ -97,7 +97,7 @@ impl SqliteStore {
     }
 
     pub fn upsert_batch(&self, items: Vec<VectorItem>) -> Result<usize> {
-        let mut conn = self
+        let conn = self
             .conn
             .lock()
             .map_err(|e| OpenClawError::Config(e.to_string()))?;

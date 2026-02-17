@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use openclaw_channels::{Channel, ChannelManager, ChannelMessage, ChannelType, SendMessage};
+use openclaw_channels::{Channel, ChannelManager, ChannelMessage, SendMessage};
 
 pub struct ChannelService {
     manager: Arc<RwLock<ChannelManager>>,
@@ -15,12 +15,12 @@ impl ChannelService {
     }
 
     pub async fn register_channel(&self, name: String, channel: Arc<RwLock<dyn Channel>>) {
-        let mut manager = self.manager.write().await;
+        let manager = self.manager.write().await;
         manager.register_channel(name, channel).await;
     }
 
     pub async fn unregister_channel(&self, name: &str) {
-        let mut manager = self.manager.write().await;
+        let manager = self.manager.write().await;
         manager.unregister_channel(name).await;
     }
 

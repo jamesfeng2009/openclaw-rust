@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 use crate::capabilities::DeviceCapabilities;
 use crate::platform::{ComputeCategory, Platform};
@@ -119,7 +118,7 @@ impl DeviceBuilder {
         self
     }
 
-    pub fn status(mut self, status: super::DeviceStatus) -> Self {
+    pub fn status(self, _status: super::DeviceStatus) -> Self {
         self
     }
 

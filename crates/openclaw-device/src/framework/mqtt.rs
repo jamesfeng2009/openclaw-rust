@@ -2,9 +2,7 @@
 //!
 //! MQTT (Message Queuing Telemetry Transport) 协议接口
 
-use crate::framework::{FrameworkConfig, FrameworkModule, FrameworkResult};
-use crate::platform::Platform;
-use async_trait::async_trait;
+use crate::framework::FrameworkModule;
 use serde::{Deserialize, Serialize};
 
 pub type MqttResult<T> = crate::framework::FrameworkResult<T>;

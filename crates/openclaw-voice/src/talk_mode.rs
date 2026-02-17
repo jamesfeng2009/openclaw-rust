@@ -1,7 +1,7 @@
 //! Talk Mode - 持续对话模式
 
 use std::sync::Arc;
-use tokio::sync::{RwLock, broadcast, mpsc};
+use tokio::sync::{RwLock, broadcast};
 
 use crate::types::TalkModeState;
 use openclaw_core::Result;

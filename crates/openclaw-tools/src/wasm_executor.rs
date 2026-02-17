@@ -4,11 +4,11 @@
 
 use crate::types::*;
 use openclaw_sandbox::wasm::{
-    WasmError, WasmExecutionInput, WasmExecutionResult, WasmToolConfig, WasmToolRegistry,
+    WasmError, WasmExecutionInput, WasmToolConfig, WasmToolRegistry,
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
 pub struct WasmToolExecutor {
     registry: Arc<WasmToolRegistry>,

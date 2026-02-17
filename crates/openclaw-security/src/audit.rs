@@ -7,7 +7,6 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::classifier::PromptCategory;
-use crate::validator::SensitiveType;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AuditEventType {

@@ -293,7 +293,7 @@ pub struct AgentMessageResponse {
 }
 
 async fn send_agent_message(
-    State(state): State<Arc<RwLock<ApiState>>>,
+    State(_state): State<Arc<RwLock<ApiState>>>,
     Json(input): Json<AgentMessageRequest>,
 ) -> Json<AgentMessageResponse> {
     let session_id = input

@@ -320,7 +320,7 @@ impl CanvasOps {
             .ok_or_else(|| CanvasError::LayerNotFound(layer_id.to_string()))?;
 
         // 删除该图层上的所有元素
-        let layer_id_clone = layer_id.to_string();
+        let _layer_id_clone = layer_id.to_string();
         state.elements.retain(|_, e| e.layer != layer_idx);
 
         state.layers.remove(layer_idx);

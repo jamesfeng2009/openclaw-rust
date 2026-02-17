@@ -1,4 +1,4 @@
-use crate::tools::{FunctionDefinition, ToolDefinition, ToolExecutor, ToolRegistry};
+use crate::tools::{ToolDefinition, ToolExecutor, ToolRegistry};
 use async_trait::async_trait;
 use openclaw_core::Result;
 use serde_json::Value;

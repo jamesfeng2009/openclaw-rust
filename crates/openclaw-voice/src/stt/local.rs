@@ -201,8 +201,8 @@ impl super::SpeechToText for LocalWhisperStt {
 
     async fn transcribe(
         &self,
-        audio_data: &[u8],
-        language: Option<&str>,
+        _audio_data: &[u8],
+        _language: Option<&str>,
     ) -> Result<TranscriptionResult> {
         // 检查模型
         self.check_model()?;

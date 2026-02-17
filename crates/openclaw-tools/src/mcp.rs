@@ -24,7 +24,7 @@ pub struct McpServerConfig {
 }
 
 impl McpServerConfig {
-    pub fn stdio(name: impl Into<String>, command: impl Into<String>) -> Self {
+    pub fn stdio(name: impl Into<String>, _command: impl Into<String>) -> Self {
         Self {
             name: name.into(),
             transport: McpTransport::Stdio,
@@ -495,7 +495,7 @@ impl McpServer {
     pub async fn get_prompt(
         &self,
         name: &str,
-        arguments: HashMap<String, String>,
+        _arguments: HashMap<String, String>,
     ) -> Result<serde_json::Value, McpError> {
         if !self.connected {
             return Err(McpError::NotConnected(self.config.name.clone()));

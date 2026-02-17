@@ -2,8 +2,7 @@
 //!
 //! SPI (Serial Peripheral Interface) 总线接口
 
-use crate::hal::{HalConfig, HalModule, HalResult};
-use crate::platform::Platform;
+use crate::hal::HalModule;
 use serde::{Deserialize, Serialize};
 
 pub type SpiResult<T> = crate::hal::HalResult<T>;

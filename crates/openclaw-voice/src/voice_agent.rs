@@ -2,9 +2,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::stt::SpeechToText;
-use crate::talk_mode::{TalkMode, TalkModeConfig, TalkModeEvent};
+use crate::talk_mode::{TalkMode, TalkModeConfig};
 use crate::tts::TextToSpeech;
-use crate::types::TalkModeState;
 use openclaw_core::Result;
 
 pub struct VoiceAgent {

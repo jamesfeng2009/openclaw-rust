@@ -11,7 +11,7 @@ use openclaw_core::{Message, OpenClawError, Result};
 use openclaw_memory::MemoryManager;
 
 use crate::agent::Agent;
-use crate::task::{TaskInput, TaskOutput, TaskRequest, TaskResult, TaskStatus, TaskType};
+use crate::task::{TaskOutput, TaskRequest, TaskResult, TaskStatus, TaskType};
 use crate::team::{AgentTeam, TeamConfig};
 use crate::types::Capability;
 

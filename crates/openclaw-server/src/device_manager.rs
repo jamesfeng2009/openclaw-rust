@@ -1,6 +1,5 @@
 use openclaw_core::Config;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub struct DeviceManager {
     registry: Arc<openclaw_device::DeviceRegistry>,
@@ -42,7 +41,7 @@ impl DeviceManager {
             let platform = self.parse_platform(&device_config.platform)?;
             let category = self.parse_category(&device_config.category)?;
 
-            let capabilities = if let Some(caps_config) = &device_config.capabilities {
+            let capabilities = if let Some(_caps_config) = &device_config.capabilities {
                 openclaw_device::DeviceCapabilities::default()
             } else {
                 openclaw_device::DeviceCapabilities::default()

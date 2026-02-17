@@ -5,16 +5,12 @@
 
 use crate::capabilities::{DeviceCapabilities, PeripheralType};
 use crate::framework::can::CanBus;
-use crate::framework::mqtt::MqttClient;
 use crate::framework::ros2::Ros2Client;
 use crate::framework::{FrameworkConfig, FrameworkModule, FrameworkResult};
 use crate::hal::gpio::GpioBus;
-use crate::hal::i2c::I2cBus;
 use crate::hal::serial::SerialPort;
-use crate::hal::spi::SpiBus;
 use crate::hal::{HalConfig, HalModule, HalResult};
 use crate::platform::Platform;
-use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;

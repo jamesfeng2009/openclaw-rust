@@ -176,7 +176,7 @@ impl TextToSpeech for EdgeTts {
         TtsProvider::Edge
     }
 
-    async fn synthesize(&self, text: &str, options: Option<SynthesisOptions>) -> Result<Vec<u8>> {
+    async fn synthesize(&self, _text: &str, _options: Option<SynthesisOptions>) -> Result<Vec<u8>> {
         // Edge TTS 需要 WebSocket 连接，这里简化实现
         // 实际使用需要 edge-tts 库或自己实现 WebSocket 协议
         Err(OpenClawError::Config(

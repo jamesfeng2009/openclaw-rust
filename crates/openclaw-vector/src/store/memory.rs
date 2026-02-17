@@ -7,7 +7,7 @@ use std::sync::RwLock;
 
 use crate::VectorStore;
 use crate::types::{
-    Filter, FilterCondition, FilterOperator, SearchQuery, SearchResult, StoreStats, VectorItem,
+    Filter, FilterOperator, SearchQuery, SearchResult, StoreStats, VectorItem,
 };
 use openclaw_core::Result;
 

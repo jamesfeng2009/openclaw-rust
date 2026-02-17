@@ -335,7 +335,7 @@ impl FailoverManager {
                 // 按优先级排序，选择最高的
                 healthy
                     .into_iter()
-                    .min_by_key(|(name, (config, _))| config.priority)
+                    .min_by_key(|(_name, (config, _))| config.priority)
                     .map(|(name, provider)| (*name, *provider))
                     .ok_or(FailoverError::NoProviderAvailable)
             }

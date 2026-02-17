@@ -5,7 +5,6 @@
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::pin::Pin;
 
 use openclaw_core::{OpenClawError, Result};
 
@@ -190,7 +189,7 @@ impl GoogleChatClient {
     }
 
     /// 验证 Webhook 签名
-    pub fn verify_signature(&self, payload: &str, _signature: &str) -> bool {
+    pub fn verify_signature(&self, _payload: &str, _signature: &str) -> bool {
         self.config.webhook_secret.is_some()
     }
 }

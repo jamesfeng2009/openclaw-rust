@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::info;
 
 /// 沙箱管理器错误
 #[derive(Debug, Error)]

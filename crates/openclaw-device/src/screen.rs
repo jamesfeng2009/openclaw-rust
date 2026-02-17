@@ -83,8 +83,8 @@ impl ScreenManager {
         #[cfg(target_os = "macos")]
         {
             use std::path::PathBuf;
-            use std::thread;
-            use std::time::Duration;
+            
+            
 
             let output_dir = PathBuf::from("/tmp/openclaw");
             fs::create_dir_all(&output_dir)

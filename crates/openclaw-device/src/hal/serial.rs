@@ -2,8 +2,6 @@
 //!
 //! 串口 (UART/RS232/RS485) 通信接口
 
-use crate::hal::{HalConfig, HalModule, HalResult};
-use crate::platform::Platform;
 use serde::{Deserialize, Serialize};
 
 pub type SerialResult<T> = crate::hal::HalResult<T>;

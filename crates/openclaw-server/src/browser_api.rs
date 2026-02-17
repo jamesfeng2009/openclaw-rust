@@ -6,13 +6,13 @@ use axum::{
     routing::{delete, get, post},
 };
 use openclaw_browser::{
-    BrowserConfig, BrowserId, BrowserInfo, BrowserPool, ClickOptions, Cookie, ElementInfo,
-    NavigationOptions, PageId, PdfOptions, ScreenshotOptions, ScreenshotUtils, Selector,
-    TypeOptions, UploadOptions,
+    BrowserConfig, BrowserId, BrowserInfo, BrowserPool, ClickOptions, Cookie,
+    NavigationOptions, PageId, PdfOptions, ScreenshotOptions, Selector,
+    TypeOptions,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::{debug, info};
+use tracing::info;
 
 /// 浏览器 API 状态
 #[derive(Clone)]

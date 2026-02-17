@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
 use wasmtime::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,7 +78,6 @@ impl WasmExecutionResult {
 
 pub struct WasmToolRuntime {
     engine: Engine,
-    config: WasmToolConfig,
 }
 
 impl WasmToolRuntime {
@@ -90,7 +88,7 @@ impl WasmToolRuntime {
         let engine =
             Engine::new(&engine_config).map_err(|e| WasmError::InitFailed(e.to_string()))?;
 
-        Ok(Self { engine, config })
+        Ok(Self { engine })
     }
 
     pub async fn load_module(
@@ -145,7 +143,7 @@ impl WasmToolRuntime {
                             wasmtime::Val::I64(v) => v as usize,
                             _ => 0,
                         };
-                        let mut memory_view = memory.data_mut(&mut store);
+                        let memory_view = memory.data_mut(&mut store);
                         if ptr + params_ptr.len() <= memory_view.len() {
                             memory_view[ptr..ptr + params_ptr.len()].copy_from_slice(params_ptr);
 

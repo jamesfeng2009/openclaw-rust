@@ -4,10 +4,10 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use openclaw_security::{FilterResult, GrantResult, NetworkDecision, SecurityMiddleware};
+use openclaw_security::{GrantResult, NetworkDecision, SecurityMiddleware};
 
-use crate::types::{ExecutionResult, SandboxState};
-use crate::wasm::{WasmError, WasmExecutionInput, WasmToolConfig, WasmToolModule, WasmToolRuntime};
+use crate::types::ExecutionResult;
+use crate::wasm::{WasmExecutionInput, WasmToolModule, WasmToolRuntime};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SandboxType {
@@ -223,6 +223,7 @@ impl SandboxManager {
         Ok(())
     }
 
+    #[allow(dead_code)]
     async fn check_network(
         &self,
         tool_id: &str,

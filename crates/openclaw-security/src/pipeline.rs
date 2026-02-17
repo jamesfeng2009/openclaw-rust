@@ -1,12 +1,10 @@
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
 
-use crate::audit::{AuditEvent, AuditEventType, AuditLogger, AuditSeverity};
+use crate::audit::{AuditEventType, AuditLogger};
 use crate::classifier::{LlmClassification, PromptCategory, PromptClassifier};
 use crate::input_filter::InputFilter;
-use crate::self_healer::{OperationState, RecoveryStrategy, SelfHealer};
+use crate::self_healer::{RecoveryStrategy, SelfHealer};
 use crate::validator::{OutputValidation, OutputValidator};
 
 #[derive(Debug, Clone)]

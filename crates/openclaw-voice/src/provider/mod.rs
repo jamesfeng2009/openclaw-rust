@@ -9,10 +9,9 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::types::{
-    AudioFormat, OpenAIVoice, SttConfig, SynthesisOptions, TranscriptionResult, TtsConfig,
+    SynthesisOptions, TranscriptionResult,
 };
 
 /// 自定义 TTS 提供商配置

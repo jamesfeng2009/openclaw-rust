@@ -2,8 +2,7 @@
 //!
 //! I2C (Inter-Integrated Circuit) 总线接口
 
-use crate::hal::{HalConfig, HalModule, HalResult};
-use crate::platform::Platform;
+use crate::hal::HalModule;
 use serde::{Deserialize, Serialize};
 
 pub type I2cResult<T> = crate::hal::HalResult<T>;

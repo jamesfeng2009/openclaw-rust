@@ -1,14 +1,11 @@
 //! 浏览器工具模块
 
 use crate::types::*;
-use async_trait::async_trait;
-use openclaw_browser::{BrowserConfig, BrowserPool, PdfOptions, ScreenshotOptions, Selector};
+use openclaw_browser::{BrowserPool, ScreenshotOptions, Selector};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::RwLock;
-use tracing::{debug, info};
 
 /// 浏览器工具错误
 #[derive(Debug, Error)]
