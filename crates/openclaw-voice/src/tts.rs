@@ -14,15 +14,11 @@ pub trait TextToSpeech: Send + Sync {
     fn provider(&self) -> TtsProvider;
 
     /// 将文本转换为语音
-    /// 
+    ///
     /// # 参数
     /// - `text`: 要转换的文本
     /// - `options`: 合成选项
-    async fn synthesize(
-        &self,
-        text: &str,
-        options: Option<SynthesisOptions>,
-    ) -> Result<Vec<u8>>;
+    async fn synthesize(&self, text: &str, options: Option<SynthesisOptions>) -> Result<Vec<u8>>;
 
     /// 将文本转换为语音并保存到文件
     async fn synthesize_to_file(
@@ -92,11 +88,7 @@ impl TextToSpeech for OpenAITts {
         TtsProvider::OpenAI
     }
 
-    async fn synthesize(
-        &self,
-        text: &str,
-        options: Option<SynthesisOptions>,
-    ) -> Result<Vec<u8>> {
+    async fn synthesize(&self, text: &str, options: Option<SynthesisOptions>) -> Result<Vec<u8>> {
         let api_key = self.get_api_key()?;
         let url = self.get_api_url();
 
@@ -105,7 +97,9 @@ impl TextToSpeech for OpenAITts {
             .voice
             .unwrap_or_else(|| self.config.default_voice.as_str().to_string());
         let speed = opts.speed.unwrap_or(self.config.default_speed);
-        let format = opts.format.unwrap_or_else(|| self.config.default_format.clone());
+        let format = opts
+            .format
+            .unwrap_or_else(|| self.config.default_format.clone());
 
         let body = serde_json::json!({
             "model": self.config.tts_model.as_str(),
@@ -182,11 +176,7 @@ impl TextToSpeech for EdgeTts {
         TtsProvider::Edge
     }
 
-    async fn synthesize(
-        &self,
-        text: &str,
-        options: Option<SynthesisOptions>,
-    ) -> Result<Vec<u8>> {
+    async fn synthesize(&self, text: &str, options: Option<SynthesisOptions>) -> Result<Vec<u8>> {
         // Edge TTS 需要 WebSocket 连接，这里简化实现
         // 实际使用需要 edge-tts 库或自己实现 WebSocket 协议
         Err(OpenClawError::Config(
@@ -247,14 +237,10 @@ impl TextToSpeech for ElevenLabsTts {
         TtsProvider::ElevenLabs
     }
 
-    async fn synthesize(
-        &self,
-        text: &str,
-        options: Option<SynthesisOptions>,
-    ) -> Result<Vec<u8>> {
+    async fn synthesize(&self, text: &str, options: Option<SynthesisOptions>) -> Result<Vec<u8>> {
         let api_key = self.get_api_key()?;
         let model = &self.config.elevenlabs_model;
-        
+
         let voice_id = options
             .as_ref()
             .and_then(|o| o.voice.clone())
@@ -270,8 +256,9 @@ impl TextToSpeech for ElevenLabsTts {
         });
 
         let url = format!("{}/{}", Self::API_URL, voice_id);
-        
-        let response = self.client
+
+        let response = self
+            .client
             .post(&url)
             .header("xi-api-key", api_key)
             .header("Content-Type", "application/json")
@@ -289,7 +276,9 @@ impl TextToSpeech for ElevenLabsTts {
             )));
         }
 
-        let audio_data = response.bytes().await
+        let audio_data = response
+            .bytes()
+            .await
             .map_err(|e| OpenClawError::Config(format!("读取音频数据失败: {}", e)))?;
 
         Ok(audio_data.to_vec())
@@ -347,7 +336,10 @@ impl AzureTts {
     }
 
     fn get_endpoint(&self) -> Result<String> {
-        let region = self.config.azure_region.as_ref()
+        let region = self
+            .config
+            .azure_region
+            .as_ref()
             .ok_or_else(|| OpenClawError::Config("Azure region 未配置".to_string()))?;
         Ok(format!(
             "https://{}.tts.speech.microsoft.com/cognitiveservices/v1",
@@ -356,7 +348,9 @@ impl AzureTts {
     }
 
     fn get_api_key(&self) -> Result<String> {
-        self.config.azure_api_key.clone()
+        self.config
+            .azure_api_key
+            .clone()
             .ok_or_else(|| OpenClawError::Config("Azure API Key 未配置".to_string()))
     }
 }
@@ -367,16 +361,14 @@ impl TextToSpeech for AzureTts {
         TtsProvider::Azure
     }
 
-    async fn synthesize(
-        &self,
-        text: &str,
-        options: Option<SynthesisOptions>,
-    ) -> Result<Vec<u8>> {
+    async fn synthesize(&self, text: &str, options: Option<SynthesisOptions>) -> Result<Vec<u8>> {
         let api_key = self.get_api_key()?;
         let endpoint = self.get_endpoint()?;
         let opts = options.unwrap_or_default();
-        
-        let voice = opts.voice.unwrap_or_else(|| "zh-CN-XiaoxiaoNeural".to_string());
+
+        let voice = opts
+            .voice
+            .unwrap_or_else(|| "zh-CN-XiaoxiaoNeural".to_string());
         let speed = opts.speed.unwrap_or(1.0);
         let pitch = opts.pitch.unwrap_or(0.0);
 
@@ -388,11 +380,15 @@ impl TextToSpeech for AzureTts {
             text
         );
 
-        let response = self.client
+        let response = self
+            .client
             .post(&endpoint)
             .header("Ocp-Apim-Subscription-Key", api_key)
             .header("Content-Type", "application/ssml+xml")
-            .header("X-Microsoft-OutputFormat", "audio-24khz-48kbitrate-mono-mp3")
+            .header(
+                "X-Microsoft-OutputFormat",
+                "audio-24khz-48kbitrate-mono-mp3",
+            )
             .body(ssml)
             .send()
             .await
@@ -407,7 +403,9 @@ impl TextToSpeech for AzureTts {
             )));
         }
 
-        let audio_data = response.bytes().await
+        let audio_data = response
+            .bytes()
+            .await
             .map_err(|e| OpenClawError::Http(format!("读取音频数据失败: {}", e)))?;
 
         Ok(audio_data.to_vec())
@@ -445,7 +443,9 @@ impl GoogleTts {
     }
 
     fn get_api_key(&self) -> Result<String> {
-        self.config.google_api_key.clone()
+        self.config
+            .google_api_key
+            .clone()
             .ok_or_else(|| OpenClawError::Config("Google API Key 未配置".to_string()))
     }
 }
@@ -456,14 +456,10 @@ impl TextToSpeech for GoogleTts {
         TtsProvider::Google
     }
 
-    async fn synthesize(
-        &self,
-        text: &str,
-        options: Option<SynthesisOptions>,
-    ) -> Result<Vec<u8>> {
+    async fn synthesize(&self, text: &str, options: Option<SynthesisOptions>) -> Result<Vec<u8>> {
         let api_key = self.get_api_key()?;
         let opts = options.unwrap_or_default();
-        
+
         let voice = opts.voice.unwrap_or_else(|| "en-US-Neural2-F".to_string());
         let speed = opts.speed.unwrap_or(1.0);
         let pitch = opts.pitch.unwrap_or(0.0);
@@ -476,7 +472,10 @@ impl TextToSpeech for GoogleTts {
                 ("en-US".to_string(), voice)
             }
         } else {
-            ("en-US".to_string(), format!("en-US-Neural2-{}", if voice == "male" { "M" } else { "F" }))
+            (
+                "en-US".to_string(),
+                format!("en-US-Neural2-{}", if voice == "male" { "M" } else { "F" }),
+            )
         };
 
         let request_body = serde_json::json!({
@@ -497,7 +496,8 @@ impl TextToSpeech for GoogleTts {
             api_key
         );
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request_body)
@@ -514,14 +514,18 @@ impl TextToSpeech for GoogleTts {
             )));
         }
 
-        let json: serde_json::Value = response.json().await
+        let json: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
 
-        let audio_content = json.get("audioContent")
+        let audio_content = json
+            .get("audioContent")
             .and_then(|v| v.as_str())
             .ok_or_else(|| OpenClawError::Config("响应中未找到 audioContent".to_string()))?;
 
-        let audio_data = base64::engine::general_purpose::STANDARD.decode(audio_content)
+        let audio_data = base64::engine::general_purpose::STANDARD
+            .decode(audio_content)
             .map_err(|e| OpenClawError::Config(format!("Base64 解码失败: {}", e)))?;
 
         Ok(audio_data)

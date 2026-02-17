@@ -1,7 +1,7 @@
 //! OpenClaw Channels - 消息通道抽象
 //!
 //! 支持多种消息通道：
-//! 
+//!
 //! ## 国内平台
 //! - 钉钉 (DingTalk) - 企业办公平台
 //! - 企业微信 (WeCom) - 企业通讯工具
@@ -27,47 +27,47 @@
 //! - SMS - 短信发送
 
 pub mod base;
-pub mod types;
-pub mod manager;
-pub mod telegram;
+pub mod bluebubbles;
 pub mod dingtalk;
-pub mod wecom;
+pub mod discord;
+pub mod dm_policy;
+pub mod email;
 pub mod feishu;
+pub mod googlechat;
+pub mod imessage;
+pub mod manager;
+pub mod matrix;
+pub mod signal;
+pub mod slack;
+pub mod sms;
+pub mod teams;
+pub mod telegram;
+pub mod types;
+pub mod webchat;
+pub mod wecom;
+pub mod whatsapp;
 pub mod zalo;
 pub mod zalo_personal;
-pub mod googlechat;
-pub mod discord;
-pub mod teams;
-pub mod slack;
-pub mod whatsapp;
-pub mod signal;
-pub mod imessage;
-pub mod bluebubbles;
-pub mod matrix;
-pub mod webchat;
-pub mod email;
-pub mod sms;
-pub mod dm_policy;
 
 pub use base::*;
-pub use types::*;
-pub use manager::*;
-pub use telegram::*;
+pub use bluebubbles::*;
 pub use dingtalk::*;
-pub use wecom::*;
+pub use discord::*;
+pub use dm_policy::*;
+pub use email::*;
 pub use feishu::*;
+pub use googlechat::*;
+pub use imessage::*;
+pub use manager::*;
+pub use matrix::*;
+pub use signal::*;
+pub use slack::*;
+pub use sms::*;
+pub use teams::*;
+pub use telegram::*;
+pub use types::*;
+pub use webchat::*;
+pub use wecom::*;
+pub use whatsapp::*;
 pub use zalo::*;
 pub use zalo_personal::*;
-pub use googlechat::*;
-pub use discord::*;
-pub use teams::*;
-pub use slack::*;
-pub use whatsapp::*;
-pub use signal::*;
-pub use imessage::*;
-pub use bluebubbles::*;
-pub use matrix::*;
-pub use webchat::*;
-pub use email::*;
-pub use sms::*;
-pub use dm_policy::*;

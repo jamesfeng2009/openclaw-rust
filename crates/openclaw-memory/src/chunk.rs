@@ -1,7 +1,7 @@
-use tiktoken_rs::cl100k_base;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use tiktoken_rs::cl100k_base;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chunk {
@@ -46,36 +46,36 @@ impl ChunkManager {
 
     pub fn chunk_text(&self, text: &str, source: &str) -> Result<Vec<Chunk>> {
         let bpe = cl100k_base()?;
-        
+
         let chars: Vec<char> = text.chars().collect();
         let total_chars = chars.len();
-        
+
         if total_chars == 0 {
             return Ok(vec![]);
         }
-        
+
         let mut chunks = Vec::new();
         let mut start = 0;
         let mut chunk_index = 0;
-        
+
         while start < total_chars {
             let end = (start + self.chunk_size * 4).min(total_chars);
-            
+
             let mut chunk_chars = &chars[start..end];
-            
+
             if start > 0 && chunk_chars.len() > self.overlap {
                 let overlap_chars = chunk_chars.len() - self.overlap;
                 chunk_chars = &chunk_chars[chunk_chars.len() - overlap_chars..];
             }
-            
+
             let chunk_text: String = chunk_chars.iter().collect();
             let tokens = bpe.encode_with_special_tokens(&chunk_text);
             let token_count = tokens.len();
-            
+
             if token_count == 0 {
                 break;
             }
-            
+
             let chunk = Chunk {
                 id: format!("{}_{}_{}", source, chunk_index, uuid::Uuid::new_v4()),
                 content: chunk_text.clone(),
@@ -90,22 +90,22 @@ impl ChunkManager {
                     document_id: None,
                 },
             };
-            
+
             chunks.push(chunk);
-            
+
             if end >= total_chars {
                 break;
             }
-            
+
             start += chunk_chars.len() - self.overlap;
             chunk_index += 1;
         }
-        
+
         let total_chunks = chunks.len();
         for chunk in &mut chunks {
             chunk.metadata.total_chunks = total_chunks;
         }
-        
+
         Ok(chunks)
     }
 
@@ -115,12 +115,12 @@ impl ChunkManager {
         let mut current_chunk = String::new();
         let mut current_tokens = 0;
         let mut chunk_index = 0;
-        
+
         let bpe = cl100k_base()?;
-        
+
         for para in paragraphs {
             let para_tokens = bpe.encode_with_special_tokens(para).len();
-            
+
             if current_tokens + para_tokens > self.chunk_size && !current_chunk.is_empty() {
                 chunks.push(Chunk {
                     id: format!("{}_{}_{}", source, chunk_index, uuid::Uuid::new_v4()),
@@ -136,17 +136,17 @@ impl ChunkManager {
                         document_id: None,
                     },
                 });
-                
+
                 chunk_index += 1;
                 current_chunk = String::new();
                 current_tokens = 0;
             }
-            
+
             current_chunk.push_str(para);
             current_chunk.push_str("\n\n");
             current_tokens += para_tokens;
         }
-        
+
         if !current_chunk.is_empty() {
             chunks.push(Chunk {
                 id: format!("{}_{}_{}", source, chunk_index, uuid::Uuid::new_v4()),
@@ -163,12 +163,12 @@ impl ChunkManager {
                 },
             });
         }
-        
+
         let total_chunks = chunks.len();
         for chunk in &mut chunks {
             chunk.metadata.total_chunks = total_chunks;
         }
-        
+
         Ok(chunks)
     }
 
@@ -222,24 +222,24 @@ impl Default for ChunkConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_chunk_text() {
         let manager = ChunkManager::default();
-        
+
         let text = "This is a test. ".repeat(100);
         let chunks = manager.chunk_text(&text, "test").unwrap();
-        
+
         assert!(!chunks.is_empty());
     }
-    
+
     #[test]
     fn test_chunk_by_paragraph() {
         let manager = ChunkManager::default();
-        
+
         let text = "Paragraph 1\n\nParagraph 2\n\nParagraph 3";
         let chunks = manager.chunk_text_by_paragraph(text, "test").unwrap();
-        
+
         assert!(!chunks.is_empty());
     }
 }

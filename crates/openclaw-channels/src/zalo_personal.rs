@@ -77,7 +77,11 @@ impl ZaloPersonalClient {
     }
 
     /// 发送文本消息
-    pub async fn send_text(&self, user_id: &str, text: &str) -> Result<ZaloPersonalMessageResponse> {
+    pub async fn send_text(
+        &self,
+        user_id: &str,
+        text: &str,
+    ) -> Result<ZaloPersonalMessageResponse> {
         let url = self.get_api_url("/v2/message/text");
 
         let body = serde_json::json!({
@@ -116,7 +120,12 @@ impl ZaloPersonalClient {
     }
 
     /// 发送文件消息
-    pub async fn send_file(&self, user_id: &str, file_url: &str, file_name: Option<&str>) -> Result<ZaloPersonalMessageResponse> {
+    pub async fn send_file(
+        &self,
+        user_id: &str,
+        file_url: &str,
+        file_name: Option<&str>,
+    ) -> Result<ZaloPersonalMessageResponse> {
         let url = self.get_api_url("/v2/message/file");
 
         let mut message = serde_json::json!({
@@ -146,7 +155,10 @@ impl ZaloPersonalClient {
         let response = self
             .client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")),
+            )
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
@@ -177,7 +189,10 @@ impl ZaloPersonalClient {
         let response = self
             .client
             .post(url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")),
+            )
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
@@ -201,17 +216,20 @@ impl ZaloPersonalClient {
 
     /// 处理 Webhook 消息
     pub async fn handle_webhook(&self, payload: serde_json::Value) -> Result<ChannelMessage> {
-        let sender = payload.get("sender")
+        let sender = payload
+            .get("sender")
             .and_then(|s| s.get("id"))
             .and_then(|id| id.as_str())
             .unwrap_or_default();
 
-        let content = payload.get("message")
+        let content = payload
+            .get("message")
             .and_then(|m| m.get("text"))
             .and_then(|t| t.as_str())
             .unwrap_or_default();
 
-        let msg_id = payload.get("mid")
+        let msg_id = payload
+            .get("mid")
             .and_then(|m| m.as_str())
             .map(|s| s.to_string())
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
@@ -232,7 +250,7 @@ impl ZaloPersonalClient {
         if let Some(secret) = &self.config.webhook_secret {
             use hmac::{Hmac, Mac};
             type HmacSha256 = Hmac<sha2::Sha256>;
-            
+
             let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
             mac.update(payload.as_bytes());
             let result = mac.finalize();
@@ -284,7 +302,8 @@ impl Channel for ZaloPersonalClient {
             }
         }
 
-        let msg_id = response.data
+        let msg_id = response
+            .data
             .and_then(|d| d.msg_id)
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 

@@ -1,7 +1,7 @@
 //! 设置向导命令
 
-use anyhow::{Result, Context};
-use dialoguer::{Input, Select, MultiSelect, Confirm, theme::ColorfulTheme};
+use anyhow::{Context, Result};
+use dialoguer::{Confirm, Input, MultiSelect, Select, theme::ColorfulTheme};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -51,7 +51,7 @@ pub async fn run(quick: bool, force: bool) -> Result<()> {
             .with_prompt("配置文件已存在，是否覆盖？")
             .default(false)
             .interact()?;
-        
+
         if !overwrite {
             println!("\n已取消设置向导。");
             return Ok(());
@@ -62,7 +62,7 @@ pub async fn run(quick: bool, force: bool) -> Result<()> {
 
     // 1. 用户信息
     println!("\n📝 基本设置\n");
-    
+
     config.user_name = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("请输入您的名字")
         .default("User".to_string())
@@ -70,7 +70,7 @@ pub async fn run(quick: bool, force: bool) -> Result<()> {
 
     // 2. AI 提供商选择
     println!("\n🤖 AI 提供商设置\n");
-    
+
     let providers = vec![
         "OpenAI",
         "Anthropic (Claude)",
@@ -80,13 +80,13 @@ pub async fn run(quick: bool, force: bool) -> Result<()> {
         "智谱 GLM",
         "Moonshot (Kimi)",
     ];
-    
+
     let provider_idx = Select::with_theme(&ColorfulTheme::default())
         .with_prompt("选择默认 AI 提供商")
         .items(&providers)
         .default(0)
         .interact()?;
-    
+
     config.default_provider = match provider_idx {
         0 => "openai",
         1 => "anthropic",
@@ -96,19 +96,20 @@ pub async fn run(quick: bool, force: bool) -> Result<()> {
         5 => "zhipu",
         6 => "moonshot",
         _ => "openai",
-    }.to_string();
+    }
+    .to_string();
 
     // 3. API Key 输入
     println!("\n🔑 API 密钥设置\n");
-    
+
     let key_name = format!("{}_API_KEY", config.default_provider.to_uppercase());
     let key_prompt = format!("请输入 {} API Key (留空跳过)", providers[provider_idx]);
-    
+
     let api_key: String = Input::with_theme(&ColorfulTheme::default())
         .with_prompt(key_prompt)
         .allow_empty(true)
         .interact()?;
-    
+
     if !api_key.is_empty() {
         config.api_keys.insert(key_name.clone(), api_key);
     }
@@ -126,7 +127,7 @@ pub async fn run(quick: bool, force: bool) -> Result<()> {
 
         // 5. 功能选择
         println!("\n⚡ 功能设置\n");
-        
+
         let features = vec![
             "对话聊天",
             "语音识别 (STT)",
@@ -137,21 +138,18 @@ pub async fn run(quick: bool, force: bool) -> Result<()> {
             "Webhook",
             "Docker 沙箱",
         ];
-        
+
         let selected = MultiSelect::with_theme(&ColorfulTheme::default())
             .with_prompt("选择要启用的功能 (空格选择，回车确认)")
             .items(&features)
             .defaults(&[true])
             .interact()?;
-        
-        config.enabled_features = selected.iter()
-            .map(|&i| features[i].to_string())
-            .collect();
+
+        config.enabled_features = selected.iter().map(|&i| features[i].to_string()).collect();
 
         // 6. 语音设置
-        config.voice_enabled = config.enabled_features.iter()
-            .any(|f| f.contains("语音"));
-        
+        config.voice_enabled = config.enabled_features.iter().any(|f| f.contains("语音"));
+
         if config.voice_enabled {
             let voice_providers = vec!["OpenAI Whisper", "本地 Whisper", "Edge TTS"];
             let voice_idx = Select::with_theme(&ColorfulTheme::default())
@@ -169,27 +167,20 @@ pub async fn run(quick: bool, force: bool) -> Result<()> {
             .interact()?;
 
         // 8. 沙箱设置
-        config.sandbox_enabled = config.enabled_features.iter()
-            .any(|f| f.contains("沙箱"));
+        config.sandbox_enabled = config.enabled_features.iter().any(|f| f.contains("沙箱"));
 
         // 9. 频道设置
         println!("\n📡 消息频道设置\n");
-        
-        let channels = vec![
-            "Telegram",
-            "Discord", 
-            "钉钉",
-            "企业微信",
-            "飞书",
-            "Slack",
-        ];
-        
+
+        let channels = vec!["Telegram", "Discord", "钉钉", "企业微信", "飞书", "Slack"];
+
         let selected_channels = MultiSelect::with_theme(&ColorfulTheme::default())
             .with_prompt("选择要启用的消息频道 (可选)")
             .items(&channels)
             .interact()?;
-        
-        config.channels_enabled = selected_channels.iter()
+
+        config.channels_enabled = selected_channels
+            .iter()
             .map(|&i| channels[i].to_lowercase())
             .collect();
     }
@@ -209,8 +200,7 @@ pub async fn run(quick: bool, force: bool) -> Result<()> {
 
 /// 获取配置路径
 fn get_config_path() -> Result<PathBuf> {
-    let home = dirs::home_dir()
-        .context("无法获取用户主目录")?;
+    let home = dirs::home_dir().context("无法获取用户主目录")?;
     Ok(home.join(".openclaw").join("openclaw.json"))
 }
 
@@ -219,10 +209,10 @@ fn save_config(path: &Path, config: &WizardConfig) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    
+
     let content = serde_json::to_string_pretty(config)?;
     fs::write(path, content)?;
-    
+
     Ok(())
 }
 
@@ -230,7 +220,12 @@ fn save_config(path: &Path, config: &WizardConfig) -> Result<()> {
 fn get_models_for_provider(provider: &str) -> Vec<&'static str> {
     match provider {
         "openai" => vec!["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "o1", "o3"],
-        "anthropic" => vec!["claude-4", "claude-3.7-sonnet", "claude-3.5-sonnet", "claude-3-opus"],
+        "anthropic" => vec![
+            "claude-4",
+            "claude-3.7-sonnet",
+            "claude-3.5-sonnet",
+            "claude-3-opus",
+        ],
         "google" => vec!["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
         "deepseek" => vec!["deepseek-chat", "deepseek-coder", "deepseek-reasoner"],
         "qwen" => vec!["qwen-max", "qwen-plus", "qwen-turbo", "qwen-vl"],

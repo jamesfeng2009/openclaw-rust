@@ -1,21 +1,21 @@
 //! HTTP API 路由
 
 use axum::{
-    routing::{get, post, delete},
-    extract::{Path, State},
     Json, Router,
+    extract::{Path, State},
+    routing::{delete, get, post},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::browser_api::{create_browser_router, BrowserApiState};
-use crate::canvas_api::{create_canvas_router, CanvasApiState};
 use crate::agent_service::AgentService;
+use crate::browser_api::{BrowserApiState, create_browser_router};
+use crate::canvas_api::{CanvasApiState, create_canvas_router};
 
 pub fn create_router() -> Router {
     let state = Arc::new(RwLock::new(ApiState::new()));
-    
+
     Router::new()
         .route("/health", get(health_check))
         .route("/chat", post(chat_handler))
@@ -120,7 +120,9 @@ pub struct TokenUsage {
 async fn chat_handler(Json(request): Json<ChatRequest>) -> Json<ChatResponse> {
     Json(ChatResponse {
         reply: format!("收到消息: {}", request.message),
-        session_id: request.session_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+        session_id: request
+            .session_id
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
         model: request.model.unwrap_or_else(|| "gpt-4".to_string()),
         usage: TokenUsage {
             prompt_tokens: 10,
@@ -294,8 +296,10 @@ async fn send_agent_message(
     State(state): State<Arc<RwLock<ApiState>>>,
     Json(input): Json<AgentMessageRequest>,
 ) -> Json<AgentMessageResponse> {
-    let session_id = input.session_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    
+    let session_id = input
+        .session_id
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
     Json(AgentMessageResponse {
         message: format!("Agent response to: {}", input.message),
         session_id,

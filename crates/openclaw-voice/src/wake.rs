@@ -5,10 +5,13 @@
 use async_trait::async_trait;
 use openclaw_core::{OpenClawError, Result};
 use std::sync::Arc;
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{RwLock, broadcast};
 
 fn zip_err(e: zip::result::ZipError) -> OpenClawError {
-    OpenClawError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+    OpenClawError::Io(std::io::Error::new(
+        std::io::ErrorKind::Other,
+        e.to_string(),
+    ))
 }
 
 /// 唤醒词配置
@@ -285,46 +288,49 @@ impl VoskWakeDetector {
             .map_err(|e| OpenClawError::Config(format!("创建模型目录失败: {}", e)))?;
 
         // 下载并解压
-        let response = reqwest::get(url).await
+        let response = reqwest::get(url)
+            .await
             .map_err(|e| OpenClawError::Http(format!("下载模型失败: {}", e)))?;
 
-        let bytes = response.bytes().await
+        let bytes = response
+            .bytes()
+            .await
             .map_err(|e| OpenClawError::Http(format!("读取模型数据失败: {}", e)))?;
 
         let zip_path = model_path.with_extension("zip");
-        
+
         std::fs::write(&zip_path, &bytes)?;
-        
+
         println!("📦 解压 Vosk 模型...");
-        
+
         let file = std::fs::File::open(&zip_path)?;
-        
+
         let mut archive = zip::ZipArchive::new(file).map_err(zip_err)?;
-        
+
         let extract_dir = models_dir.join(filename.trim_end_matches(".zip"));
-        
+
         for i in 0..archive.len() {
             let mut file = archive.by_index(i).map_err(zip_err)?;
-            
+
             let outpath = match file.enclosed_name() {
                 Some(path) => extract_dir.join(path),
                 None => continue,
             };
-            
+
             if file.name().ends_with('/') {
                 std::fs::create_dir_all(&outpath)?;
             } else {
                 if let Some(parent) = outpath.parent() {
                     std::fs::create_dir_all(parent)?;
                 }
-                
+
                 let mut outfile = std::fs::File::create(&outpath)?;
                 std::io::copy(&mut file, &mut outfile)?;
             }
         }
-        
+
         std::fs::remove_file(&zip_path)?;
-        
+
         println!("✅ 模型已解压到: {}", extract_dir.display());
 
         Ok(model_path.to_string_lossy().to_string())
@@ -334,7 +340,9 @@ impl VoskWakeDetector {
         let home = std::env::var("HOME")
             .or_else(|_| std::env::var("USERPROFILE"))
             .unwrap_or_else(|_| ".".to_string());
-        Ok(std::path::PathBuf::from(home).join(".openclaw").join("vosk-models"))
+        Ok(std::path::PathBuf::from(home)
+            .join(".openclaw")
+            .join("vosk-models"))
     }
 }
 
@@ -342,9 +350,7 @@ impl VoskWakeDetector {
 impl VoiceWake for VoskWakeDetector {
     async fn start(&mut self) -> Result<()> {
         if self.model_path.is_none() {
-            return Err(OpenClawError::Config(
-                "Vosk 需要指定模型路径".to_string(),
-            ));
+            return Err(OpenClawError::Config("Vosk 需要指定模型路径".to_string()));
         }
 
         let mut running = self.running.write().await;
@@ -392,9 +398,7 @@ pub fn create_wake_detector(
         WakeDetectorType::Porcupine(access_key) => {
             Box::new(PorcupineWakeDetector::new(config, access_key))
         }
-        WakeDetectorType::Vosk(model_path) => {
-            Box::new(VoskWakeDetector::new(config, model_path))
-        }
+        WakeDetectorType::Vosk(model_path) => Box::new(VoskWakeDetector::new(config, model_path)),
     }
 }
 

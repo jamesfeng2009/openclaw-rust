@@ -14,14 +14,14 @@ pub enum ChannelType {
     Slack,
     Signal,
     Matrix,
-    Teams,  // Microsoft Teams
-    IMessage, // Apple iMessage
+    Teams,      // Microsoft Teams
+    IMessage,   // Apple iMessage
     GoogleChat, // Google Chat
     // 国内平台
     DingTalk,
-    WeCom,  // 企业微信
-    Feishu, // 飞书
-    Zalo,   // Zalo
+    WeCom,        // 企业微信
+    Feishu,       // 飞书
+    Zalo,         // Zalo
     ZaloPersonal, // Zalo Personal (越南个人)
     // 其他
     WebChat,
@@ -78,14 +78,35 @@ pub enum ChatType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum MessageContent {
-    Text { text: String },
-    Photo { url: String, caption: Option<String> },
-    Video { url: String, caption: Option<String> },
-    Audio { url: String },
-    Document { url: String, filename: String },
-    Location { latitude: f64, longitude: f64 },
-    Contact { name: String, phone: String },
-    Sticker { url: String },
+    Text {
+        text: String,
+    },
+    Photo {
+        url: String,
+        caption: Option<String>,
+    },
+    Video {
+        url: String,
+        caption: Option<String>,
+    },
+    Audio {
+        url: String,
+    },
+    Document {
+        url: String,
+        filename: String,
+    },
+    Location {
+        latitude: f64,
+        longitude: f64,
+    },
+    Contact {
+        name: String,
+        phone: String,
+    },
+    Sticker {
+        url: String,
+    },
     Unknown,
 }
 

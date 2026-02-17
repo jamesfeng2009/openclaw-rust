@@ -152,7 +152,8 @@ fn parse_cron_expression(expr: &str) -> Result<CronSchedule, CronError> {
     // 支持 6 字段格式: 秒 分 时 日 月 周
     let expr = expr.trim();
 
-    CronSchedule::try_from(expr).map_err(|e| CronError::InvalidExpression(format!("{}: {}", expr, e)))
+    CronSchedule::try_from(expr)
+        .map_err(|e| CronError::InvalidExpression(format!("{}: {}", expr, e)))
 }
 
 /// Cron 调度器
@@ -249,11 +250,7 @@ impl CronScheduler {
     /// 获取待执行任务
     pub async fn get_pending_tasks(&self) -> Vec<CronTask> {
         let tasks = self.tasks.read().await;
-        tasks
-            .values()
-            .filter(|t| t.should_run())
-            .cloned()
-            .collect()
+        tasks.values().filter(|t| t.should_run()).cloned().collect()
     }
 
     /// 启动调度器
@@ -298,15 +295,29 @@ impl CronScheduler {
             TaskAction::SendMessage { channel, message } => {
                 debug!("发送消息到通道: {} 内容: {}", channel, message);
             }
-            TaskAction::ExecuteTool { tool_id, parameters } => {
+            TaskAction::ExecuteTool {
+                tool_id,
+                parameters,
+            } => {
                 debug!("执行工具: {} 参数: {:?}", tool_id, parameters);
                 // 实际执行由外部执行器完成
             }
-            TaskAction::HttpCall { url, method, headers, body } => {
-                debug!("HTTP 调用: {} {} headers: {:?} body: {:?}", method, url, headers, body);
+            TaskAction::HttpCall {
+                url,
+                method,
+                headers,
+                body,
+            } => {
+                debug!(
+                    "HTTP 调用: {} {} headers: {:?} body: {:?}",
+                    method, url, headers, body
+                );
                 // 实际调用由外部处理器完成
             }
-            TaskAction::TriggerWebhook { webhook_id, payload } => {
+            TaskAction::TriggerWebhook {
+                webhook_id,
+                payload,
+            } => {
                 debug!("触发 Webhook: {} payload: {:?}", webhook_id, payload);
                 // 实际调用由外部处理器完成
             }

@@ -15,15 +15,14 @@ pub struct MinimaxProvider(OpenAICompatibleProvider);
 impl MinimaxProvider {
     /// 创建新的 Minimax 提供商
     pub fn new(config: ProviderConfig) -> Self {
-        Self(OpenAICompatibleProvider::new(config, ProviderInfo {
-            name: "minimax",
-            default_base_url: "https://api.minimax.chat/v1",
-            default_models: &[
-                "abab6.5s-chat",
-                "abab6.5g-chat",
-                "abab5.5-chat",
-            ],
-        }))
+        Self(OpenAICompatibleProvider::new(
+            config,
+            ProviderInfo {
+                name: "minimax",
+                default_base_url: "https://api.minimax.chat/v1",
+                default_models: &["abab6.5s-chat", "abab6.5g-chat", "abab5.5-chat"],
+            },
+        ))
     }
 }
 
@@ -37,7 +36,10 @@ impl AIProvider for MinimaxProvider {
         self.0.chat(request).await
     }
 
-    async fn chat_stream(&self, request: ChatRequest) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
+    async fn chat_stream(
+        &self,
+        request: ChatRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
         self.0.chat_stream(request).await
     }
 

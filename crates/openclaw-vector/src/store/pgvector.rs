@@ -1,10 +1,10 @@
 use async_trait::async_trait;
-use sqlx::postgres::{PgPool, PgRow};
 use sqlx::Row;
+use sqlx::postgres::{PgPool, PgRow};
 
-use openclaw_core::{OpenClawError, Result};
-use crate::types::{Filter, SearchQuery, SearchResult, StoreStats, VectorItem};
 use crate::VectorStore;
+use crate::types::{Filter, SearchQuery, SearchResult, StoreStats, VectorItem};
+use openclaw_core::{OpenClawError, Result};
 
 pub struct PgVectorStore {
     pool: PgPool,
@@ -14,18 +14,18 @@ pub struct PgVectorStore {
 
 impl PgVectorStore {
     pub async fn new(connection_string: &str, table_name: &str, dimension: usize) -> Result<Self> {
-        let pool = PgPool::connect(connection_string)
-            .await
-            .map_err(|e| OpenClawError::Config(format!("Failed to connect to PostgreSQL: {}", e)))?;
+        let pool = PgPool::connect(connection_string).await.map_err(|e| {
+            OpenClawError::Config(format!("Failed to connect to PostgreSQL: {}", e))
+        })?;
 
         let store = Self {
             pool,
             table_name: table_name.to_string(),
             dimension,
         };
-        
+
         store.initialize_table().await?;
-        
+
         Ok(store)
     }
 
@@ -99,13 +99,20 @@ impl PgVectorStore {
     }
 
     fn vector_to_string(vector: &[f32]) -> String {
-        format!("[{}]", vector.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(","))
+        format!(
+            "[{}]",
+            vector
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        )
     }
 
     fn string_to_vector(s: &str) -> Vec<f32> {
         let s = s.trim();
         if s.starts_with('[') && s.ends_with(']') {
-            s[1..s.len()-1]
+            s[1..s.len() - 1]
                 .split(',')
                 .filter_map(|s| s.trim().parse::<f32>().ok())
                 .collect()
@@ -121,11 +128,11 @@ impl PgVectorStore {
         let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
         let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
         let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-        
+
         if norm_a == 0.0 || norm_b == 0.0 {
             return 0.0;
         }
-        
+
         dot / (norm_a * norm_b)
     }
 }
@@ -136,8 +143,10 @@ impl VectorStore for PgVectorStore {
         let vector_str = Self::vector_to_string(&item.vector);
         let payload_json = serde_json::to_string(&item.payload)
             .map_err(|e| OpenClawError::Config(format!("Failed to serialize payload: {}", e)))?;
-        
-        let content = item.payload.get("content")
+
+        let content = item
+            .payload
+            .get("content")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
 
@@ -161,7 +170,7 @@ impl VectorStore for PgVectorStore {
 
     async fn upsert_batch(&self, items: Vec<VectorItem>) -> Result<usize> {
         let count = items.len();
-        
+
         for item in items {
             self.upsert(item).await?;
         }
@@ -171,7 +180,7 @@ impl VectorStore for PgVectorStore {
 
     async fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>> {
         let vector_str = Self::vector_to_string(&query.vector);
-        
+
         let sql = format!(
             "SELECT id, vector::text, content, payload FROM {} ORDER BY vector <=> $1::vector LIMIT $2",
             self.table_name
@@ -204,11 +213,7 @@ impl VectorStore for PgVectorStore {
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .unwrap_or(serde_json::Value::Null);
 
-            results.push(SearchResult {
-                id,
-                score,
-                payload,
-            });
+            results.push(SearchResult { id, score, payload });
         }
 
         Ok(results)
@@ -250,7 +255,7 @@ impl VectorStore for PgVectorStore {
 
     async fn delete(&self, id: &str) -> Result<()> {
         let sql = format!("DELETE FROM {} WHERE id = $1", self.table_name);
-        
+
         sqlx::query(&sql)
             .bind(id)
             .execute(&self.pool)
@@ -263,7 +268,7 @@ impl VectorStore for PgVectorStore {
     async fn delete_by_filter(&self, filter: Filter) -> Result<usize> {
         let condition = filter.to_sql_condition();
         let sql = format!("DELETE FROM {} WHERE {}", self.table_name, condition);
-        
+
         let result = sqlx::query(&sql)
             .execute(&self.pool)
             .await
@@ -274,7 +279,7 @@ impl VectorStore for PgVectorStore {
 
     async fn stats(&self) -> Result<StoreStats> {
         let sql = format!("SELECT COUNT(*) FROM {}", self.table_name);
-        
+
         let row: PgRow = sqlx::query(&sql)
             .fetch_one(&self.pool)
             .await
@@ -291,7 +296,7 @@ impl VectorStore for PgVectorStore {
 
     async fn clear(&self) -> Result<()> {
         let sql = format!("DELETE FROM {}", self.table_name);
-        
+
         sqlx::query(&sql)
             .execute(&self.pool)
             .await

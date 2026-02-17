@@ -1,9 +1,9 @@
 //! 会话管理
 
+use crate::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::Result;
 
 /// 会话作用域
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

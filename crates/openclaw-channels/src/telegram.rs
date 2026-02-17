@@ -70,7 +70,12 @@ impl TelegramBot {
     }
 
     /// 发送消息
-    pub async fn send_text(&self, chat_id: i64, text: &str, parse_mode: Option<&str>) -> Result<TelegramMessage> {
+    pub async fn send_text(
+        &self,
+        chat_id: i64,
+        text: &str,
+        parse_mode: Option<&str>,
+    ) -> Result<TelegramMessage> {
         let mut body = serde_json::json!({
             "chat_id": chat_id,
             "text": text,
@@ -247,10 +252,7 @@ impl Channel for TelegramBot {
 
         // 获取 bot 信息
         let me = self.get_me().await?;
-        tracing::info!(
-            "Telegram Bot 已连接: @{}",
-            me.username.unwrap_or_default()
-        );
+        tracing::info!("Telegram Bot 已连接: @{}", me.username.unwrap_or_default());
 
         // 开始轮询
         loop {
@@ -296,9 +298,10 @@ impl Channel for TelegramBot {
             return Err(OpenClawError::Config("Telegram 通道未启用".to_string()));
         }
 
-        let chat_id: i64 = message.chat_id.parse().map_err(|_| {
-            OpenClawError::Config("无效的 chat_id，需要数字格式".into())
-        })?;
+        let chat_id: i64 = message
+            .chat_id
+            .parse()
+            .map_err(|_| OpenClawError::Config("无效的 chat_id，需要数字格式".into()))?;
 
         let parse_mode = message.message_type.as_str();
         let mode = match parse_mode {

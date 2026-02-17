@@ -1,14 +1,14 @@
 //! 浏览器控制 API 路由
 
 use axum::{
+    Json, Router,
     extract::State,
     routing::{delete, get, post},
-    Json, Router,
 };
 use openclaw_browser::{
-    BrowserConfig, BrowserId, BrowserInfo, BrowserPool, ClickOptions, Cookie,
-    ElementInfo, NavigationOptions, PageId, PdfOptions, ScreenshotOptions,
-    ScreenshotUtils, Selector, TypeOptions, UploadOptions,
+    BrowserConfig, BrowserId, BrowserInfo, BrowserPool, ClickOptions, Cookie, ElementInfo,
+    NavigationOptions, PageId, PdfOptions, ScreenshotOptions, ScreenshotUtils, Selector,
+    TypeOptions, UploadOptions,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -50,7 +50,10 @@ pub fn create_browser_router(state: BrowserApiState) -> Router {
         .route("/page/{browser_id}/{page_id}/goto", post(page_goto))
         .route("/page/{browser_id}/{page_id}/url", get(get_page_url))
         .route("/page/{browser_id}/{page_id}/title", get(get_page_title))
-        .route("/page/{browser_id}/{page_id}/content", get(get_page_content))
+        .route(
+            "/page/{browser_id}/{page_id}/content",
+            get(get_page_content),
+        )
         .route("/page/{browser_id}/{page_id}/click", post(page_click))
         .route("/page/{browser_id}/{page_id}/type", post(page_type))
         .route("/page/{browser_id}/{page_id}/clear", post(page_clear))
@@ -65,7 +68,10 @@ pub fn create_browser_router(state: BrowserApiState) -> Router {
         .route("/page/{browser_id}/{page_id}/back", post(page_back))
         .route("/page/{browser_id}/{page_id}/forward", post(page_forward))
         // 截图和 PDF
-        .route("/page/{browser_id}/{page_id}/screenshot", post(page_screenshot))
+        .route(
+            "/page/{browser_id}/{page_id}/screenshot",
+            post(page_screenshot),
+        )
         .route("/page/{browser_id}/{page_id}/pdf", post(page_pdf))
         .with_state(state)
 }
@@ -100,7 +106,11 @@ async fn create_browser(
         ..Default::default()
     };
 
-    let id = state.pool.create_browser(Some(config)).await.map_err(|e| e.to_string())?;
+    let id = state
+        .pool
+        .create_browser(Some(config))
+        .await
+        .map_err(|e| e.to_string())?;
     info!("创建浏览器实例: {}", id);
 
     Ok(Json(CreateBrowserResponse { id }))
@@ -117,7 +127,11 @@ async fn delete_browser(
     State(state): State<BrowserApiState>,
     axum::extract::Path(id): axum::extract::Path<BrowserId>,
 ) -> Result<Json<serde_json::Value>, String> {
-    state.pool.destroy_browser(&id).await.map_err(|e| e.to_string())?;
+    state
+        .pool
+        .destroy_browser(&id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(Json(serde_json::json!({"success": true})))
 }
 
@@ -144,7 +158,11 @@ async fn create_page(
     State(state): State<BrowserApiState>,
     axum::extract::Path(browser_id): axum::extract::Path<BrowserId>,
 ) -> Result<Json<CreatePageResponse>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.new_page().await.map_err(|e| e.to_string())?;
 
     Ok(Json(CreatePageResponse {
@@ -157,7 +175,11 @@ async fn list_pages(
     State(state): State<BrowserApiState>,
     axum::extract::Path(browser_id): axum::extract::Path<BrowserId>,
 ) -> Result<Json<Vec<PageId>>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let pages = browser.get_pages().await;
     Ok(Json(pages))
 }
@@ -167,8 +189,15 @@ async fn close_page(
     State(state): State<BrowserApiState>,
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
-    browser.close_page(&page_id).await.map_err(|e| e.to_string())?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
+    browser
+        .close_page(&page_id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(Json(serde_json::json!({"success": true})))
 }
 
@@ -187,7 +216,11 @@ async fn page_goto(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<GotoRequest>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     let options = NavigationOptions {
@@ -195,7 +228,9 @@ async fn page_goto(
         ..Default::default()
     };
 
-    page.goto(&req.url, Some(options)).await.map_err(|e| e.to_string())?;
+    page.goto(&req.url, Some(options))
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(Json(serde_json::json!({"success": true})))
 }
 
@@ -204,7 +239,11 @@ async fn get_page_url(
     State(state): State<BrowserApiState>,
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     let url = page.url().await.map_err(|e| e.to_string())?;
@@ -216,7 +255,11 @@ async fn get_page_title(
     State(state): State<BrowserApiState>,
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     let title = page.title().await.map_err(|e| e.to_string())?;
@@ -228,7 +271,11 @@ async fn get_page_content(
     State(state): State<BrowserApiState>,
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     let content = page.content().await.map_err(|e| e.to_string())?;
@@ -249,7 +296,11 @@ async fn page_click(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<ClickRequest>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     let options = ClickOptions {
@@ -279,7 +330,11 @@ async fn page_type(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<TypeRequest>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     let options = TypeOptions {
@@ -305,7 +360,11 @@ async fn page_clear(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<ClearRequest>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     page.clear(&Selector::css(&req.selector))
@@ -329,7 +388,11 @@ async fn page_wait(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<WaitRequest>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     if let Some(selector) = req.selector {
@@ -363,10 +426,17 @@ async fn page_evaluate(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<EvaluateRequest>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
-    let result = page.evaluate(&req.script).await.map_err(|e| e.to_string())?;
+    let result = page
+        .evaluate(&req.script)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(Json(serde_json::json!({ "result": result })))
 }
 
@@ -383,7 +453,11 @@ async fn page_query(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<QueryRequest>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     if req.all.unwrap_or(false) {
@@ -415,11 +489,18 @@ async fn page_scroll(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<ScrollRequest>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     let options = openclaw_browser::ScrollOptions {
-        distance: req.x.zip(req.y).map(|(x, y)| openclaw_browser::ScrollDistance { x, y }),
+        distance: req
+            .x
+            .zip(req.y)
+            .map(|(x, y)| openclaw_browser::ScrollDistance { x, y }),
         selector: req.selector,
     };
 
@@ -432,7 +513,11 @@ async fn get_cookies(
     State(state): State<BrowserApiState>,
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     let cookies = page.get_cookies().await.map_err(|e| e.to_string())?;
@@ -451,10 +536,16 @@ async fn set_cookies(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<SetCookiesRequest>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
-    page.set_cookies(req.cookies).await.map_err(|e| e.to_string())?;
+    page.set_cookies(req.cookies)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(Json(serde_json::json!({"success": true})))
 }
 
@@ -471,7 +562,11 @@ async fn page_upload(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<UploadRequest>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     page.upload_file(&Selector::css(&req.selector), req.files)
@@ -486,7 +581,11 @@ async fn page_reload(
     State(state): State<BrowserApiState>,
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     page.reload().await.map_err(|e| e.to_string())?;
@@ -498,10 +597,16 @@ async fn page_back(
     State(state): State<BrowserApiState>,
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
-    page.evaluate("window.history.back()").await.map_err(|e| e.to_string())?;
+    page.evaluate("window.history.back()")
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(Json(serde_json::json!({"success": true})))
 }
 
@@ -510,10 +615,16 @@ async fn page_forward(
     State(state): State<BrowserApiState>,
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
 ) -> Result<Json<serde_json::Value>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
-    page.evaluate("window.history.forward()").await.map_err(|e| e.to_string())?;
+    page.evaluate("window.history.forward()")
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(Json(serde_json::json!({"success": true})))
 }
 
@@ -540,7 +651,11 @@ async fn page_screenshot(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<ScreenshotRequest>,
 ) -> Result<Json<ScreenshotResponse>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     let format = match req.format.as_deref() {
@@ -556,7 +671,10 @@ async fn page_screenshot(
         ..Default::default()
     };
 
-    let base64 = page.screenshot_base64(Some(options)).await.map_err(|e| e.to_string())?;
+    let base64 = page
+        .screenshot_base64(Some(options))
+        .await
+        .map_err(|e| e.to_string())?;
 
     let mime_type = match format {
         openclaw_browser::ScreenshotFormat::Png => "image/png",
@@ -590,7 +708,11 @@ async fn page_pdf(
     axum::extract::Path((browser_id, page_id)): axum::extract::Path<(BrowserId, PageId)>,
     Json(req): Json<PdfRequest>,
 ) -> Result<Json<PdfResponse>, String> {
-    let browser = state.pool.get_browser(&browser_id).await.ok_or("浏览器不存在")?;
+    let browser = state
+        .pool
+        .get_browser(&browser_id)
+        .await
+        .ok_or("浏览器不存在")?;
     let page = browser.get_page(&page_id).await.ok_or("页面不存在")?;
 
     let format = match req.format.as_deref() {
@@ -606,7 +728,10 @@ async fn page_pdf(
         ..Default::default()
     };
 
-    let base64 = page.pdf_base64(Some(options)).await.map_err(|e| e.to_string())?;
+    let base64 = page
+        .pdf_base64(Some(options))
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(Json(PdfResponse { data: base64 }))
 }

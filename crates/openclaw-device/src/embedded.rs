@@ -48,7 +48,9 @@ impl EmbeddedDeviceType {
         match self {
             Self::Esp32 | Self::Esp32S2 | Self::Esp32S3 | Self::Esp32C3 | Self::Esp32C6 => "esp32",
             Self::Stm32F1 | Self::Stm32F4 | Self::Stm32H7 => "stm32",
-            Self::ArduinoUno | Self::ArduinoNano | Self::ArduinoMega | Self::ArduinoDue => "arduino",
+            Self::ArduinoUno | Self::ArduinoNano | Self::ArduinoMega | Self::ArduinoDue => {
+                "arduino"
+            }
             Self::RpiPico | Self::RpiPicoW => "rpi_pico",
             Self::Nrf52 => "nrf52",
             Self::Generic => "unknown",
@@ -109,38 +111,53 @@ impl HttpDevice {
 
     pub async fn health_check(&self) -> bool {
         let url = format!("{}/health", self.config.endpoint);
-        
+
         let mut request = self.client.get(&url);
         if let Some(key) = &self.config.api_key {
             request = request.header("Authorization", format!("Bearer {}", key));
         }
 
-        request.send().await.map(|r| r.status().is_success()).unwrap_or(false)
+        request
+            .send()
+            .await
+            .map(|r| r.status().is_success())
+            .unwrap_or(false)
     }
 
     pub async fn get_state(&self) -> Result<DeviceState, String> {
         let url = format!("{}/state", self.config.endpoint);
-        
+
         let mut request = self.client.get(&url);
         if let Some(key) = &self.config.api_key {
             request = request.header("Authorization", format!("Bearer {}", key));
         }
 
-        let response = request.send().await
+        let response = request
+            .send()
+            .await
             .map_err(|e| format!("Request failed: {}", e))?;
 
         if !response.status().is_success() {
             return Err(format!("HTTP error: {}", response.status()));
         }
 
-        let state: DeviceState = response.json().await
+        let state: DeviceState = response
+            .json()
+            .await
             .map_err(|e| format!("Parse failed: {}", e))?;
 
         Ok(state)
     }
 
-    pub async fn send_command(&self, command: &str, params: serde_json::Value) -> Result<serde_json::Value, String> {
-        let (path, method) = self.config.commands.iter()
+    pub async fn send_command(
+        &self,
+        command: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        let (path, method) = self
+            .config
+            .commands
+            .iter()
             .find(|c| c.name == command)
             .map(|c| (c.path.clone(), c.method.clone()))
             .unwrap_or_else(|| ("command".to_string(), "POST".to_string()));
@@ -152,7 +169,7 @@ impl HttpDevice {
         };
 
         let url = format!("{}/{}", self.config.endpoint, full_path);
-        
+
         let mut request = match method.as_str() {
             "GET" => self.client.get(&url),
             _ => self.client.post(&url),
@@ -166,14 +183,18 @@ impl HttpDevice {
             request = request.json(&params);
         }
 
-        let response = request.send().await
+        let response = request
+            .send()
+            .await
             .map_err(|e| format!("Request failed: {}", e))?;
 
         if !response.status().is_success() {
             return Err(format!("HTTP error: {}", response.status()));
         }
 
-        let result: serde_json::Value = response.json().await
+        let result: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| format!("Parse failed: {}", e))?;
 
         Ok(result)
@@ -192,8 +213,14 @@ mod tests {
     fn test_embedded_device_type_to_platform_string() {
         assert_eq!(EmbeddedDeviceType::Esp32.to_platform_string(), "esp32");
         assert_eq!(EmbeddedDeviceType::Stm32F4.to_platform_string(), "stm32");
-        assert_eq!(EmbeddedDeviceType::ArduinoMega.to_platform_string(), "arduino");
-        assert_eq!(EmbeddedDeviceType::RpiPicoW.to_platform_string(), "rpi_pico");
+        assert_eq!(
+            EmbeddedDeviceType::ArduinoMega.to_platform_string(),
+            "arduino"
+        );
+        assert_eq!(
+            EmbeddedDeviceType::RpiPicoW.to_platform_string(),
+            "rpi_pico"
+        );
         assert_eq!(EmbeddedDeviceType::Nrf52.to_platform_string(), "nrf52");
     }
 
@@ -213,22 +240,18 @@ mod tests {
             endpoint: "http://192.168.1.100:80".to_string(),
             api_key: Some("test-key".to_string()),
             timeout_ms: 5000,
-            sensors: vec![
-                SensorDef {
-                    id: "temp".to_string(),
-                    name: "Temperature".to_string(),
-                    unit: Some("℃".to_string()),
-                    path: "temperature".to_string(),
-                }
-            ],
+            sensors: vec![SensorDef {
+                id: "temp".to_string(),
+                name: "Temperature".to_string(),
+                unit: Some("℃".to_string()),
+                path: "temperature".to_string(),
+            }],
             actuators: vec![],
-            commands: vec![
-                CommandDef {
-                    name: "led_on".to_string(),
-                    path: "led".to_string(),
-                    method: "POST".to_string(),
-                }
-            ],
+            commands: vec![CommandDef {
+                name: "led_on".to_string(),
+                path: "led".to_string(),
+                method: "POST".to_string(),
+            }],
         };
 
         let device = HttpDevice::new(config.clone());

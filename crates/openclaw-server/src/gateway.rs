@@ -2,17 +2,17 @@
 
 use axum::Router;
 use std::net::SocketAddr;
-use tower_http::cors::{Any, CorsLayer};
-use tower_http::trace::TraceLayer;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::trace::TraceLayer;
 
 use openclaw_core::Config;
 
 use crate::api::create_router;
-use crate::websocket::websocket_router;
-use crate::orchestrator::{ServiceOrchestrator, OrchestratorConfig};
 use crate::device_manager::DeviceManager;
+use crate::orchestrator::{OrchestratorConfig, ServiceOrchestrator};
+use crate::websocket::websocket_router;
 
 pub struct Gateway {
     config: Config,
@@ -33,16 +33,23 @@ impl Gateway {
         };
 
         let orchestrator = Arc::new(RwLock::new(
-            if config.server.enable_agents || config.server.enable_channels || config.server.enable_canvas {
+            if config.server.enable_agents
+                || config.server.enable_channels
+                || config.server.enable_canvas
+            {
                 Some(ServiceOrchestrator::new(orchestrator_config))
             } else {
                 None
-            }
+            },
         ));
 
         let device_manager = Arc::new(DeviceManager::new(config.clone()));
 
-        Self { config, orchestrator, device_manager }
+        Self {
+            config,
+            orchestrator,
+            device_manager,
+        }
     }
 
     /// 启动服务
@@ -51,7 +58,7 @@ impl Gateway {
 
         if let Some(ref orchestrator) = *self.orchestrator.read().await {
             orchestrator.start().await?;
-            
+
             if !self.config.agents.list.is_empty() {
                 orchestrator.init_agents_from_config(&self.config).await?;
             }
@@ -68,28 +75,38 @@ impl Gateway {
             .expect("Invalid address");
 
         tracing::info!("OpenClaw Gateway starting on {}", addr);
-        tracing::info!("Services enabled: agents={}, channels={}, voice={}, devices={}", 
-            self.config.server.enable_agents, 
-            self.config.server.enable_channels, 
+        tracing::info!(
+            "Services enabled: agents={}, channels={}, voice={}, devices={}",
+            self.config.server.enable_agents,
+            self.config.server.enable_channels,
             self.config.server.enable_voice,
-            self.config.devices.enabled);
-        
+            self.config.devices.enabled
+        );
+
         if self.config.devices.enabled {
-            tracing::info!("Custom devices configured: {}", self.config.devices.custom_devices.len());
+            tracing::info!(
+                "Custom devices configured: {}",
+                self.config.devices.custom_devices.len()
+            );
             tracing::info!("Plugins configured: {}", self.config.devices.plugins.len());
         }
 
-        let listener = tokio::net::TcpListener::bind(addr).await
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
             .map_err(|e| openclaw_core::OpenClawError::Config(format!("绑定地址失败: {}", e)))?;
 
-        axum::serve(listener, app).await
+        axum::serve(listener, app)
+            .await
             .map_err(|e| openclaw_core::OpenClawError::Unknown(e.to_string()))?;
 
         Ok(())
     }
 
     pub async fn get_orchestrator(&self) -> Option<Arc<RwLock<Option<ServiceOrchestrator>>>> {
-        if self.config.server.enable_agents || self.config.server.enable_channels || self.config.server.enable_canvas {
+        if self.config.server.enable_agents
+            || self.config.server.enable_channels
+            || self.config.server.enable_canvas
+        {
             Some(self.orchestrator.clone())
         } else {
             None

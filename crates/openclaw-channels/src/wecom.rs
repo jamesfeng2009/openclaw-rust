@@ -34,7 +34,11 @@ impl WeComChannel {
     }
 
     /// 发送文本消息
-    pub async fn send_text(&self, content: &str, mentioned_list: Option<Vec<String>>) -> Result<()> {
+    pub async fn send_text(
+        &self,
+        content: &str,
+        mentioned_list: Option<Vec<String>>,
+    ) -> Result<()> {
         let mut body = json!({
             "msgtype": "text",
             "text": {
@@ -100,7 +104,8 @@ impl WeComChannel {
 
     /// 发送请求到企业微信 API
     async fn send_request(&self, body: &serde_json::Value) -> Result<()> {
-        let response = self.client
+        let response = self
+            .client
             .post(&self.config.webhook)
             .header("Content-Type", "application/json")
             .json(body)
@@ -110,16 +115,22 @@ impl WeComChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("企业微信 API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "企业微信 API 错误: {}",
+                error_text
+            )));
         }
 
-        let result: WeComResponse = response.json().await
+        let result: WeComResponse = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
 
         if result.errcode != 0 {
-            return Err(OpenClawError::AIProvider(
-                format!("企业微信 API 返回错误: {} - {}", result.errcode, result.errmsg)
-            ));
+            return Err(OpenClawError::AIProvider(format!(
+                "企业微信 API 返回错误: {} - {}",
+                result.errcode, result.errmsg
+            )));
         }
 
         Ok(())
@@ -153,18 +164,21 @@ impl Channel for WeComChannel {
         // 根据消息类型发送
         match message.message_type.as_str() {
             "text" => {
-                self.send_text(&message.content, message.mentioned_list).await?;
+                self.send_text(&message.content, message.mentioned_list)
+                    .await?;
             }
             "markdown" => {
                 self.send_markdown(&message.content).await?;
             }
             "image" => {
-                let base64 = message.base64.as_deref().ok_or_else(|| {
-                    OpenClawError::Config("图片消息需要 base64 字段".to_string())
-                })?;
-                let md5 = message.md5.as_deref().ok_or_else(|| {
-                    OpenClawError::Config("图片消息需要 md5 字段".to_string())
-                })?;
+                let base64 = message
+                    .base64
+                    .as_deref()
+                    .ok_or_else(|| OpenClawError::Config("图片消息需要 base64 字段".to_string()))?;
+                let md5 = message
+                    .md5
+                    .as_deref()
+                    .ok_or_else(|| OpenClawError::Config("图片消息需要 md5 字段".to_string()))?;
                 self.send_image(base64, md5).await?;
             }
             "news" => {
@@ -181,7 +195,8 @@ impl Channel for WeComChannel {
             }
             _ => {
                 // 默认作为文本消息发送
-                self.send_text(&message.content, message.mentioned_list).await?;
+                self.send_text(&message.content, message.mentioned_list)
+                    .await?;
             }
         }
 

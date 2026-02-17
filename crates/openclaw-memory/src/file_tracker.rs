@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,23 +68,24 @@ impl FileTracker {
 
     pub fn track_file(&mut self, path: &Path) -> anyhow::Result<Option<FileEntry>> {
         let metadata = fs::metadata(path)?;
-        let modified = metadata.modified()?
+        let modified = metadata
+            .modified()?
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_secs();
-        
+
         let size = metadata.len();
         let hash = self.compute_hash(path)?;
-        
+
         let path_str = path.to_string_lossy().to_string();
-        
+
         let existing = self.files.get(&path_str).cloned();
-        
+
         if let Some(entry) = &existing {
             if entry.hash == hash && entry.modified_time == modified {
                 return Ok(None);
             }
         }
-        
+
         let entry = FileEntry {
             path: path_str.clone(),
             hash: hash.clone(),
@@ -92,10 +93,10 @@ impl FileTracker {
             size,
             content_hash: None,
         };
-        
+
         self.files.insert(path_str, entry.clone());
         self.index_modified = true;
-        
+
         Ok(Some(entry))
     }
 
@@ -110,7 +111,7 @@ impl FileTracker {
 
     pub fn is_changed(&self, path: &Path) -> bool {
         let path_str = path.to_string_lossy().to_string();
-        
+
         if let Some(entry) = self.files.get(&path_str) {
             if let Ok(metadata) = fs::metadata(path) {
                 if let Ok(modified) = metadata.modified() {
@@ -118,12 +119,12 @@ impl FileTracker {
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .map(|d| d.as_secs())
                         .unwrap_or(0);
-                    
+
                     return modified_secs != entry.modified_time;
                 }
             }
         }
-        
+
         true
     }
 
@@ -138,7 +139,7 @@ impl FileTracker {
 
     pub fn get_changed_files(&self, dir: &Path) -> Vec<PathBuf> {
         let mut changed = Vec::new();
-        
+
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -147,73 +148,72 @@ impl FileTracker {
                 }
             }
         }
-        
+
         changed
     }
 
     fn compute_hash(&self, path: &Path) -> anyhow::Result<String> {
-        use std::hash::{Hash, Hasher};
         use std::collections::hash_map::DefaultHasher;
-        
+        use std::hash::{Hash, Hasher};
+
         let content = fs::read(path)?;
-        
+
         let mut hasher = DefaultHasher::new();
         content.hash(&mut hasher);
-        
+
         Ok(format!("{:x}", hasher.finish()))
     }
 
     pub fn scan_directory(&mut self, dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
         let mut updated = Vec::new();
-        
+
         if !dir.exists() {
             return Ok(updated);
         }
-        
+
         for entry in walkdir::WalkDir::new(dir)
             .into_iter()
             .filter_map(|e| e.ok())
         {
             let path = entry.path();
-            
+
             if path.is_file() {
                 if let Some(result) = self.track_file(path)? {
                     updated.push(PathBuf::from(result.path));
                 }
             }
         }
-        
+
         Ok(updated)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::env;
-    
+
     #[test]
     fn test_file_tracker() {
         let temp_dir = env::temp_dir().join("openclaw_test_tracker");
         fs::create_dir_all(&temp_dir).unwrap();
-        
+
         let test_file = temp_dir.join("test.txt");
         fs::write(&test_file, "Hello World").unwrap();
-        
+
         let config = FileTrackerConfig {
             data_dir: temp_dir.clone(),
             index_file: temp_dir.join("index.json"),
         };
-        
+
         let mut tracker = FileTracker::new(config);
         let result = tracker.track_file(&test_file).unwrap();
-        
+
         assert!(result.is_some());
-        
+
         let tracked = tracker.list_tracked_files();
         assert!(!tracked.is_empty());
-        
+
         let _ = fs::remove_dir_all(temp_dir);
     }
 }

@@ -1,5 +1,5 @@
-use crate::types::{AgentType, Capability};
 use crate::task::TaskInput;
+use crate::types::{AgentType, Capability};
 
 pub struct TaskAnalysis {
     pub complexity: TaskComplexity,
@@ -22,7 +22,7 @@ impl TaskComplexity {
             TaskInput::Text { content } => {
                 let len = content.len();
                 let word_count = content.split_whitespace().count();
-                
+
                 if len < 100 && word_count < 20 {
                     TaskComplexity::Simple
                 } else if len < 500 && word_count < 100 {
@@ -69,7 +69,7 @@ pub struct TaskAnalyzer;
 impl TaskAnalyzer {
     pub fn analyze(input: &TaskInput) -> TaskAnalysis {
         let complexity = TaskComplexity::from_input(input);
-        let (required_capabilities, suggested_agent, needs_decomposition, suggested_tools) = 
+        let (required_capabilities, suggested_agent, needs_decomposition, suggested_tools) =
             Self::analyze_content(input, &complexity);
 
         TaskAnalysis {
@@ -88,16 +88,25 @@ impl TaskAnalyzer {
         match input {
             TaskInput::Text { content } => {
                 let content_lower = content.to_lowercase();
-                
-                if content_lower.contains("write") || content_lower.contains("create") || content_lower.contains("generate") {
-                    if content_lower.contains("code") || content_lower.contains("function") || content_lower.contains("class") {
+
+                if content_lower.contains("write")
+                    || content_lower.contains("create")
+                    || content_lower.contains("generate")
+                {
+                    if content_lower.contains("code")
+                        || content_lower.contains("function")
+                        || content_lower.contains("class")
+                    {
                         (
                             vec![Capability::CodeGeneration],
                             AgentType::Coder,
                             *complexity == TaskComplexity::Complex,
                             vec!["code_generator".to_string()],
                         )
-                    } else if content_lower.contains("article") || content_lower.contains("blog") || content_lower.contains("post") {
+                    } else if content_lower.contains("article")
+                        || content_lower.contains("blog")
+                        || content_lower.contains("post")
+                    {
                         (
                             vec![Capability::ContentGeneration],
                             AgentType::Writer,
@@ -112,21 +121,30 @@ impl TaskAnalyzer {
                             vec![],
                         )
                     }
-                } else if content_lower.contains("search") || content_lower.contains("find") || content_lower.contains("research") {
+                } else if content_lower.contains("search")
+                    || content_lower.contains("find")
+                    || content_lower.contains("research")
+                {
                     (
                         vec![Capability::WebSearch, Capability::InformationAnalysis],
                         AgentType::Researcher,
                         false,
                         vec!["web_search".to_string()],
                     )
-                } else if content_lower.contains("analyze") || content_lower.contains("data") || content_lower.contains("statistics") {
+                } else if content_lower.contains("analyze")
+                    || content_lower.contains("data")
+                    || content_lower.contains("statistics")
+                {
                     (
                         vec![Capability::DataAnalysis, Capability::Visualization],
                         AgentType::DataAnalyst,
                         *complexity == TaskComplexity::Complex,
                         vec!["data_analyzer".to_string()],
                     )
-                } else if content_lower.contains("debug") || content_lower.contains("fix") || content_lower.contains("error") {
+                } else if content_lower.contains("debug")
+                    || content_lower.contains("fix")
+                    || content_lower.contains("error")
+                {
                     (
                         vec![Capability::Debugging, Capability::CodeReview],
                         AgentType::Coder,
@@ -150,7 +168,10 @@ impl TaskAnalyzer {
             ),
             TaskInput::SearchQuery { query } => {
                 let query_lower = query.to_lowercase();
-                if query_lower.contains("how") || query_lower.contains("what") || query_lower.contains("why") {
+                if query_lower.contains("how")
+                    || query_lower.contains("what")
+                    || query_lower.contains("why")
+                {
                     (
                         vec![Capability::WebSearch, Capability::InformationAnalysis],
                         AgentType::Researcher,
@@ -180,7 +201,10 @@ impl TaskAnalyzer {
             ),
             TaskInput::File { content, .. } => {
                 let content_lower = content.to_lowercase();
-                if content_lower.contains("function") || content_lower.contains("fn ") || content_lower.contains("class ") {
+                if content_lower.contains("function")
+                    || content_lower.contains("fn ")
+                    || content_lower.contains("class ")
+                {
                     (
                         vec![Capability::CodeGeneration, Capability::CodeReview],
                         AgentType::Coder,
@@ -197,15 +221,19 @@ impl TaskAnalyzer {
                 }
             }
             TaskInput::Message { message } => {
-                let content = message.content.iter()
+                let content = message
+                    .content
+                    .iter()
                     .map(|c| match c {
                         openclaw_core::Content::Text { text } => text.clone(),
                         _ => String::new(),
                     })
                     .collect::<Vec<_>>()
                     .join(" ");
-                
-                let inner_complexity = TaskComplexity::from_input(&TaskInput::Text { content: content.clone() });
+
+                let inner_complexity = TaskComplexity::from_input(&TaskInput::Text {
+                    content: content.clone(),
+                });
                 Self::analyze_content(&TaskInput::Text { content }, &inner_complexity)
             }
         }
@@ -217,10 +245,9 @@ pub struct ToolSelector;
 impl ToolSelector {
     pub fn select_for_agent(agent_type: &AgentType) -> Vec<String> {
         match agent_type {
-            AgentType::Orchestrator => vec![
-                "task_router".to_string(),
-                "agent_coordinator".to_string(),
-            ],
+            AgentType::Orchestrator => {
+                vec!["task_router".to_string(), "agent_coordinator".to_string()]
+            }
             AgentType::Researcher => vec![
                 "web_search".to_string(),
                 "file_reader".to_string(),
@@ -231,14 +258,8 @@ impl ToolSelector {
                 "code_executor".to_string(),
                 "file_writer".to_string(),
             ],
-            AgentType::Writer => vec![
-                "content_writer".to_string(),
-                "editor".to_string(),
-            ],
-            AgentType::DataAnalyst => vec![
-                "data_analyzer".to_string(),
-                "visualizer".to_string(),
-            ],
+            AgentType::Writer => vec!["content_writer".to_string(), "editor".to_string()],
+            AgentType::DataAnalyst => vec!["data_analyzer".to_string(), "visualizer".to_string()],
             AgentType::Conversationalist => vec![],
             AgentType::ToolUser => vec![],
             AgentType::Custom(_) => vec![],
@@ -247,11 +268,11 @@ impl ToolSelector {
 
     pub fn select_for_task(analysis: &TaskAnalysis) -> Vec<String> {
         let mut tools = analysis.suggested_tools.clone();
-        
+
         if analysis.needs_decomposition {
             tools.push("task_decomposer".to_string());
         }
-        
+
         tools
     }
 }
@@ -262,7 +283,9 @@ mod tests {
 
     #[test]
     fn test_task_complexity_simple() {
-        let input = TaskInput::Text { content: "Hello, how are you?".to_string() };
+        let input = TaskInput::Text {
+            content: "Hello, how are you?".to_string(),
+        };
         assert_eq!(TaskComplexity::from_input(&input), TaskComplexity::Simple);
     }
 
@@ -274,9 +297,9 @@ mod tests {
 
     #[test]
     fn test_task_analysis_code() {
-        let input = TaskInput::Code { 
-            language: "rust".to_string(), 
-            code: "fn main() { println!(\"Hello\"); }".to_string() 
+        let input = TaskInput::Code {
+            language: "rust".to_string(),
+            code: "fn main() { println!(\"Hello\"); }".to_string(),
         };
         let analysis = TaskAnalyzer::analyze(&input);
         assert_eq!(analysis.suggested_agent, AgentType::Coder);
@@ -284,7 +307,9 @@ mod tests {
 
     #[test]
     fn test_task_analysis_search() {
-        let input = TaskInput::SearchQuery { query: "What is Rust?".to_string() };
+        let input = TaskInput::SearchQuery {
+            query: "What is Rust?".to_string(),
+        };
         let analysis = TaskAnalyzer::analyze(&input);
         assert_eq!(analysis.suggested_agent, AgentType::Researcher);
     }

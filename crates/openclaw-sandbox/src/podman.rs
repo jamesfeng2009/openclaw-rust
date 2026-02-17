@@ -141,7 +141,10 @@ impl PodmanClient {
 
         client.check_available().await?;
 
-        info!("Podman 客户端已初始化 (rootless: {})", client.config.rootless);
+        info!(
+            "Podman 客户端已初始化 (rootless: {})",
+            client.config.rootless
+        );
         Ok(client)
     }
 
@@ -211,9 +214,10 @@ impl PodmanClient {
         let mut args: Vec<String> = vec!["run".to_string(), "--detach".to_string()];
 
         // 添加容器名称
-        let container_name = config.name.clone().unwrap_or_else(|| {
-            format!("openclaw-sandbox-{}", &sandbox_id[..8])
-        });
+        let container_name = config
+            .name
+            .clone()
+            .unwrap_or_else(|| format!("openclaw-sandbox-{}", &sandbox_id[..8]));
         args.push("--name".to_string());
         args.push(container_name);
 
@@ -451,7 +455,12 @@ impl PodmanClient {
             return Err(PodmanError::PodFailed("Pod 支持未启用".to_string()));
         }
 
-        let mut args: Vec<String> = vec!["pod".to_string(), "create".to_string(), "--name".to_string(), name.to_string()];
+        let mut args: Vec<String> = vec![
+            "pod".to_string(),
+            "create".to_string(),
+            "--name".to_string(),
+            name.to_string(),
+        ];
 
         for (host_port, container_port) in port_mappings {
             args.push("-p".to_string());
@@ -528,9 +537,7 @@ impl PodmanClient {
         match output {
             Ok(o) if o.status.success() => {
                 if let Ok(info) = serde_json::from_slice::<serde_json::Value>(&o.stdout) {
-                    info["host"]["rootless"]
-                        .as_bool()
-                        .unwrap_or(false)
+                    info["host"]["rootless"].as_bool().unwrap_or(false)
                 } else {
                     false
                 }
@@ -578,7 +585,8 @@ mod tests {
 
     #[test]
     fn test_podman_image_deserialize() {
-        let json = r#"{"id":"abc123","repository":"test","tag":"latest","size":100,"created":12345}"#;
+        let json =
+            r#"{"id":"abc123","repository":"test","tag":"latest","size":100,"created":12345}"#;
         let image: PodmanImage = serde_json::from_str(json).unwrap();
         assert_eq!(image.id, "abc123");
     }

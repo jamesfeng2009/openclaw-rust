@@ -3,8 +3,8 @@
 use std::collections::VecDeque;
 use std::sync::RwLock;
 
-use openclaw_core::Message;
 use crate::types::{MemoryItem, WorkingMemoryConfig};
+use openclaw_core::Message;
 
 /// 工作记忆 - 存储最近的消息
 pub struct WorkingMemory {
@@ -27,7 +27,7 @@ impl WorkingMemory {
 
         // 检查是否需要压缩
         let should_compress = self.should_compress_internal(&items);
-        
+
         if should_compress {
             // 返回需要压缩的旧消息
             let overflow = items.len().saturating_sub(self.config.max_messages / 2);
@@ -75,7 +75,8 @@ impl WorkingMemory {
     }
 
     fn should_compress_internal(&self, items: &VecDeque<MemoryItem>) -> bool {
-        items.len() > self.config.max_messages || self.total_tokens_internal(items) > self.config.max_tokens
+        items.len() > self.config.max_messages
+            || self.total_tokens_internal(items) > self.config.max_tokens
     }
 
     fn total_tokens_internal(&self, items: &VecDeque<MemoryItem>) -> usize {

@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use crate::types::{SttConfig, TtsConfig, SttProvider, TtsProvider, VoiceConfig};
+use crate::types::{SttConfig, SttProvider, TtsConfig, TtsProvider, VoiceConfig};
 use openclaw_core::{OpenClawError, Result};
 
 /// 语音配置管理器
@@ -42,8 +42,8 @@ impl VoiceConfigManager {
             std::fs::create_dir_all(parent)
                 .map_err(|e| OpenClawError::Config(format!("创建配置目录失败: {}", e)))?;
         }
-        let content = serde_json::to_string_pretty(self)
-            .map_err(|e| OpenClawError::Serialization(e))?;
+        let content =
+            serde_json::to_string_pretty(self).map_err(|e| OpenClawError::Serialization(e))?;
         std::fs::write(&path, &content)
             .map_err(|e| OpenClawError::Config(format!("保存配置失败: {}", e)))?;
         Ok(())

@@ -2,7 +2,7 @@
 //!
 //! CAN (Controller Area Network) 总线接口
 
-use crate::framework::{FrameworkModule, FrameworkConfig, FrameworkResult};
+use crate::framework::{FrameworkConfig, FrameworkModule, FrameworkResult};
 use crate::platform::Platform;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -40,15 +40,15 @@ impl CanId {
     pub fn standard(id: u16) -> Self {
         Self(id as u32)
     }
-    
+
     pub fn extended(id: u32) -> Self {
         Self(id | 0x80000000)
     }
-    
+
     pub fn is_extended(&self) -> bool {
         (self.0 & 0x80000000) != 0
     }
-    
+
     pub fn id(&self) -> u32 {
         self.0 & 0x7FFFFFFF
     }
@@ -75,7 +75,7 @@ impl CanFrame {
             timestamp_ns: 0,
         }
     }
-    
+
     pub fn data_len(&self) -> usize {
         self.data.len()
     }
@@ -94,7 +94,7 @@ impl CanFilter {
             mask: CanId::standard(mask),
         }
     }
-    
+
     pub fn extended(id: u32, mask: u32) -> Self {
         Self {
             id: CanId::extended(id),
@@ -126,18 +126,18 @@ pub struct CanBusInfo {
 
 pub trait CanBus: FrameworkModule {
     fn interface_name(&self) -> &str;
-    
+
     fn state(&self) -> CanState;
-    
+
     fn bit_rate(&self) -> u32;
-    
+
     fn send(&self, frame: &CanFrame) -> CanResult<()>;
-    
+
     fn receive(&self) -> CanResult<CanFrame>;
-    
+
     fn set_filters(&self, filters: &[CanFilter]) -> CanResult<()>;
-    
+
     fn get_stats(&self) -> CanResult<CanBusInfo>;
-    
+
     fn is_available(&self) -> bool;
 }

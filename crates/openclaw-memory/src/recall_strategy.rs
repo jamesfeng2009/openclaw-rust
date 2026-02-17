@@ -1,5 +1,5 @@
+use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
-use chrono::{Utc, Duration};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,7 +64,7 @@ impl RecallStrategy {
 
     pub fn rerank(&self, items: Vec<RecallItem>, _query: &str) -> Vec<RecallItem> {
         let now = Utc::now().timestamp();
-        
+
         let mut scored_items: Vec<(RecallItem, f32)> = items
             .into_iter()
             .map(|mut item| {
@@ -76,15 +76,15 @@ impl RecallStrategy {
                     access_score,
                     item.importance,
                 );
-                
+
                 item.last_access = Some(now);
-                
+
                 (item, final_score)
             })
             .collect();
-        
+
         scored_items.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         scored_items
             .into_iter()
             .filter(|(_, score)| *score >= self.config.min_score)
@@ -95,10 +95,10 @@ impl RecallStrategy {
 
     fn calculate_recency_score(&self, timestamp: i64, now: i64) -> f32 {
         let age_days = (now - timestamp) as f32 / (24.0 * 60.0 * 60.0);
-        
+
         let half_life = self.config.decay_half_life_days;
         let score = 0.5f32.powf(age_days / half_life);
-        
+
         score.max(0.0).min(1.0)
     }
 
@@ -122,13 +122,13 @@ impl RecallStrategy {
         let recency_contrib = recency * self.config.recency_weight;
         let access_contrib = access * self.config.importance_weight * 0.5;
         let importance_contrib = importance * self.config.importance_weight;
-        
+
         base + recency_contrib + access_contrib + importance_contrib
     }
 
     pub fn record_access(&mut self, id: &str) {
         let now = Utc::now().timestamp();
-        
+
         if let Some(record) = self.access_history.get_mut(id) {
             record.count += 1;
             record.last_access = now;
@@ -144,10 +144,7 @@ impl RecallStrategy {
     }
 
     pub fn get_access_count(&self, id: &str) -> u32 {
-        self.access_history
-            .get(id)
-            .map(|r| r.count)
-            .unwrap_or(0)
+        self.access_history.get(id).map(|r| r.count).unwrap_or(0)
     }
 }
 
@@ -171,18 +168,12 @@ impl HybridRecall {
         bm25_results: Vec<RecallItem>,
     ) -> Vec<RecallItem> {
         let mut combined: HashMap<String, RecallItem> = HashMap::new();
-        
+
         for item in vector_results {
             let score = item.score * self.vector_weight;
-            combined.insert(
-                item.id.clone(),
-                RecallItem {
-                    score,
-                    ..item
-                },
-            );
+            combined.insert(item.id.clone(), RecallItem { score, ..item });
         }
-        
+
         for item in bm25_results {
             let id = item.id.clone();
             if let Some(existing) = combined.get_mut(&id) {
@@ -197,10 +188,14 @@ impl HybridRecall {
                 );
             }
         }
-        
+
         let mut results: Vec<RecallItem> = combined.into_values().collect();
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
-        
+        results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         results
     }
 }
@@ -217,7 +212,7 @@ impl TimeWindowRecall {
     pub fn filter_by_time(&self, items: Vec<RecallItem>) -> Vec<RecallItem> {
         let cutoff = Utc::now() - Duration::days(self.window_days);
         let cutoff_timestamp = cutoff.timestamp();
-        
+
         items
             .into_iter()
             .filter(|item| item.timestamp >= cutoff_timestamp)
@@ -228,50 +223,46 @@ impl TimeWindowRecall {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_recency_decay() {
         let strategy = RecallStrategy::with_default();
-        
+
         let now = Utc::now().timestamp();
         let recent = strategy.calculate_recency_score(now, now);
         let old = strategy.calculate_recency_score(now - 7 * 24 * 60 * 60, now);
-        
+
         assert!(recent > old);
     }
-    
+
     #[test]
     fn test_hybrid_combine() {
         let hybrid = HybridRecall::new(0.6, 0.4);
-        
-        let vector_results = vec![
-            RecallItem {
-                id: "doc1".to_string(),
-                content: "Rust programming".to_string(),
-                score: 0.9,
-                source: "memory".to_string(),
-                timestamp: 1000,
-                importance: 0.5,
-                access_count: 1,
-                last_access: None,
-            },
-        ];
-        
-        let bm25_results = vec![
-            RecallItem {
-                id: "doc2".to_string(),
-                content: "Python programming".to_string(),
-                score: 0.8,
-                source: "memory".to_string(),
-                timestamp: 1000,
-                importance: 0.5,
-                access_count: 1,
-                last_access: None,
-            },
-        ];
-        
+
+        let vector_results = vec![RecallItem {
+            id: "doc1".to_string(),
+            content: "Rust programming".to_string(),
+            score: 0.9,
+            source: "memory".to_string(),
+            timestamp: 1000,
+            importance: 0.5,
+            access_count: 1,
+            last_access: None,
+        }];
+
+        let bm25_results = vec![RecallItem {
+            id: "doc2".to_string(),
+            content: "Python programming".to_string(),
+            score: 0.8,
+            source: "memory".to_string(),
+            timestamp: 1000,
+            importance: 0.5,
+            access_count: 1,
+            last_access: None,
+        }];
+
         let combined = hybrid.combine_scores(vector_results, bm25_results);
-        
+
         assert_eq!(combined.len(), 2);
     }
 }

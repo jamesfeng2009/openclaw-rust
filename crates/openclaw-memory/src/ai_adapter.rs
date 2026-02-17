@@ -1,9 +1,9 @@
 use async_trait::async_trait;
-use std::sync::Arc;
 use openclaw_ai::{AIProvider, EmbeddingRequest};
 use openclaw_core::{OpenClawError, Result};
+use std::sync::Arc;
 
-use crate::embedding::{Embedding, Embeddings, EmbeddingProvider};
+use crate::embedding::{Embedding, EmbeddingProvider, Embeddings};
 
 pub struct AIProviderEmbeddingAdapter {
     provider: Arc<dyn AIProvider>,
@@ -46,7 +46,10 @@ impl EmbeddingProvider for AIProviderEmbeddingAdapter {
             input: texts.to_vec(),
         };
 
-        let response = self.provider.embed(request).await
+        let response = self
+            .provider
+            .embed(request)
+            .await
             .map_err(|e| OpenClawError::AIProvider(e.to_string()))?;
 
         Ok(response.embeddings)

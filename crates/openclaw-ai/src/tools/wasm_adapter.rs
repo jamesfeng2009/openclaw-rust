@@ -1,6 +1,6 @@
-use openclaw_core::Result;
-use crate::tools::{ToolExecutor, ToolDefinition, FunctionDefinition, ToolRegistry};
+use crate::tools::{FunctionDefinition, ToolDefinition, ToolExecutor, ToolRegistry};
 use async_trait::async_trait;
+use openclaw_core::Result;
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -9,7 +9,11 @@ pub struct WasmToolAdapter {
     name: String,
     description: String,
     input_schema: Value,
-    executor: Arc<dyn Fn(Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>> + Send + Sync>,
+    executor: Arc<
+        dyn Fn(Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>>
+            + Send
+            + Sync,
+    >,
 }
 
 impl WasmToolAdapter {
@@ -17,7 +21,13 @@ impl WasmToolAdapter {
         name: String,
         description: String,
         input_schema: Value,
-        executor: impl Fn(Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>> + Send + Sync + 'static,
+        executor: impl Fn(
+            Value,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>>
+        + Send
+        + Sync
+        + 'static,
     ) -> Self {
         Self {
             name,
@@ -27,28 +37,19 @@ impl WasmToolAdapter {
         }
     }
 
-    pub fn from_config(
-        name: &str,
-        description: &str,
-        input_schema: Value,
-    ) -> Self {
+    pub fn from_config(name: &str, description: &str, input_schema: Value) -> Self {
         let name_arc = Arc::new(name.to_string());
         let desc = description.to_string();
         let name_for_closure = name_arc.clone();
-        
-        let executor = move |_args: Value| -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>> {
+
+        let executor = move |_args: Value| -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<String>> + Send>,
+        > {
             let name = name_for_closure.clone();
-            Box::pin(async move {
-                Ok(format!("WASM tool '{}' execution placeholder", name))
-            })
+            Box::pin(async move { Ok(format!("WASM tool '{}' execution placeholder", name)) })
         };
-        
-        Self::new(
-            name.to_string(),
-            desc,
-            input_schema,
-            executor,
-        )
+
+        Self::new(name.to_string(), desc, input_schema, executor)
     }
 }
 
@@ -93,7 +94,13 @@ impl WasmToolRegistry {
         name: String,
         description: String,
         input_schema: Value,
-        executor: impl Fn(Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>> + Send + Sync + 'static,
+        executor: impl Fn(
+            Value,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>>
+        + Send
+        + Sync
+        + 'static,
     ) {
         let adapter = WasmToolAdapter::new(name, description, input_schema, executor);
         self.register(adapter).await;
@@ -106,18 +113,21 @@ impl WasmToolRegistry {
 
     pub async fn list(&self) -> Vec<ToolDefinition> {
         let tools = self.tools.read().await;
-        tools.iter().map(|t| ToolDefinition::new(t.name(), t.description()).with_parameters(t.parameters())).collect()
+        tools
+            .iter()
+            .map(|t| ToolDefinition::new(t.name(), t.description()).with_parameters(t.parameters()))
+            .collect()
     }
 
     pub async fn to_ai_registry(&self) -> ToolRegistry {
         let mut registry = ToolRegistry::new();
         let tools = self.tools.read().await;
-        
+
         for tool in tools.iter() {
             let adapter = tool.clone();
             registry.register(Box::new(adapter));
         }
-        
+
         registry
     }
 }

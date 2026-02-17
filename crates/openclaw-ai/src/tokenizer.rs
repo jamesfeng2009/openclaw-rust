@@ -1,7 +1,7 @@
 //! Token 计数器
 
 use openclaw_core::{Message, Result};
-use tiktoken_rs::{cl100k_base, o200k_base, CoreBPE};
+use tiktoken_rs::{CoreBPE, cl100k_base, o200k_base};
 
 /// Token 计数器 Trait
 pub trait TokenCounter: Send + Sync {
@@ -18,8 +18,10 @@ pub trait TokenCounter: Send + Sync {
             openclaw_core::Role::Tool => 4,
         };
 
-        let content_tokens: usize = message.content.iter().map(|c| {
-            match c {
+        let content_tokens: usize = message
+            .content
+            .iter()
+            .map(|c| match c {
                 openclaw_core::Content::Text { text } => self.count(text),
                 openclaw_core::Content::Image { .. } => 85,
                 openclaw_core::Content::Audio { .. } => 0,
@@ -27,8 +29,8 @@ pub trait TokenCounter: Send + Sync {
                     self.count(&arguments.to_string()) + 10
                 }
                 openclaw_core::Content::ToolResult { content, .. } => self.count(content),
-            }
-        }).sum();
+            })
+            .sum();
 
         base_tokens + role_tokens + content_tokens
     }
@@ -36,7 +38,11 @@ pub trait TokenCounter: Send + Sync {
     /// 计算消息列表的 token 数量
     fn count_messages(&self, messages: &[Message]) -> usize {
         let base_tokens = 3; // 对话格式开销
-        messages.iter().map(|m| self.count_message(m)).sum::<usize>() + base_tokens
+        messages
+            .iter()
+            .map(|m| self.count_message(m))
+            .sum::<usize>()
+            + base_tokens
     }
 }
 
@@ -89,8 +95,9 @@ impl TiktokenCounter {
         let bpe = match encoder {
             "o200k_base" => o200k_base(),
             "cl100k_base" | _ => cl100k_base(),
-        }.map_err(|e| openclaw_core::OpenClawError::TokenCount(format!("加载分词器失败: {}", e)))?;
-        
+        }
+        .map_err(|e| openclaw_core::OpenClawError::TokenCount(format!("加载分词器失败: {}", e)))?;
+
         Ok(Self { bpe })
     }
 
@@ -111,11 +118,11 @@ impl TokenCounter for TiktokenCounter {
 }
 
 /// 创建 Token 计数器
-/// 
+///
 /// # Arguments
 /// * `use_accurate` - 是否使用精确的 tiktoken 计数
 /// * `model` - 模型名称，用于选择正确的编码器
-/// 
+///
 /// # Returns
 /// 返回 Box<dyn TokenCounter>，调用方可以通过dyn Trait使用
 pub fn create_token_counter(use_accurate: bool, model: &str) -> Result<Box<dyn TokenCounter>> {
@@ -133,7 +140,7 @@ mod tests {
     #[test]
     fn test_simple_counter() {
         let counter = SimpleTokenCounter::new();
-        
+
         // 英文测试
         let en_text = "Hello, this is a test message for token counting.";
         let en_count = counter.count(en_text);
@@ -153,7 +160,7 @@ mod tests {
     #[test]
     fn test_tiktoken_counter() {
         let counter = TiktokenCounter::for_model("gpt-4").unwrap();
-        
+
         let en_text = "Hello, this is a test message for token counting.";
         let en_count = counter.count(en_text);
         assert!(en_count > 0);
@@ -170,7 +177,7 @@ mod tests {
     #[test]
     fn test_tiktoken_counter_gpt4o() {
         let counter = TiktokenCounter::for_model("gpt-4o").unwrap();
-        
+
         let text = "Hello, world!";
         let count = counter.count(text);
         assert!(count > 0);

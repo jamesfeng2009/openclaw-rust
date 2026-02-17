@@ -43,12 +43,13 @@ impl DiscordChannel {
     /// 发送消息到频道
     pub async fn send_to_channel(&self, channel_id: &str, content: &str) -> Result<()> {
         let url = self.get_api_url(&format!("channels/{}/messages", channel_id));
-        
+
         let body = json!({
             "content": content
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Authorization", format!("Bot {}", self.config.bot_token))
             .header("Content-Type", "application/json")
@@ -59,7 +60,10 @@ impl DiscordChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Discord API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Discord API 错误: {}",
+                error_text
+            )));
         }
 
         Ok(())
@@ -74,7 +78,7 @@ impl DiscordChannel {
         color: Option<u32>,
     ) -> Result<()> {
         let url = self.get_api_url(&format!("channels/{}/messages", channel_id));
-        
+
         let body = json!({
             "embeds": [{
                 "title": title,
@@ -83,7 +87,8 @@ impl DiscordChannel {
             }]
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Authorization", format!("Bot {}", self.config.bot_token))
             .header("Content-Type", "application/json")
@@ -94,7 +99,10 @@ impl DiscordChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Discord API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Discord API 错误: {}",
+                error_text
+            )));
         }
 
         Ok(())
@@ -102,9 +110,11 @@ impl DiscordChannel {
 
     /// 使用 Webhook 发送消息
     pub async fn send_webhook(&self, content: &str, username: Option<&str>) -> Result<()> {
-        let webhook_url = self.config.webhook_url.as_ref().ok_or_else(|| {
-            OpenClawError::Config("未配置 Webhook URL".to_string())
-        })?;
+        let webhook_url = self
+            .config
+            .webhook_url
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("未配置 Webhook URL".to_string()))?;
 
         let mut body = json!({
             "content": content
@@ -114,7 +124,8 @@ impl DiscordChannel {
             body["username"] = json!(name);
         }
 
-        let response = self.client
+        let response = self
+            .client
             .post(webhook_url)
             .header("Content-Type", "application/json")
             .json(&body)
@@ -124,7 +135,10 @@ impl DiscordChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Discord Webhook 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Discord Webhook 错误: {}",
+                error_text
+            )));
         }
 
         Ok(())
@@ -133,8 +147,9 @@ impl DiscordChannel {
     /// 打字提示
     pub async fn trigger_typing(&self, channel_id: &str) -> Result<()> {
         let url = self.get_api_url(&format!("channels/{}/typing", channel_id));
-        
-        let response = self.client
+
+        let response = self
+            .client
             .post(&url)
             .header("Authorization", format!("Bot {}", self.config.bot_token))
             .send()
@@ -182,15 +197,17 @@ impl Channel for DiscordChannel {
             match message.message_type.as_str() {
                 "embed" => {
                     let title = message.title.as_deref().unwrap_or("消息");
-                    self.send_embed(&message.chat_id, title, &message.content, None).await?;
+                    self.send_embed(&message.chat_id, title, &message.content, None)
+                        .await?;
                 }
                 _ => {
-                    self.send_to_channel(&message.chat_id, &message.content).await?;
+                    self.send_to_channel(&message.chat_id, &message.content)
+                        .await?;
                 }
             }
         } else {
             return Err(OpenClawError::Config(
-                "Discord 通道需要配置 webhook_url 或提供 chat_id".to_string()
+                "Discord 通道需要配置 webhook_url 或提供 chat_id".to_string(),
             ));
         }
 

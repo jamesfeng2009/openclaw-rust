@@ -1,6 +1,6 @@
+use openclaw_core::Config;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use openclaw_core::Config;
 
 pub struct DeviceManager {
     registry: Arc<openclaw_device::DeviceRegistry>,
@@ -22,8 +22,9 @@ impl DeviceManager {
             return Ok(());
         }
 
-        self.registry.init().await
-            .map_err(|e| openclaw_core::OpenClawError::Config(format!("Device registry init failed: {}", e)))?;
+        self.registry.init().await.map_err(|e| {
+            openclaw_core::OpenClawError::Config(format!("Device registry init failed: {}", e))
+        })?;
 
         self.load_custom_devices().await?;
         self.load_plugins().await?;
@@ -63,8 +64,9 @@ impl DeviceManager {
             .build();
 
             let handle = device.to_handle(openclaw_device::DeviceStatus::Online);
-            self.registry.register(handle).await
-                .map_err(|e| openclaw_core::OpenClawError::Config(format!("Register device failed: {}", e)))?;
+            self.registry.register(handle).await.map_err(|e| {
+                openclaw_core::OpenClawError::Config(format!("Register device failed: {}", e))
+            })?;
 
             tracing::info!("Registered custom device: {}", device_config.id);
         }
@@ -81,7 +83,10 @@ impl DeviceManager {
             if let Some(path) = &plugin_config.path {
                 tracing::info!("Loading plugin: {} from {:?}", plugin_config.name, path);
             } else {
-                tracing::debug!("Plugin {} configured but no path specified", plugin_config.name);
+                tracing::debug!(
+                    "Plugin {} configured but no path specified",
+                    plugin_config.name
+                );
             }
         }
 
@@ -90,7 +95,7 @@ impl DeviceManager {
 
     fn parse_platform(&self, s: &str) -> openclaw_core::Result<openclaw_device::Platform> {
         use openclaw_device::Platform;
-        
+
         let platform = match s.to_lowercase().as_str() {
             // 弹性计算
             "cloud_server" => Platform::CloudServer,
@@ -104,7 +109,7 @@ impl DeviceManager {
             "macos_apple_silicon" => Platform::MacOSAppleSilicon,
             "android" => Platform::Android,
             "ios" => Platform::iOS,
-            
+
             // ARM 开发板
             "raspberry_pi" | "rpi" => Platform::RaspberryPi,
             "raspberry_pi_2" | "rpi2" => Platform::RaspberryPi2,
@@ -119,13 +124,13 @@ impl DeviceManager {
             "nvidia_jetson_orin" => Platform::NvidiaJetsonOrin,
             "nvidia_jetson_orin_nano" => Platform::NvidiaJetsonOrinNano,
             "google_coral" => Platform::GoogleCoral,
-            
+
             // Arduino
             "arduino_uno" => Platform::ArduinoUno,
             "arduino_nano" => Platform::ArduinoNano,
             "arduino_mega" => Platform::ArduinoMega,
             "arduino_due" => Platform::ArduinoDue,
-            
+
             // ESP32
             "esp32" => Platform::Esp32,
             "esp32s2" | "esp32_s2" => Platform::Esp32S2,
@@ -133,18 +138,18 @@ impl DeviceManager {
             "esp32c3" | "esp32_c3" => Platform::Esp32C3,
             "esp32c6" | "esp32_c6" => Platform::Esp32C6,
             "esp32p4" | "esp32_p4" => Platform::Esp32P4,
-            
+
             // STM32
             "stm32f1" => Platform::Stm32F1,
             "stm32f4" => Platform::Stm32F4,
             "stm32h7" => Platform::Stm32H7,
-            
+
             // 其他嵌入式
             "rpi_pico" | "pico" => Platform::RpiPico,
             "rpi_pico_w" | "pico_w" => Platform::RpiPicoW,
             "nrf52" => Platform::Nrf52,
             "risc_v" | "riscv" => Platform::RiscV,
-            
+
             _ => {
                 tracing::warn!("Unknown platform: {}, using Unknown", s);
                 Platform::Unknown
@@ -156,7 +161,7 @@ impl DeviceManager {
 
     fn parse_category(&self, s: &str) -> openclaw_core::Result<openclaw_device::ComputeCategory> {
         use openclaw_device::ComputeCategory;
-        
+
         let category = match s.to_lowercase().as_str() {
             "elastic" => ComputeCategory::Elastic,
             "edge" => ComputeCategory::Edge,

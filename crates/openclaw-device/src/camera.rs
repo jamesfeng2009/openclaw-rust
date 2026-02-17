@@ -9,24 +9,30 @@ impl CameraManager {
         Self
     }
 
-    pub async fn capture_photo(&self, device_index: Option<u32>) -> Result<CaptureResult, DeviceError> {
+    pub async fn capture_photo(
+        &self,
+        device_index: Option<u32>,
+    ) -> Result<CaptureResult, DeviceError> {
         let timestamp = Utc::now().timestamp_millis();
-        
+
         #[cfg(target_os = "macos")]
         {
             use std::fs;
             use std::path::PathBuf;
 
             let output_dir = PathBuf::from("/tmp/openclaw");
-            fs::create_dir_all(&output_dir).map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
-            
+            fs::create_dir_all(&output_dir)
+                .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
             let device = device_index.unwrap_or(0);
             let output_path = output_dir.join(format!("photo_{}.jpg", timestamp));
 
             let output = Command::new("imagesnap")
                 .args([
-                    "-w", "5",
-                    "-d", &device.to_string(),
+                    "-w",
+                    "5",
+                    "-d",
+                    &device.to_string(),
                     output_path.to_str().unwrap(),
                 ])
                 .output()
@@ -35,10 +41,11 @@ impl CameraManager {
             if output.status.success() {
                 let data = fs::read(&output_path)
                     .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
-                let base64_data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
-                
+                let base64_data =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
+
                 fs::remove_file(&output_path).ok();
-                
+
                 Ok(CaptureResult {
                     success: true,
                     data: Some(base64_data),
@@ -70,17 +77,22 @@ impl CameraManager {
         }
     }
 
-    pub async fn start_recording(&self, device_index: Option<u32>, duration_secs: Option<u32>) -> Result<CaptureResult, DeviceError> {
+    pub async fn start_recording(
+        &self,
+        device_index: Option<u32>,
+        duration_secs: Option<u32>,
+    ) -> Result<CaptureResult, DeviceError> {
         let timestamp = Utc::now().timestamp_millis();
-        
+
         #[cfg(target_os = "macos")]
         {
             use std::fs;
             use std::path::PathBuf;
 
             let output_dir = PathBuf::from("/tmp/openclaw");
-            fs::create_dir_all(&output_dir).map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
-            
+            fs::create_dir_all(&output_dir)
+                .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
             let device = device_index.unwrap_or(0);
             let output_path = output_dir.join(format!("video_{}.mov", timestamp));
             let duration = duration_secs.unwrap_or(10);
@@ -88,8 +100,10 @@ impl CameraManager {
             let output = Command::new("imagesnap")
                 .args([
                     "-v",
-                    "-d", &device.to_string(),
-                    "-t", &duration.to_string(),
+                    "-d",
+                    &device.to_string(),
+                    "-t",
+                    &duration.to_string(),
                     output_path.to_str().unwrap(),
                 ])
                 .output()
@@ -98,10 +112,11 @@ impl CameraManager {
             if output.status.success() {
                 let data = fs::read(&output_path)
                     .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
-                let base64_data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
-                
+                let base64_data =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
+
                 fs::remove_file(&output_path).ok();
-                
+
                 Ok(CaptureResult {
                     success: true,
                     data: Some(base64_data),
@@ -136,7 +151,10 @@ impl CameraManager {
     pub fn list_cameras(&self) -> Vec<String> {
         #[cfg(target_os = "macos")]
         {
-            if let Ok(output) = Command::new("system_profiler").args(["SPCameraDataType"]).output() {
+            if let Ok(output) = Command::new("system_profiler")
+                .args(["SPCameraDataType"])
+                .output()
+            {
                 let output_str = String::from_utf8_lossy(&output.stdout);
                 let cameras: Vec<String> = output_str
                     .lines()

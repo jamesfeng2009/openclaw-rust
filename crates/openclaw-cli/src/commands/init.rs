@@ -22,7 +22,10 @@ pub async fn run(config_path: &str) -> Result<()> {
 
     println!("Configuration initialized at: {}", path.display());
     println!("\nDefault configuration:");
-    println!("  Server: http://{}:{}", config.server.host, config.server.port);
+    println!(
+        "  Server: http://{}:{}",
+        config.server.host, config.server.port
+    );
     println!("  Default AI Provider: {}", config.ai.default_provider);
     println!("\nEdit the configuration file to add your API keys.");
 

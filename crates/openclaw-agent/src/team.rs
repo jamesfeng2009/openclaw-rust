@@ -5,8 +5,8 @@ use std::sync::{Arc, RwLock};
 
 use serde::{Deserialize, Serialize};
 
-use crate::types::{AgentConfig, AgentType, Capability};
 use crate::agent::{Agent, BaseAgent};
+use crate::types::{AgentConfig, AgentType, Capability};
 
 /// Agent Team 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,10 +47,20 @@ impl TeamConfig {
     /// 创建默认 Team 配置
     pub fn default_team() -> Self {
         Self::new("default", "Default Team")
-            .with_agent(AgentConfig::new("orchestrator", "Orchestrator", AgentType::Orchestrator)
-                .with_priority(100))
-            .with_agent(AgentConfig::new("chat", "Chat Agent", AgentType::Conversationalist))
-            .with_agent(AgentConfig::new("researcher", "Researcher", AgentType::Researcher))
+            .with_agent(
+                AgentConfig::new("orchestrator", "Orchestrator", AgentType::Orchestrator)
+                    .with_priority(100),
+            )
+            .with_agent(AgentConfig::new(
+                "chat",
+                "Chat Agent",
+                AgentType::Conversationalist,
+            ))
+            .with_agent(AgentConfig::new(
+                "researcher",
+                "Researcher",
+                AgentType::Researcher,
+            ))
             .with_agent(AgentConfig::new("coder", "Coder", AgentType::Coder))
     }
 
@@ -70,12 +80,24 @@ impl TeamConfig {
     /// 创建研究团队配置
     pub fn research_team() -> Self {
         Self::new("research", "Research Team")
-            .with_agent(AgentConfig::new("orchestrator", "Orchestrator", AgentType::Orchestrator)
-                .with_priority(100))
-            .with_agent(AgentConfig::new("researcher", "Primary Researcher", AgentType::Researcher)
-                .with_priority(80))
-            .with_agent(AgentConfig::new("analyst", "Data Analyst", AgentType::DataAnalyst))
-            .with_agent(AgentConfig::new("writer", "Report Writer", AgentType::Writer))
+            .with_agent(
+                AgentConfig::new("orchestrator", "Orchestrator", AgentType::Orchestrator)
+                    .with_priority(100),
+            )
+            .with_agent(
+                AgentConfig::new("researcher", "Primary Researcher", AgentType::Researcher)
+                    .with_priority(80),
+            )
+            .with_agent(AgentConfig::new(
+                "analyst",
+                "Data Analyst",
+                AgentType::DataAnalyst,
+            ))
+            .with_agent(AgentConfig::new(
+                "writer",
+                "Report Writer",
+                AgentType::Writer,
+            ))
     }
 }
 
@@ -112,7 +134,9 @@ pub struct AgentTeam {
 
 impl AgentTeam {
     pub fn new(config: TeamConfig) -> Self {
-        let agents = config.agents.iter()
+        let agents = config
+            .agents
+            .iter()
             .map(|agent_config| {
                 let agent = Arc::new(BaseAgent::new(agent_config.clone()));
                 (agent_config.id.clone(), agent)
@@ -161,11 +185,19 @@ impl AgentTeam {
     }
 
     /// 选择最佳 Agent 处理任务
-    pub fn select_agent(&self, required_capabilities: &[Capability], preferred_agent: Option<&str>) -> Option<String> {
+    pub fn select_agent(
+        &self,
+        required_capabilities: &[Capability],
+        preferred_agent: Option<&str>,
+    ) -> Option<String> {
         // 如果指定了偏好 Agent，优先选择
         if let Some(preferred) = preferred_agent {
             if let Some(agent) = self.get_agent(preferred) {
-                if agent.is_available() && required_capabilities.iter().all(|c| agent.has_capability(c)) {
+                if agent.is_available()
+                    && required_capabilities
+                        .iter()
+                        .all(|c| agent.has_capability(c))
+                {
                     return Some(preferred.to_string());
                 }
             }
@@ -177,12 +209,8 @@ impl AgentTeam {
             RoutingStrategy::CapabilityMatch => {
                 self.select_by_capability(&agents, required_capabilities)
             }
-            RoutingStrategy::LoadBalance => {
-                self.select_by_load(&agents, required_capabilities)
-            }
-            RoutingStrategy::Priority => {
-                self.select_by_priority(&agents, required_capabilities)
-            }
+            RoutingStrategy::LoadBalance => self.select_by_load(&agents, required_capabilities),
+            RoutingStrategy::Priority => self.select_by_priority(&agents, required_capabilities),
             RoutingStrategy::RoundRobin => {
                 self.select_by_round_robin(&agents, required_capabilities)
             }
@@ -197,11 +225,13 @@ impl AgentTeam {
         agents: &HashMap<String, Arc<BaseAgent>>,
         required_capabilities: &[Capability],
     ) -> Option<String> {
-        agents.values()
+        agents
+            .values()
             .filter(|a| a.is_available())
             .filter(|a| required_capabilities.iter().all(|c| a.has_capability(c)))
             .max_by_key(|a| {
-                a.capabilities().iter()
+                a.capabilities()
+                    .iter()
                     .filter(|c| required_capabilities.contains(c))
                     .count()
             })
@@ -213,10 +243,15 @@ impl AgentTeam {
         agents: &HashMap<String, Arc<BaseAgent>>,
         required_capabilities: &[Capability],
     ) -> Option<String> {
-        agents.values()
+        agents
+            .values()
             .filter(|a| a.is_available())
             .filter(|a| required_capabilities.iter().all(|c| a.has_capability(c)))
-            .min_by(|a, b| a.load().partial_cmp(&b.load()).unwrap_or(std::cmp::Ordering::Equal))
+            .min_by(|a, b| {
+                a.load()
+                    .partial_cmp(&b.load())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|a| a.id().to_string())
     }
 
@@ -225,7 +260,8 @@ impl AgentTeam {
         agents: &HashMap<String, Arc<BaseAgent>>,
         required_capabilities: &[Capability],
     ) -> Option<String> {
-        agents.values()
+        agents
+            .values()
             .filter(|a| a.is_available())
             .filter(|a| required_capabilities.iter().all(|c| a.has_capability(c)))
             .max_by_key(|a| a.info().config.priority)
@@ -237,7 +273,8 @@ impl AgentTeam {
         agents: &HashMap<String, Arc<BaseAgent>>,
         required_capabilities: &[Capability],
     ) -> Option<String> {
-        let available: Vec<_> = agents.values()
+        let available: Vec<_> = agents
+            .values()
             .filter(|a| a.is_available())
             .filter(|a| required_capabilities.iter().all(|c| a.has_capability(c)))
             .collect();
@@ -257,22 +294,32 @@ impl AgentTeam {
         required_capabilities: &[Capability],
     ) -> Option<String> {
         // 智能选择：综合考虑能力匹配、负载和优先级
-        agents.values()
+        agents
+            .values()
             .filter(|a| a.is_available())
             .filter(|a| required_capabilities.iter().all(|c| a.has_capability(c)))
             .max_by(|a, b| {
                 let score_a = self.calculate_agent_score(a, required_capabilities);
                 let score_b = self.calculate_agent_score(b, required_capabilities);
-                score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+                score_a
+                    .partial_cmp(&score_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|a| a.id().to_string())
     }
 
-    fn calculate_agent_score(&self, agent: &BaseAgent, required_capabilities: &[Capability]) -> f32 {
+    fn calculate_agent_score(
+        &self,
+        agent: &BaseAgent,
+        required_capabilities: &[Capability],
+    ) -> f32 {
         // 能力匹配分数 (0-50)
-        let capability_score = required_capabilities.iter()
+        let capability_score = required_capabilities
+            .iter()
             .filter(|c| agent.has_capability(c))
-            .count() as f32 / required_capabilities.len().max(1) as f32 * 50.0;
+            .count() as f32
+            / required_capabilities.len().max(1) as f32
+            * 50.0;
 
         // 优先级分数 (0-30)
         let priority_score = agent.info().config.priority as f32 / 100.0 * 30.0;

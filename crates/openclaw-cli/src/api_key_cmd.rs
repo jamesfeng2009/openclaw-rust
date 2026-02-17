@@ -3,7 +3,7 @@
 //! 提供命令行接口来管理用户的 API Key
 
 use clap::Subcommand;
-use openclaw_core::{UserConfigManager, UserProviderConfig, OpenClawError};
+use openclaw_core::{OpenClawError, UserConfigManager, UserProviderConfig};
 
 #[derive(Debug, Subcommand)]
 pub enum ApiKeyCommand {
@@ -20,31 +20,31 @@ pub enum ApiKeyCommand {
         #[arg(short, long)]
         url: Option<String>,
     },
-    
+
     /// 获取 API Key（部分显示）
     Get {
         /// 提供商名称
         provider: String,
     },
-    
+
     /// 删除 API Key
     Remove {
         /// 提供商名称
         provider: String,
     },
-    
+
     /// 列出所有提供商
     List,
-    
+
     /// 设置默认提供商
     Default {
         /// 提供商名称
         provider: String,
     },
-    
+
     /// 导出配置（隐藏敏感信息）
     Export,
-    
+
     /// 验证 API Key 格式
     Validate {
         /// 提供商名称
@@ -58,14 +58,19 @@ impl ApiKeyCommand {
     /// 执行命令
     pub async fn execute(&self) -> Result<(), OpenClawError> {
         let mut manager = UserConfigManager::new(None)?;
-        
+
         match self {
-            ApiKeyCommand::Set { provider, api_key, model, url } => {
+            ApiKeyCommand::Set {
+                provider,
+                api_key,
+                model,
+                url,
+            } => {
                 // 验证 API Key 格式
                 if !openclaw_core::UserConfig::validate_api_key(provider, api_key)? {
                     println!("⚠️  API Key 格式可能不正确");
                 }
-                
+
                 // 创建配置
                 let config = UserProviderConfig {
                     name: provider.clone(),
@@ -75,17 +80,22 @@ impl ApiKeyCommand {
                     enabled: true,
                     quota: None,
                 };
-                
-                manager.get_config_mut().set_provider(provider.clone(), config);
+
+                manager
+                    .get_config_mut()
+                    .set_provider(provider.clone(), config);
                 manager.save()?;
-                
+
                 println!("✅ 成功设置 {} 的 API Key", provider);
-                println!("   默认模型: {}", model.as_ref().unwrap_or(&get_default_model(provider)));
+                println!(
+                    "   默认模型: {}",
+                    model.as_ref().unwrap_or(&get_default_model(provider))
+                );
                 if let Some(url) = url {
                     println!("   Base URL: {}", url);
                 }
             }
-            
+
             ApiKeyCommand::Get { provider } => {
                 if let Some(config) = manager.get_config().get_provider(provider) {
                     if let Some(key) = &config.api_key {
@@ -101,7 +111,7 @@ impl ApiKeyCommand {
                     println!("❌ 未找到提供商: {}", provider);
                 }
             }
-            
+
             ApiKeyCommand::Remove { provider } => {
                 if manager.remove_api_key(provider).is_ok() {
                     println!("✅ 已删除 {} 的 API Key", provider);
@@ -109,7 +119,7 @@ impl ApiKeyCommand {
                     println!("❌ 未找到提供商: {}", provider);
                 }
             }
-            
+
             ApiKeyCommand::List => {
                 let providers = manager.list_providers();
                 if providers.is_empty() {
@@ -126,20 +136,26 @@ impl ApiKeyCommand {
                             } else {
                                 "❌"
                             };
-                            let default_marker = if manager.get_config().default_provider == *provider {
-                                " (默认)"
-                            } else {
-                                ""
-                            };
-                            println!("  {} {}{} - {}", key_status, provider, default_marker, config.default_model);
+                            let default_marker =
+                                if manager.get_config().default_provider == *provider {
+                                    " (默认)"
+                                } else {
+                                    ""
+                                };
+                            println!(
+                                "  {} {}{} - {}",
+                                key_status, provider, default_marker, config.default_model
+                            );
                         }
                     }
                 }
             }
-            
+
             ApiKeyCommand::Default { provider } => {
                 if manager.get_config().get_provider(provider).is_some() {
-                    manager.get_config_mut().set_default_provider(provider.clone());
+                    manager
+                        .get_config_mut()
+                        .set_default_provider(provider.clone());
                     manager.save()?;
                     println!("✅ 已设置默认提供商: {}", provider);
                 } else {
@@ -147,12 +163,12 @@ impl ApiKeyCommand {
                     println!("请先设置该提供商的 API Key");
                 }
             }
-            
+
             ApiKeyCommand::Export => {
                 let safe_config = manager.export_safe();
                 println!("{}", serde_json::to_string_pretty(&safe_config).unwrap());
             }
-            
+
             ApiKeyCommand::Validate { provider, api_key } => {
                 match openclaw_core::UserConfig::validate_api_key(provider, api_key) {
                     Ok(true) => println!("✅ API Key 格式正确"),
@@ -161,7 +177,7 @@ impl ApiKeyCommand {
                 }
             }
         }
-        
+
         Ok(())
     }
 }
@@ -186,25 +202,25 @@ fn mask_api_key(key: &str) -> String {
     if key.len() <= 8 {
         return "*".repeat(key.len());
     }
-    
+
     let start = &key[..4];
     let end = &key[key.len().saturating_sub(4)..];
     let middle_len = (key.len() - 8).min(4);
     let middle = "*".repeat(middle_len);
-    
+
     format!("{}{}{}", start, middle, end)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_mask_api_key() {
         assert_eq!(mask_api_key("sk-short"), "********");
         assert_eq!(mask_api_key("sk-1234567890abcdef"), "sk-1****cdef");
     }
-    
+
     #[test]
     fn test_get_default_model() {
         assert_eq!(get_default_model("openai"), "gpt-4o-mini");

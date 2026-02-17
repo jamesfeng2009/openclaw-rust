@@ -29,42 +29,50 @@ impl<T> SecureToolExecutor<T> {
 
     pub async fn check_input(&self, input: &str) -> Result<FilterResult, String> {
         let result = self.input_filter.check(input).await;
-        
+
         if result.threat_level >= ThreatLevel::Medium {
             warn!(
                 "Input filter: threat level {:?} for tool {}",
                 result.threat_level, self.tool_id
             );
         }
-        
+
         Ok(result)
     }
 
-    pub async fn check_permission(&self, action: &str, target: &str) -> Result<GrantResult, String> {
-        let result = self.permission_manager
+    pub async fn check_permission(
+        &self,
+        action: &str,
+        target: &str,
+    ) -> Result<GrantResult, String> {
+        let result = self
+            .permission_manager
             .check_permission(&self.tool_id, action, target)
             .await;
-        
+
         match &result {
             GrantResult::Granted => debug!("Permission granted for {} on {}", action, target),
             GrantResult::Denied => warn!("Permission denied for {} on {}", action, target),
-            GrantResult::Limited(_perms) => info!("Permission limited for {} on {}", action, target),
+            GrantResult::Limited(_perms) => {
+                info!("Permission limited for {} on {}", action, target)
+            }
         }
-        
+
         Ok(result)
     }
 
     pub async fn check_network(&self, host: &str, port: u16) -> Result<NetworkDecision, String> {
-        let decision = self.network_whitelist
+        let decision = self
+            .network_whitelist
             .check_request(&self.tool_id, host, port, None)
             .await;
-        
+
         match decision {
             NetworkDecision::Allow => debug!("Network allowed: {}:{}", host, port),
             NetworkDecision::Deny => warn!("Network denied: {}:{}", host, port),
             NetworkDecision::Limited => info!("Network limited: {}:{}", host, port),
         }
-        
+
         Ok(decision)
     }
 }
@@ -94,13 +102,23 @@ impl SecurityMiddleware {
         self.input_filter.check(input).await
     }
 
-    pub async fn check_tool_permission(&self, tool_id: &str, action: &str, target: &str) -> GrantResult {
+    pub async fn check_tool_permission(
+        &self,
+        tool_id: &str,
+        action: &str,
+        target: &str,
+    ) -> GrantResult {
         self.permission_manager
             .check_permission(tool_id, action, target)
             .await
     }
 
-    pub async fn check_network_request(&self, tool_id: &str, host: &str, port: u16) -> NetworkDecision {
+    pub async fn check_network_request(
+        &self,
+        tool_id: &str,
+        host: &str,
+        port: u16,
+    ) -> NetworkDecision {
         self.network_whitelist
             .check_request(tool_id, host, port, None)
             .await
@@ -118,16 +136,15 @@ impl SecurityMiddleware {
         Fut: std::future::Future<Output = Result<R, String>>,
     {
         let perm_result = self.check_tool_permission(tool_id, action, target).await;
-        
+
         match perm_result {
-            GrantResult::Granted => {
-                f().await
-            }
-            GrantResult::Denied => {
-                Err(format!("Permission denied for {}/{}", tool_id, action))
-            }
+            GrantResult::Granted => f().await,
+            GrantResult::Denied => Err(format!("Permission denied for {}/{}", tool_id, action)),
             GrantResult::Limited(_) => {
-                warn!("Tool execution with limited permissions: {}/{}", tool_id, action);
+                warn!(
+                    "Tool execution with limited permissions: {}/{}",
+                    tool_id, action
+                );
                 f().await
             }
         }

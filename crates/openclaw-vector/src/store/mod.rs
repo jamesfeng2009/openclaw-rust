@@ -34,30 +34,36 @@ pub trait VectorStore: Send + Sync {
 #[derive(Debug, Clone)]
 pub enum StoreBackend {
     Memory,
-    LanceDB { path: std::path::PathBuf },
-    Qdrant { url: String, collection: String, api_key: Option<String> },
-    PgVector { url: String, table: String },
-    SQLite { path: std::path::PathBuf, table: String },
+    LanceDB {
+        path: std::path::PathBuf,
+    },
+    Qdrant {
+        url: String,
+        collection: String,
+        api_key: Option<String>,
+    },
+    PgVector {
+        url: String,
+        table: String,
+    },
+    SQLite {
+        path: std::path::PathBuf,
+        table: String,
+    },
 }
 
 pub fn create_store(backend: StoreBackend) -> Result<Arc<dyn VectorStore>> {
     match backend {
         StoreBackend::Memory => Ok(Arc::new(MemoryStore::new())),
-        StoreBackend::LanceDB { path: _ } => {
-            Err(OpenClawError::VectorStore(
-                "LanceDB requires async initialization. Use create_store_async instead.".to_string()
-            ))
-        }
-        StoreBackend::Qdrant { .. } => {
-            Err(OpenClawError::VectorStore(
-                "Qdrant requires async initialization. Use create_store_async instead.".to_string()
-            ))
-        }
-        StoreBackend::PgVector { .. } => {
-            Err(OpenClawError::VectorStore(
-                "PgVector requires async initialization. Use create_store_async instead.".to_string()
-            ))
-        }
+        StoreBackend::LanceDB { path: _ } => Err(OpenClawError::VectorStore(
+            "LanceDB requires async initialization. Use create_store_async instead.".to_string(),
+        )),
+        StoreBackend::Qdrant { .. } => Err(OpenClawError::VectorStore(
+            "Qdrant requires async initialization. Use create_store_async instead.".to_string(),
+        )),
+        StoreBackend::PgVector { .. } => Err(OpenClawError::VectorStore(
+            "PgVector requires async initialization. Use create_store_async instead.".to_string(),
+        )),
         StoreBackend::SQLite { path, table } => {
             let store = SqliteStore::new(path, &table)?;
             Ok(Arc::new(store))
@@ -72,7 +78,11 @@ pub async fn create_store_async(backend: StoreBackend) -> Result<Arc<dyn VectorS
             let store = LanceDbStore::new(&path, "vectors").await?;
             Ok(Arc::new(store))
         }
-        StoreBackend::Qdrant { url, collection, api_key } => {
+        StoreBackend::Qdrant {
+            url,
+            collection,
+            api_key,
+        } => {
             let store = QdrantStore::new(&url, &collection, 1536, api_key.as_deref()).await?;
             Ok(Arc::new(store))
         }

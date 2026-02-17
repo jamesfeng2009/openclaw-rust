@@ -3,7 +3,7 @@
 
 mod registry;
 
-pub use registry::{ProviderRegistry, CustomProviderConfig};
+pub use registry::{CustomProviderConfig, ProviderRegistry};
 
 use async_trait::async_trait;
 use reqwest::Client;
@@ -89,27 +89,27 @@ impl CustomTtsProvider {
 
     fn build_request_body(&self, text: &str, options: &SynthesisOptions) -> String {
         let mut template = self.config.request_template.clone();
-        
+
         template = template.replace("{{text}}", text);
-        
+
         if let Some(voice) = &options.voice {
             template = template.replace("{{voice}}", voice);
         } else {
             template = template.replace("{{voice}}", "alloy");
         }
-        
+
         if let Some(speed) = options.speed {
             template = template.replace("{{speed}}", &speed.to_string());
         } else {
             template = template.replace("{{speed}}", "1.0");
         }
-        
+
         if let Some(format) = &options.format {
             template = template.replace("{{format}}", format.as_extension());
         } else {
             template = template.replace("{{format}}", "mp3");
         }
-        
+
         template
     }
 }
@@ -131,9 +131,12 @@ impl crate::tts::TextToSpeech for CustomTtsProvider {
         let mut request = match self.config.method.to_uppercase().as_str() {
             "GET" => self.client.get(&self.config.endpoint),
             "POST" | "PUT" => self.client.post(&self.config.endpoint),
-            _ => return Err(openclaw_core::OpenClawError::Config(
-                format!("不支持的 HTTP 方法: {}", self.config.method),
-            )),
+            _ => {
+                return Err(openclaw_core::OpenClawError::Config(format!(
+                    "不支持的 HTTP 方法: {}",
+                    self.config.method
+                )));
+            }
         };
 
         for (key, value) in &self.config.headers {
@@ -159,26 +162,27 @@ impl crate::tts::TextToSpeech for CustomTtsProvider {
 
         match self.config.response_type {
             CustomResponseType::Binary => {
-                let bytes = response
-                    .bytes()
-                    .await
-                    .map_err(|e| openclaw_core::OpenClawError::Http(format!("读取响应失败: {}", e)))?;
+                let bytes = response.bytes().await.map_err(|e| {
+                    openclaw_core::OpenClawError::Http(format!("读取响应失败: {}", e))
+                })?;
                 Ok(bytes.to_vec())
             }
             CustomResponseType::Json { ref audio_field } => {
-                let json: serde_json::Value = response
-                    .json()
-                    .await
-                    .map_err(|e| openclaw_core::OpenClawError::Http(format!("解析 JSON 失败: {}", e)))?;
-                
-                let audio_base64 = json
-                    .get(audio_field)
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| openclaw_core::OpenClawError::Config("响应中未找到音频字段".to_string()))?;
-                
-                let audio_data = base64::decode(audio_base64)
-                    .map_err(|e| openclaw_core::OpenClawError::Config(format!("Base64 解码失败: {}", e)))?;
-                
+                let json: serde_json::Value = response.json().await.map_err(|e| {
+                    openclaw_core::OpenClawError::Http(format!("解析 JSON 失败: {}", e))
+                })?;
+
+                let audio_base64 =
+                    json.get(audio_field)
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| {
+                            openclaw_core::OpenClawError::Config("响应中未找到音频字段".to_string())
+                        })?;
+
+                let audio_data = base64::decode(audio_base64).map_err(|e| {
+                    openclaw_core::OpenClawError::Config(format!("Base64 解码失败: {}", e))
+                })?;
+
                 Ok(audio_data)
             }
         }
@@ -220,14 +224,15 @@ impl crate::stt::SpeechToText for CustomSttProvider {
         _language: Option<&str>,
     ) -> openclaw_core::Result<TranscriptionResult> {
         let field_name = self.config.audio_field.clone();
-        
+
         let part = reqwest::multipart::Part::bytes(audio_data.to_vec())
             .file_name("audio.wav")
             .mime_str("audio/wav")
-            .map_err(|e| openclaw_core::OpenClawError::Http(format!("创建 multipart 失败: {}", e)))?;
-        
-        let form = reqwest::multipart::Form::new()
-            .part(field_name, part);
+            .map_err(|e| {
+                openclaw_core::OpenClawError::Http(format!("创建 multipart 失败: {}", e))
+            })?;
+
+        let form = reqwest::multipart::Form::new().part(field_name, part);
 
         let endpoint = self.config.endpoint.clone();
         let method = self.config.method.clone();
@@ -235,9 +240,12 @@ impl crate::stt::SpeechToText for CustomSttProvider {
 
         let mut request = match method.to_uppercase().as_str() {
             "POST" => self.client.post(&endpoint),
-            _ => return Err(openclaw_core::OpenClawError::Config(
-                format!("不支持的 HTTP 方法: {}", method),
-            )),
+            _ => {
+                return Err(openclaw_core::OpenClawError::Config(format!(
+                    "不支持的 HTTP 方法: {}",
+                    method
+                )));
+            }
         };
 
         for (key, value) in &headers {
@@ -260,11 +268,10 @@ impl crate::stt::SpeechToText for CustomSttProvider {
 
         match self.config.response_type {
             CustomSttResponseType::Text => {
-                let text = response
-                    .text()
-                    .await
-                    .map_err(|e| openclaw_core::OpenClawError::Http(format!("读取响应失败: {}", e)))?;
-                
+                let text = response.text().await.map_err(|e| {
+                    openclaw_core::OpenClawError::Http(format!("读取响应失败: {}", e))
+                })?;
+
                 Ok(TranscriptionResult {
                     text,
                     language: None,
@@ -273,17 +280,16 @@ impl crate::stt::SpeechToText for CustomSttProvider {
                 })
             }
             CustomSttResponseType::Json { ref text_field } => {
-                let json: serde_json::Value = response
-                    .json()
-                    .await
-                    .map_err(|e| openclaw_core::OpenClawError::Http(format!("解析 JSON 失败: {}", e)))?;
-                
+                let json: serde_json::Value = response.json().await.map_err(|e| {
+                    openclaw_core::OpenClawError::Http(format!("解析 JSON 失败: {}", e))
+                })?;
+
                 let text = json
                     .get(text_field)
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
-                
+
                 Ok(TranscriptionResult {
                     text,
                     language: None,
@@ -363,7 +369,7 @@ mod tests {
         let options = SynthesisOptions::default();
 
         let body = provider.build_request_body("Test", &options);
-        
+
         assert!(body.contains("Test"));
         assert!(body.contains("alloy"));
         assert!(body.contains("1"));
@@ -373,7 +379,7 @@ mod tests {
     #[test]
     fn test_custom_response_type_json() {
         let response_type = CustomResponseType::Json {
-            audio_field: "audio_data".to_string()
+            audio_field: "audio_data".to_string(),
         };
 
         match response_type {
@@ -402,7 +408,7 @@ mod tests {
     #[test]
     fn test_custom_stt_response_type_json() {
         let response_type = CustomSttResponseType::Json {
-            text_field: "transcript".to_string()
+            text_field: "transcript".to_string(),
         };
 
         match response_type {

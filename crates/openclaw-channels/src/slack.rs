@@ -44,9 +44,11 @@ impl SlackChannel {
 
     /// 使用 Webhook 发送消息
     pub async fn send_webhook(&self, text: &str, blocks: Option<Vec<SlackBlock>>) -> Result<()> {
-        let webhook_url = self.config.webhook_url.as_ref().ok_or_else(|| {
-            OpenClawError::Config("未配置 Webhook URL".to_string())
-        })?;
+        let webhook_url = self
+            .config
+            .webhook_url
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("未配置 Webhook URL".to_string()))?;
 
         let mut body = json!({
             "text": text
@@ -56,7 +58,8 @@ impl SlackChannel {
             body["blocks"] = json!(b);
         }
 
-        let response = self.client
+        let response = self
+            .client
             .post(webhook_url)
             .header("Content-Type", "application/json")
             .json(&body)
@@ -66,7 +69,10 @@ impl SlackChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Slack Webhook 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Slack Webhook 错误: {}",
+                error_text
+            )));
         }
 
         Ok(())
@@ -79,9 +85,11 @@ impl SlackChannel {
         text: &str,
         blocks: Option<Vec<SlackBlock>>,
     ) -> Result<()> {
-        let bot_token = self.config.bot_token.as_ref().ok_or_else(|| {
-            OpenClawError::Config("未配置 Bot Token".to_string())
-        })?;
+        let bot_token = self
+            .config
+            .bot_token
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("未配置 Bot Token".to_string()))?;
 
         let url = self.get_api_url("chat.postMessage");
 
@@ -94,7 +102,8 @@ impl SlackChannel {
             body["blocks"] = json!(b);
         }
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Authorization", format!("Bearer {}", bot_token))
             .header("Content-Type", "application/json")
@@ -105,16 +114,22 @@ impl SlackChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Slack API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Slack API 错误: {}",
+                error_text
+            )));
         }
 
-        let result: SlackResponse = response.json().await
+        let result: SlackResponse = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
 
         if !result.ok {
-            return Err(OpenClawError::AIProvider(
-                format!("Slack API 返回错误: {:?}", result.error)
-            ));
+            return Err(OpenClawError::AIProvider(format!(
+                "Slack API 返回错误: {:?}",
+                result.error
+            )));
         }
 
         Ok(())
@@ -122,9 +137,11 @@ impl SlackChannel {
 
     /// 发送临时消息（只有用户可见）
     pub async fn send_ephemeral(&self, channel: &str, user: &str, text: &str) -> Result<()> {
-        let bot_token = self.config.bot_token.as_ref().ok_or_else(|| {
-            OpenClawError::Config("未配置 Bot Token".to_string())
-        })?;
+        let bot_token = self
+            .config
+            .bot_token
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("未配置 Bot Token".to_string()))?;
 
         let url = self.get_api_url("chat.postEphemeral");
 
@@ -134,7 +151,8 @@ impl SlackChannel {
             "text": text
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Authorization", format!("Bearer {}", bot_token))
             .header("Content-Type", "application/json")
@@ -145,7 +163,10 @@ impl SlackChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Slack API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Slack API 错误: {}",
+                error_text
+            )));
         }
 
         Ok(())
@@ -153,9 +174,11 @@ impl SlackChannel {
 
     /// 添加反应表情
     pub async fn add_reaction(&self, channel: &str, timestamp: &str, emoji: &str) -> Result<()> {
-        let bot_token = self.config.bot_token.as_ref().ok_or_else(|| {
-            OpenClawError::Config("未配置 Bot Token".to_string())
-        })?;
+        let bot_token = self
+            .config
+            .bot_token
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("未配置 Bot Token".to_string()))?;
 
         let url = self.get_api_url("reactions.add");
 
@@ -165,7 +188,8 @@ impl SlackChannel {
             "name": emoji
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Authorization", format!("Bearer {}", bot_token))
             .header("Content-Type", "application/json")
@@ -223,15 +247,17 @@ impl Channel for SlackChannel {
                         }),
                         ..Default::default()
                     }];
-                    self.send_to_channel(&message.chat_id, &message.content, Some(blocks)).await?;
+                    self.send_to_channel(&message.chat_id, &message.content, Some(blocks))
+                        .await?;
                 }
                 _ => {
-                    self.send_to_channel(&message.chat_id, &message.content, None).await?;
+                    self.send_to_channel(&message.chat_id, &message.content, None)
+                        .await?;
                 }
             }
         } else {
             return Err(OpenClawError::Config(
-                "Slack 通道需要配置 webhook_url 或 bot_token + chat_id".to_string()
+                "Slack 通道需要配置 webhook_url 或 bot_token + chat_id".to_string(),
             ));
         }
 

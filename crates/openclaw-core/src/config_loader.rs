@@ -1,11 +1,11 @@
 //! 统一配置加载器
-//! 
+//!
 //! 整合所有配置源，提供统一的配置访问接口
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UnifiedConfig {
@@ -36,8 +36,13 @@ pub struct ProvidersSection {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ProviderEntry {
-    WithKey { api_key: String, api_base: Option<String> },
-    NoKey { api_base: Option<String> },
+    WithKey {
+        api_key: String,
+        api_base: Option<String>,
+    },
+    NoKey {
+        api_base: Option<String>,
+    },
 }
 
 impl Default for ProviderEntry {
@@ -66,8 +71,12 @@ pub struct DefaultAgentConfig {
     pub max_tokens: Option<usize>,
 }
 
-fn default_model() -> String { "gpt-4o".to_string() }
-fn default_provider() -> String { "openai".to_string() }
+fn default_model() -> String {
+    "gpt-4o".to_string()
+}
+fn default_provider() -> String {
+    "openai".to_string()
+}
 
 impl Default for DefaultAgentConfig {
     fn default() -> Self {
@@ -146,7 +155,9 @@ pub struct FeaturesSection {
     pub sandbox: bool,
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SecuritySection {
@@ -189,51 +200,45 @@ impl UnifiedConfig {
         if !path.exists() {
             return Ok(Self::default());
         }
-        
+
         let content = fs::read_to_string(path)
             .map_err(|e| crate::OpenClawError::Config(format!("读取配置失败: {}", e)))?;
-        
+
         let config: Self = serde_json::from_str(&content)
             .map_err(|e| crate::OpenClawError::Config(format!("解析配置失败: {}", e)))?;
-        
+
         Ok(config)
     }
-    
+
     pub fn save(&self, path: &PathBuf) -> crate::Result<()> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)
                 .map_err(|e| crate::OpenClawError::Config(format!("创建目录失败: {}", e)))?;
         }
-        
+
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| crate::OpenClawError::Config(format!("序列化配置失败: {}", e)))?;
-        
+
         fs::write(path, content)
             .map_err(|e| crate::OpenClawError::Config(format!("写入配置失败: {}", e)))?;
-        
+
         Ok(())
     }
-    
+
     pub fn default_path() -> PathBuf {
         dirs::home_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join(".openclaw")
             .join("config.json")
     }
-    
+
     pub fn get_provider_config(&self, name: &str) -> Option<(String, Option<String>)> {
-        self.providers.entries.get(name).map(|entry| {
-            match entry {
-                ProviderEntry::WithKey { api_key, api_base } => {
-                    (api_key.clone(), api_base.clone())
-                }
-                ProviderEntry::NoKey { api_base } => {
-                    (String::new(), api_base.clone())
-                }
-            }
+        self.providers.entries.get(name).map(|entry| match entry {
+            ProviderEntry::WithKey { api_key, api_base } => (api_key.clone(), api_base.clone()),
+            ProviderEntry::NoKey { api_base } => (String::new(), api_base.clone()),
         })
     }
-    
+
     pub fn get_api_key(&self, provider: &str) -> Option<String> {
         self.get_provider_config(provider).map(|(key, _)| key)
     }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn, error};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::classifier::PromptCategory;
@@ -216,7 +216,12 @@ impl AuditLogger {
         self.log(event).await;
     }
 
-    pub async fn log_classification(&self, session_id: &str, category: &PromptCategory, risk_score: f32) {
+    pub async fn log_classification(
+        &self,
+        session_id: &str,
+        category: &PromptCategory,
+        risk_score: f32,
+    ) {
         let event = AuditEvent::new(AuditEventType::LlmClassified, AuditSeverity::Info)
             .with_session(session_id)
             .with_metadata("category", &format!("{:?}", category))
@@ -259,8 +264,18 @@ impl AuditLogger {
         self.log(event).await;
     }
 
-    pub async fn log_permission(&self, session_id: &str, tool_id: &str, action: &str, granted: bool) {
-        let severity = if granted { AuditSeverity::Debug } else { AuditSeverity::Warning };
+    pub async fn log_permission(
+        &self,
+        session_id: &str,
+        tool_id: &str,
+        action: &str,
+        granted: bool,
+    ) {
+        let severity = if granted {
+            AuditSeverity::Debug
+        } else {
+            AuditSeverity::Warning
+        };
 
         let event = AuditEvent::new(AuditEventType::PermissionChecked, severity)
             .with_session(session_id)
@@ -276,7 +291,11 @@ impl AuditLogger {
         } else {
             AuditEventType::NetworkDenied
         };
-        let severity = if allowed { AuditSeverity::Debug } else { AuditSeverity::Warning };
+        let severity = if allowed {
+            AuditSeverity::Debug
+        } else {
+            AuditSeverity::Warning
+        };
 
         let event = AuditEvent::new(event_type, severity)
             .with_session(session_id)
@@ -292,7 +311,11 @@ impl AuditLogger {
         self.log(event).await;
     }
 
-    pub async fn get_events(&self, session_id: Option<&str>, limit: Option<usize>) -> Vec<AuditEvent> {
+    pub async fn get_events(
+        &self,
+        session_id: Option<&str>,
+        limit: Option<usize>,
+    ) -> Vec<AuditEvent> {
         let events = self.events.read().await;
         let limit = limit.unwrap_or(100);
 

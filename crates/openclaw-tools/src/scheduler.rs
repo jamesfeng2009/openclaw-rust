@@ -27,8 +27,12 @@ pub enum SchedulerError {
 
 /// 任务执行器类型
 pub type TaskExecutor = Box<
-    dyn Fn(TaskAction, HashMap<String, serde_json::Value>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send>>
-        + Send
+    dyn Fn(
+            TaskAction,
+            HashMap<String, serde_json::Value>,
+        ) -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send>,
+        > + Send
         + Sync,
 >;
 
@@ -58,10 +62,10 @@ impl TaskScheduler {
     /// 添加定时任务
     pub async fn add_task(&self, mut task: ScheduleTask) -> Result<TaskId, SchedulerError> {
         let task_id = task.id.clone();
-        
+
         task.enabled = true;
         task.updated_at = Utc::now();
-        
+
         {
             let mut tasks = self.tasks.write().await;
             tasks.insert(task_id.clone(), task);
@@ -74,7 +78,7 @@ impl TaskScheduler {
     /// 移除任务
     pub async fn remove_task(&self, task_id: &TaskId) -> Result<(), SchedulerError> {
         let mut tasks = self.tasks.write().await;
-        
+
         if tasks.remove(task_id).is_some() {
             info!("移除定时任务: {}", task_id);
             Ok(())
@@ -86,7 +90,7 @@ impl TaskScheduler {
     /// 启用任务
     pub async fn enable_task(&self, task_id: &TaskId) -> Result<(), SchedulerError> {
         let mut tasks = self.tasks.write().await;
-        
+
         if let Some(task) = tasks.get_mut(task_id) {
             task.enabled = true;
             task.updated_at = Utc::now();
@@ -100,7 +104,7 @@ impl TaskScheduler {
     /// 禁用任务
     pub async fn disable_task(&self, task_id: &TaskId) -> Result<(), SchedulerError> {
         let mut tasks = self.tasks.write().await;
-        
+
         if let Some(task) = tasks.get_mut(task_id) {
             task.enabled = false;
             task.updated_at = Utc::now();
@@ -112,10 +116,15 @@ impl TaskScheduler {
     }
 
     /// 手动执行任务
-    pub async fn execute_task(&self, task_id: &TaskId) -> Result<serde_json::Value, SchedulerError> {
+    pub async fn execute_task(
+        &self,
+        task_id: &TaskId,
+    ) -> Result<serde_json::Value, SchedulerError> {
         let task = {
             let tasks = self.tasks.read().await;
-            tasks.get(task_id).cloned()
+            tasks
+                .get(task_id)
+                .cloned()
                 .ok_or_else(|| SchedulerError::TaskNotFound(task_id.clone()))?
         };
 
@@ -141,10 +150,13 @@ impl TaskScheduler {
                 TaskAction::ExecuteTool { parameters, .. } => parameters.clone(),
                 _ => HashMap::new(),
             };
-            executor(task.action.clone(), params).await
+            executor(task.action.clone(), params)
+                .await
                 .map_err(|e| SchedulerError::ExecutionFailed(e))
         } else {
-            Err(SchedulerError::ExecutionFailed("未找到任务执行器".to_string()))
+            Err(SchedulerError::ExecutionFailed(
+                "未找到任务执行器".to_string(),
+            ))
         }
     }
 

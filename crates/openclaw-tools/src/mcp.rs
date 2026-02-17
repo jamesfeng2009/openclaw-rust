@@ -1,9 +1,9 @@
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
-use reqwest::Client;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -290,32 +290,44 @@ impl McpServer {
         };
 
         let result = self.send_jsonrpc_request(request).await?;
-        
+
         if let Ok(init_result) = serde_json::from_value::<McpInitializeResult>(result.clone()) {
             self.server_info = Some(McpServerInfo {
                 protocol_version: init_result.protocol_version.clone(),
                 capabilities: init_result.capabilities.clone(),
                 server_info: init_result.server_info.clone(),
             });
-            
-            let _ = self.send_notification("notifications/initialized", serde_json::Value::Null).await;
+
+            let _ = self
+                .send_notification("notifications/initialized", serde_json::Value::Null)
+                .await;
             let _ = self.list_tools_internal().await;
-            
+
             Ok(init_result)
         } else {
-            Err(McpError::TransportError("Failed to parse initialize result".to_string()))
+            Err(McpError::TransportError(
+                "Failed to parse initialize result".to_string(),
+            ))
         }
     }
 
-    async fn send_jsonrpc_request(&self, request: McpJsonRpcRequest) -> Result<serde_json::Value, McpError> {
-        let client = self.http_client.as_ref().ok_or_else(|| {
-            McpError::TransportError("HTTP client not initialized".to_string())
-        })?;
+    async fn send_jsonrpc_request(
+        &self,
+        request: McpJsonRpcRequest,
+    ) -> Result<serde_json::Value, McpError> {
+        let client = self
+            .http_client
+            .as_ref()
+            .ok_or_else(|| McpError::TransportError("HTTP client not initialized".to_string()))?;
 
         let url = match &self.config.transport {
             McpTransport::Http { url } => url.clone(),
             McpTransport::Sse { url } => url.clone(),
-            _ => return Err(McpError::TransportError("Not an HTTP transport".to_string())),
+            _ => {
+                return Err(McpError::TransportError(
+                    "Not an HTTP transport".to_string(),
+                ));
+            }
         };
 
         let response = client
@@ -335,20 +347,29 @@ impl McpServer {
             return Err(McpError::TransportError(error.message));
         }
 
-        response_json.result.ok_or_else(|| {
-            McpError::TransportError("No result in response".to_string())
-        })
+        response_json
+            .result
+            .ok_or_else(|| McpError::TransportError("No result in response".to_string()))
     }
 
-    async fn send_notification(&self, method: &str, params: serde_json::Value) -> Result<(), McpError> {
-        let client = self.http_client.as_ref().ok_or_else(|| {
-            McpError::TransportError("HTTP client not initialized".to_string())
-        })?;
+    async fn send_notification(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<(), McpError> {
+        let client = self
+            .http_client
+            .as_ref()
+            .ok_or_else(|| McpError::TransportError("HTTP client not initialized".to_string()))?;
 
         let url = match &self.config.transport {
             McpTransport::Http { url } => url.clone(),
             McpTransport::Sse { url } => url.clone(),
-            _ => return Err(McpError::TransportError("Not an HTTP transport".to_string())),
+            _ => {
+                return Err(McpError::TransportError(
+                    "Not an HTTP transport".to_string(),
+                ));
+            }
         };
 
         let notification = McpJsonRpcNotification {
@@ -376,7 +397,7 @@ impl McpServer {
         };
 
         let result = self.send_jsonrpc_request(request).await?;
-        
+
         if let Ok(list_result) = serde_json::from_value::<McpToolsListResult>(result) {
             self.tools = list_result.tools.clone();
             Ok(self.tools.clone())
@@ -401,7 +422,11 @@ impl McpServer {
         Ok(self.tools.clone())
     }
 
-    pub async fn call_tool(&self, name: &str, arguments: serde_json::Value) -> Result<serde_json::Value, McpError> {
+    pub async fn call_tool(
+        &self,
+        name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<serde_json::Value, McpError> {
         if !self.connected {
             return Err(McpError::NotConnected(self.config.name.clone()));
         }
@@ -412,7 +437,7 @@ impl McpServer {
         }
 
         debug!("Calling MCP tool: {} on server: {}", name, self.config.name);
-        
+
         if self.http_client.is_some() {
             let request = McpJsonRpcRequest {
                 jsonrpc: "2.0".to_string(),
@@ -467,7 +492,11 @@ impl McpServer {
         Ok(self.prompts.clone())
     }
 
-    pub async fn get_prompt(&self, name: &str, arguments: HashMap<String, String>) -> Result<serde_json::Value, McpError> {
+    pub async fn get_prompt(
+        &self,
+        name: &str,
+        arguments: HashMap<String, String>,
+    ) -> Result<serde_json::Value, McpError> {
         if !self.connected {
             return Err(McpError::NotConnected(self.config.name.clone()));
         }
@@ -538,14 +567,17 @@ impl McpClient {
     pub async fn add_server(&self, config: McpServerConfig) -> Result<(), McpError> {
         let mut server = McpServer::new(config.clone());
         server.connect().await?;
-        
-        if matches!(config.transport, McpTransport::Http { .. } | McpTransport::Sse { .. }) {
+
+        if matches!(
+            config.transport,
+            McpTransport::Http { .. } | McpTransport::Sse { .. }
+        ) {
             server.initialize().await?;
         }
-        
+
         let mut servers = self.servers.write().await;
         servers.insert(config.name.clone(), server);
-        
+
         info!("Added MCP server: {}", config.name);
         Ok(())
     }
@@ -581,7 +613,12 @@ impl McpClient {
         }
     }
 
-    pub async fn call_tool(&self, server_name: &str, tool_name: &str, arguments: serde_json::Value) -> Result<serde_json::Value, McpError> {
+    pub async fn call_tool(
+        &self,
+        server_name: &str,
+        tool_name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<serde_json::Value, McpError> {
         let servers = self.servers.read().await;
         if let Some(server) = servers.get(server_name) {
             server.call_tool(tool_name, arguments).await
@@ -593,7 +630,7 @@ impl McpClient {
     pub async fn get_all_tools(&self) -> HashMap<String, Vec<McpTool>> {
         let servers = self.servers.read().await;
         let mut result = HashMap::new();
-        
+
         for (name, server) in servers.iter() {
             if server.is_connected() {
                 if let Ok(tools) = server.list_tools().await {
@@ -601,7 +638,7 @@ impl McpClient {
                 }
             }
         }
-        
+
         result
     }
 }

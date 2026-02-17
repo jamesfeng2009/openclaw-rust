@@ -5,8 +5,10 @@ use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-use crate::types::{Filter, FilterCondition, FilterOperator, SearchQuery, SearchResult, StoreStats, VectorItem};
 use crate::VectorStore;
+use crate::types::{
+    Filter, FilterCondition, FilterOperator, SearchQuery, SearchResult, StoreStats, VectorItem,
+};
 use openclaw_core::Result;
 
 /// 内存向量存储
@@ -103,7 +105,7 @@ impl VectorStore for MemoryStore {
 
     async fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>> {
         let data = self.data.read().unwrap();
-        
+
         let mut results: Vec<SearchResult> = data
             .values()
             .filter(|item| {
@@ -124,7 +126,11 @@ impl VectorStore for MemoryStore {
             .collect();
 
         // 按相似度排序
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // 应用最小相似度过滤
         if let Some(min_score) = query.min_score {
@@ -155,7 +161,7 @@ impl VectorStore for MemoryStore {
             .filter(|item| Self::matches_filter(item, &filter))
             .map(|item| item.id.clone())
             .collect();
-        
+
         let count = ids_to_remove.len();
         for id in ids_to_remove {
             data.remove(&id);
@@ -196,7 +202,7 @@ mod tests {
         // 搜索
         let query = SearchQuery::new(vec![1.0, 0.0, 0.0]).with_limit(1);
         let results = store.search(query).await.unwrap();
-        
+
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].id, id);
         assert!(results[0].score > 0.99);

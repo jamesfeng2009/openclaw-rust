@@ -55,7 +55,7 @@ pub enum Permission {
     SandboxView,
     /// 管理沙箱
     SandboxManage,
-    
+
     /// 创建画布
     CanvasCreate,
     /// 编辑画布
@@ -64,32 +64,32 @@ pub enum Permission {
     CanvasDelete,
     /// 查看画布
     CanvasView,
-    
+
     /// 浏览器控制
     BrowserControl,
     /// 浏览器截图
     BrowserScreenshot,
     /// 浏览器导航
     BrowserNavigate,
-    
+
     /// 工具调用
     ToolCall,
     /// 工具管理
     ToolManage,
-    
+
     /// 定时任务管理
     ScheduleManage,
-    
+
     /// Webhook 管理
     WebhookManage,
-    
+
     /// 系统管理
     SystemAdmin,
     /// 用户管理
     UserAdmin,
     /// 角色管理
     RoleAdmin,
-    
+
     /// 自定义权限
     Custom(String),
 }
@@ -142,51 +142,46 @@ impl Role {
 
     /// 创建管理员角色
     pub fn admin() -> Self {
-        Self::new("admin".to_string(), "系统管理员".to_string())
-            .with_permissions(vec![
-                Permission::SandboxCreate,
-                Permission::SandboxExecute,
-                Permission::SandboxDelete,
-                Permission::SandboxView,
-                Permission::SandboxManage,
-                Permission::CanvasCreate,
-                Permission::CanvasEdit,
-                Permission::CanvasDelete,
-                Permission::CanvasView,
-                Permission::BrowserControl,
-                Permission::BrowserScreenshot,
-                Permission::BrowserNavigate,
-                Permission::ToolCall,
-                Permission::ToolManage,
-                Permission::ScheduleManage,
-                Permission::WebhookManage,
-                Permission::SystemAdmin,
-                Permission::UserAdmin,
-                Permission::RoleAdmin,
-            ])
+        Self::new("admin".to_string(), "系统管理员".to_string()).with_permissions(vec![
+            Permission::SandboxCreate,
+            Permission::SandboxExecute,
+            Permission::SandboxDelete,
+            Permission::SandboxView,
+            Permission::SandboxManage,
+            Permission::CanvasCreate,
+            Permission::CanvasEdit,
+            Permission::CanvasDelete,
+            Permission::CanvasView,
+            Permission::BrowserControl,
+            Permission::BrowserScreenshot,
+            Permission::BrowserNavigate,
+            Permission::ToolCall,
+            Permission::ToolManage,
+            Permission::ScheduleManage,
+            Permission::WebhookManage,
+            Permission::SystemAdmin,
+            Permission::UserAdmin,
+            Permission::RoleAdmin,
+        ])
     }
 
     /// 创建普通用户角色
     pub fn user() -> Self {
-        Self::new("user".to_string(), "普通用户".to_string())
-            .with_permissions(vec![
-                Permission::SandboxView,
-                Permission::CanvasCreate,
-                Permission::CanvasEdit,
-                Permission::CanvasView,
-                Permission::BrowserControl,
-                Permission::BrowserScreenshot,
-                Permission::ToolCall,
-            ])
+        Self::new("user".to_string(), "普通用户".to_string()).with_permissions(vec![
+            Permission::SandboxView,
+            Permission::CanvasCreate,
+            Permission::CanvasEdit,
+            Permission::CanvasView,
+            Permission::BrowserControl,
+            Permission::BrowserScreenshot,
+            Permission::ToolCall,
+        ])
     }
 
     /// 创建访客角色
     pub fn guest() -> Self {
         Self::new("guest".to_string(), "访客".to_string())
-            .with_permissions(vec![
-                Permission::CanvasView,
-                Permission::SandboxView,
-            ])
+            .with_permissions(vec![Permission::CanvasView, Permission::SandboxView])
     }
 }
 
@@ -318,16 +313,16 @@ impl PermissionManager {
     /// 初始化默认角色
     pub async fn init_default_roles(&self) {
         let mut roles = self.roles.write().await;
-        
+
         let admin = Role::admin();
         roles.insert(admin.id.clone(), admin);
-        
+
         let user = Role::user();
         roles.insert(user.id.clone(), user);
-        
+
         let guest = Role::guest();
         roles.insert(guest.id.clone(), guest);
-        
+
         info!("初始化默认角色完成");
     }
 
@@ -335,10 +330,10 @@ impl PermissionManager {
     pub async fn create_role(&self, name: String, description: String) -> RoleId {
         let role = Role::new(name, description);
         let id = role.id.clone();
-        
+
         let mut roles = self.roles.write().await;
         roles.insert(id.clone(), role);
-        
+
         info!("创建角色: {}", id);
         id
     }
@@ -353,10 +348,10 @@ impl PermissionManager {
     pub async fn create_user(&self, name: String) -> UserId {
         let user = User::new(name);
         let id = user.id.clone();
-        
+
         let mut users = self.users.write().await;
         users.insert(id.clone(), user);
-        
+
         info!("创建用户: {}", id);
         id
     }
@@ -368,15 +363,19 @@ impl PermissionManager {
     }
 
     /// 为用户分配角色
-    pub async fn assign_role(&self, user_id: &UserId, role_id: &RoleId) -> Result<(), PermissionError> {
+    pub async fn assign_role(
+        &self,
+        user_id: &UserId,
+        role_id: &RoleId,
+    ) -> Result<(), PermissionError> {
         let mut users = self.users.write().await;
         let user = users
             .get_mut(user_id)
             .ok_or_else(|| PermissionError::UserNotFound(user_id.clone()))?;
-        
+
         user.roles.insert(role_id.clone());
         user.updated_at = Utc::now();
-        
+
         info!("为用户 {} 分配角色 {}", user_id, role_id);
         Ok(())
     }
@@ -451,10 +450,10 @@ impl PermissionManager {
         owner_id: UserId,
     ) -> Result<(), PermissionError> {
         let acl = ResourceAcl::new(resource_id.clone(), resource_type, owner_id);
-        
+
         let mut acls = self.acls.write().await;
         acls.insert(resource_id, acl);
-        
+
         Ok(())
     }
 
@@ -469,9 +468,9 @@ impl PermissionManager {
         let acl = acls
             .get_mut(resource_id)
             .ok_or_else(|| PermissionError::ResourceNotFound(resource_id.clone()))?;
-        
+
         acl.grant_user(user_id.clone(), permissions);
-        
+
         Ok(())
     }
 
@@ -481,7 +480,13 @@ impl PermissionManager {
         hasher.update(user_id.as_bytes());
         hasher.update(secret.as_bytes());
         hasher.update(Utc::now().timestamp().to_string().as_bytes());
-        format!("tk_{}", base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, &hasher.finalize()))
+        format!(
+            "tk_{}",
+            base64::Engine::encode(
+                &base64::engine::general_purpose::URL_SAFE_NO_PAD,
+                &hasher.finalize()
+            )
+        )
     }
 }
 

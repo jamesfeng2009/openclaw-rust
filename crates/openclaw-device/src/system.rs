@@ -22,15 +22,19 @@ impl SystemManager {
             "cp".to_string(),
             "mv".to_string(),
         ];
-        
+
         Self {
             allowed_commands: Arc::new(RwLock::new(allowed)),
         }
     }
 
-    pub async fn run_command(&self, command: &str, args: Vec<String>) -> Result<SystemCommandResult, DeviceError> {
+    pub async fn run_command(
+        &self,
+        command: &str,
+        args: Vec<String>,
+    ) -> Result<SystemCommandResult, DeviceError> {
         let allowed = self.allowed_commands.read().await;
-        
+
         if !allowed.contains(&command.to_string()) {
             return Ok(SystemCommandResult {
                 success: false,

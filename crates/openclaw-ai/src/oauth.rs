@@ -129,15 +129,17 @@ impl OAuthManager {
     /// 获取 OAuth 授权 URL
     pub fn get_authorization_url(&self, state: &str) -> Result<String> {
         if let Some(ref url) = self.custom_authorization_url {
-            let scope = self.custom_scopes
+            let scope = self
+                .custom_scopes
                 .as_ref()
                 .map(|s| s.join(" "))
                 .unwrap_or_else(|| "api:full".to_string());
-            
-            let redirect_uri = self.redirect_uri
+
+            let redirect_uri = self
+                .redirect_uri
                 .as_deref()
                 .unwrap_or("http://localhost:18789/callback");
-            
+
             let url_with_params = format!(
                 "{}?client_id={}&redirect_uri={}&response_type=code&scope={}&state={}",
                 url,
@@ -160,7 +162,9 @@ impl OAuthManager {
                      scope={}&\
                      state={}",
                     self.client_id,
-                    self.redirect_uri.as_deref().unwrap_or("http://localhost:18789/callback"),
+                    self.redirect_uri
+                        .as_deref()
+                        .unwrap_or("http://localhost:18789/callback"),
                     urlencoding::encode(scope),
                     urlencoding::encode(state)
                 ))
@@ -175,7 +179,9 @@ impl OAuthManager {
                      scope={}&\
                      state={}",
                     self.client_id,
-                    self.redirect_uri.as_deref().unwrap_or("http://localhost:18789/callback"),
+                    self.redirect_uri
+                        .as_deref()
+                        .unwrap_or("http://localhost:18789/callback"),
                     urlencoding::encode(scope),
                     urlencoding::encode(state)
                 ))
@@ -192,14 +198,16 @@ impl OAuthManager {
                      access_type=offline&\
                      prompt=consent",
                     self.client_id,
-                    self.redirect_uri.as_deref().unwrap_or("http://localhost:18789/callback"),
+                    self.redirect_uri
+                        .as_deref()
+                        .unwrap_or("http://localhost:18789/callback"),
                     urlencoding::encode(scope),
                     urlencoding::encode(state)
                 ))
             }
-            OAuthProvider::Azure => {
-                Err(OAuthError::UnsupportedProvider("Azure AD 使用不同的认证流程".into()))
-            }
+            OAuthProvider::Azure => Err(OAuthError::UnsupportedProvider(
+                "Azure AD 使用不同的认证流程".into(),
+            )),
             OAuthProvider::Qwen => {
                 let scope = "api:full";
                 Ok(format!(
@@ -210,7 +218,9 @@ impl OAuthManager {
                      scope={}&\
                      state={}",
                     self.client_id,
-                    self.redirect_uri.as_deref().unwrap_or("http://localhost:18789/callback"),
+                    self.redirect_uri
+                        .as_deref()
+                        .unwrap_or("http://localhost:18789/callback"),
                     urlencoding::encode(scope),
                     urlencoding::encode(state)
                 ))
@@ -225,7 +235,9 @@ impl OAuthManager {
                      scope={}&\
                      state={}",
                     self.client_id,
-                    self.redirect_uri.as_deref().unwrap_or("http://localhost:18789/callback"),
+                    self.redirect_uri
+                        .as_deref()
+                        .unwrap_or("http://localhost:18789/callback"),
                     urlencoding::encode(scope),
                     urlencoding::encode(state)
                 ))
@@ -240,7 +252,9 @@ impl OAuthManager {
                      scope={}&\
                      state={}",
                     self.client_id,
-                    self.redirect_uri.as_deref().unwrap_or("http://localhost:18789/callback"),
+                    self.redirect_uri
+                        .as_deref()
+                        .unwrap_or("http://localhost:18789/callback"),
                     urlencoding::encode(scope),
                     urlencoding::encode(state)
                 ))
@@ -255,7 +269,9 @@ impl OAuthManager {
                      scope={}&\
                      state={}",
                     self.client_id,
-                    self.redirect_uri.as_deref().unwrap_or("http://localhost:18789/callback"),
+                    self.redirect_uri
+                        .as_deref()
+                        .unwrap_or("http://localhost:18789/callback"),
                     urlencoding::encode(scope),
                     urlencoding::encode(state)
                 ))
@@ -270,7 +286,9 @@ impl OAuthManager {
                      scope={}&\
                      state={}",
                     self.client_id,
-                    self.redirect_uri.as_deref().unwrap_or("http://localhost:18789/callback"),
+                    self.redirect_uri
+                        .as_deref()
+                        .unwrap_or("http://localhost:18789/callback"),
                     urlencoding::encode(scope),
                     urlencoding::encode(state)
                 ))
@@ -285,7 +303,9 @@ impl OAuthManager {
                      scope={}&\
                      state={}",
                     self.client_id,
-                    self.redirect_uri.as_deref().unwrap_or("http://localhost:18789/callback"),
+                    self.redirect_uri
+                        .as_deref()
+                        .unwrap_or("http://localhost:18789/callback"),
                     urlencoding::encode(scope),
                     urlencoding::encode(state)
                 ))
@@ -303,7 +323,12 @@ impl OAuthManager {
             ("client_id", &self.client_id),
             ("client_secret", &self.client_secret),
             ("code", code),
-            ("redirect_uri", self.redirect_uri.as_deref().unwrap_or("http://localhost:18789/callback")),
+            (
+                "redirect_uri",
+                self.redirect_uri
+                    .as_deref()
+                    .unwrap_or("http://localhost:18789/callback"),
+            ),
         ];
 
         let response = client
@@ -373,7 +398,9 @@ impl OAuthManager {
 
         let token = OAuthToken {
             access_token: token_response.access_token,
-            refresh_token: token_response.refresh_token.or(Some(refresh_token.to_string())),
+            refresh_token: token_response
+                .refresh_token
+                .or(Some(refresh_token.to_string())),
             expires_at: Utc::now() + chrono::Duration::seconds(token_response.expires_in),
             scope: token_response
                 .scope
@@ -415,9 +442,13 @@ impl OAuthManager {
             OAuthProvider::Anthropic => "https://auth.anthropic.com/oauth/token".to_string(),
             OAuthProvider::OpenAI => "https://openai.com/oauth/token".to_string(),
             OAuthProvider::Google => "https://oauth2.googleapis.com/token".to_string(),
-            OAuthProvider::Azure => "https://login.microsoftonline.com/common/oauth2/v2.0/token".to_string(),
+            OAuthProvider::Azure => {
+                "https://login.microsoftonline.com/common/oauth2/v2.0/token".to_string()
+            }
             OAuthProvider::Qwen => "https://api.opencompass.cn/oauth/token".to_string(),
-            OAuthProvider::Doubao => "https://ark.cn-beijing.volces.com/api/oauth/token".to_string(),
+            OAuthProvider::Doubao => {
+                "https://ark.cn-beijing.volces.com/api/oauth/token".to_string()
+            }
             OAuthProvider::Minimax => "https://api.minimax.chat/oauth/token".to_string(),
             OAuthProvider::Glm => "https://open.bigmodel.cn/oauth/token".to_string(),
             OAuthProvider::Kimi => "https://api.moonshot.cn/oauth/token".to_string(),
@@ -489,7 +520,10 @@ impl AuthProfileManager {
             }
         }
 
-        Err(OAuthError::AuthFailed(format!("未找到 profile: {}", profile_id)))
+        Err(OAuthError::AuthFailed(format!(
+            "未找到 profile: {}",
+            profile_id
+        )))
     }
 
     /// 添加新的 auth profile

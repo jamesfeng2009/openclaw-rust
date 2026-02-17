@@ -4,12 +4,10 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use openclaw_security::{
-    FilterResult, GrantResult, NetworkDecision, SecurityMiddleware,
-};
+use openclaw_security::{FilterResult, GrantResult, NetworkDecision, SecurityMiddleware};
 
 use crate::types::{ExecutionResult, SandboxState};
-use crate::wasm::{WasmToolRuntime, WasmToolConfig, WasmError, WasmToolModule, WasmExecutionInput};
+use crate::wasm::{WasmError, WasmExecutionInput, WasmToolConfig, WasmToolModule, WasmToolRuntime};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SandboxType {
@@ -190,14 +188,22 @@ impl SandboxManager {
         info!("Native tool registered: {}", tool_name);
     }
 
-    async fn check_security(&self, tool_id: &str, input: &str, target: &str) -> Result<(), SandboxError> {
+    async fn check_security(
+        &self,
+        tool_id: &str,
+        input: &str,
+        target: &str,
+    ) -> Result<(), SandboxError> {
         let filter_result = self.security.check_user_input(input).await;
-        
-        if !filter_result.allowed && filter_result.threat_level >= openclaw_security::ThreatLevel::High {
+
+        if !filter_result.allowed
+            && filter_result.threat_level >= openclaw_security::ThreatLevel::High
+        {
             return Err(SandboxError::SecurityCheckFailed(filter_result.reason));
         }
 
-        let perm_result = self.security
+        let perm_result = self
+            .security
             .check_tool_permission(tool_id, "execute", target)
             .await;
 
@@ -217,8 +223,14 @@ impl SandboxManager {
         Ok(())
     }
 
-    async fn check_network(&self, tool_id: &str, host: &str, port: u16) -> Result<(), SandboxError> {
-        let decision = self.security
+    async fn check_network(
+        &self,
+        tool_id: &str,
+        host: &str,
+        port: u16,
+    ) -> Result<(), SandboxError> {
+        let decision = self
+            .security
             .check_network_request(tool_id, host, port)
             .await;
 
@@ -235,26 +247,32 @@ impl SandboxManager {
         }
     }
 
-    pub async fn execute(&self, tool_id: &str, input: &str, target: Option<&str>) -> Result<ExecutionResult, SandboxError> {
-        let config = self.get_tool_config(tool_id).await
+    pub async fn execute(
+        &self,
+        tool_id: &str,
+        input: &str,
+        target: Option<&str>,
+    ) -> Result<ExecutionResult, SandboxError> {
+        let config = self
+            .get_tool_config(tool_id)
+            .await
             .ok_or_else(|| SandboxError::ToolNotFound(tool_id.to_string()))?;
 
-        self.check_security(tool_id, input, target.unwrap_or("")).await?;
+        self.check_security(tool_id, input, target.unwrap_or(""))
+            .await?;
 
         match config.sandbox_type {
-            SandboxType::Docker => {
-                self.execute_docker(tool_id, input).await
-            }
-            SandboxType::Wasm => {
-                self.execute_wasm(tool_id, input).await
-            }
-            SandboxType::Native => {
-                self.execute_native(tool_id, input).await
-            }
+            SandboxType::Docker => self.execute_docker(tool_id, input).await,
+            SandboxType::Wasm => self.execute_wasm(tool_id, input).await,
+            SandboxType::Native => self.execute_native(tool_id, input).await,
         }
     }
 
-    async fn execute_docker(&self, tool_id: &str, input: &str) -> Result<ExecutionResult, SandboxError> {
+    async fn execute_docker(
+        &self,
+        tool_id: &str,
+        input: &str,
+    ) -> Result<ExecutionResult, SandboxError> {
         debug!("Executing tool {} in Docker sandbox", tool_id);
 
         let start = std::time::Instant::now();
@@ -269,11 +287,15 @@ impl SandboxManager {
         })
     }
 
-    async fn execute_wasm(&self, tool_id: &str, input: &str) -> Result<ExecutionResult, SandboxError> {
+    async fn execute_wasm(
+        &self,
+        tool_id: &str,
+        input: &str,
+    ) -> Result<ExecutionResult, SandboxError> {
         debug!("Executing tool {} in WASM sandbox", tool_id);
 
         let runtime = self.wasm_runtime.read().await;
-        
+
         if let Some(runtime) = runtime.as_ref() {
             let wasm_modules = self.wasm_modules.read().await;
             if let Some(module) = wasm_modules.get(tool_id) {
@@ -281,10 +303,11 @@ impl SandboxManager {
                     function: "run".to_string(),
                     params: serde_json::json!({ "input": input }),
                 };
-                
-                let result = runtime.execute(module, &exec_input)
+
+                let result = runtime
+                    .execute(module, &exec_input)
                     .map_err(|e| SandboxError::WasmError(e.to_string()))?;
-                
+
                 Ok(ExecutionResult {
                     exit_code: if result.success { 0 } else { 1 },
                     stdout: result.output.to_string(),
@@ -316,15 +339,21 @@ impl SandboxManager {
         }
     }
 
-    async fn execute_native(&self, tool_id: &str, input: &str) -> Result<ExecutionResult, SandboxError> {
+    async fn execute_native(
+        &self,
+        tool_id: &str,
+        input: &str,
+    ) -> Result<ExecutionResult, SandboxError> {
         debug!("Executing tool {} natively", tool_id);
 
         let tools = self.native_tools.read().await;
-        
+
         if let Some(tool) = tools.get(tool_id) {
-            let output = tool.execute(input).await
+            let output = tool
+                .execute(input)
+                .await
                 .map_err(|e| SandboxError::NativeError(e))?;
-            
+
             let start = std::time::Instant::now();
             Ok(ExecutionResult {
                 exit_code: 0,

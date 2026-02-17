@@ -145,7 +145,7 @@ pub struct NodeManager {
 impl NodeManager {
     pub fn new() -> Self {
         let mut nodes = HashMap::new();
-        
+
         nodes.insert(
             "camera".to_string(),
             DeviceNode::Camera(CameraNode {
@@ -155,7 +155,7 @@ impl NodeManager {
                 available: true,
             }),
         );
-        
+
         nodes.insert(
             "screen".to_string(),
             DeviceNode::Screen(ScreenNode {
@@ -166,7 +166,7 @@ impl NodeManager {
                 resolution: None,
             }),
         );
-        
+
         nodes.insert(
             "location".to_string(),
             DeviceNode::Location(LocationNode {
@@ -177,7 +177,7 @@ impl NodeManager {
                 accuracy: None,
             }),
         );
-        
+
         nodes.insert(
             "notification".to_string(),
             DeviceNode::Notification(NotificationNode {
@@ -187,7 +187,7 @@ impl NodeManager {
                 available: true,
             }),
         );
-        
+
         nodes.insert(
             "system".to_string(),
             DeviceNode::System(SystemNode {
@@ -235,7 +235,7 @@ impl NodeManager {
 
     pub fn get_capabilities(&self) -> Vec<DeviceCapability> {
         let mut capabilities = Vec::new();
-        
+
         for node in self.nodes.values() {
             match node {
                 DeviceNode::Camera(n) => {
@@ -314,7 +314,7 @@ impl NodeManager {
                 }
             }
         }
-        
+
         capabilities
     }
 }

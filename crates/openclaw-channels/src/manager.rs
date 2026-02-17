@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use openclaw_core::Result;
-use crate::types::{ChannelMessage, SendMessage};
 use crate::base::{Channel, ChannelEvent, ChannelHandler};
+use crate::types::{ChannelMessage, SendMessage};
+use openclaw_core::Result;
 
 pub struct ChannelManager {
     channels: Arc<RwLock<HashMap<String, Arc<RwLock<dyn Channel>>>>>,
@@ -65,14 +65,18 @@ impl ChannelManager {
         Ok(())
     }
 
-    pub async fn send_to_channel(&self, channel_name: &str, message: SendMessage) -> Result<ChannelMessage> {
+    pub async fn send_to_channel(
+        &self,
+        channel_name: &str,
+        message: SendMessage,
+    ) -> Result<ChannelMessage> {
         let channel = {
             let channels = self.channels.read().await;
-            channels.get(channel_name)
-                .cloned()
-                .ok_or_else(|| openclaw_core::OpenClawError::Config(format!("Channel not found: {}", channel_name)))?
+            channels.get(channel_name).cloned().ok_or_else(|| {
+                openclaw_core::OpenClawError::Config(format!("Channel not found: {}", channel_name))
+            })?
         };
-        
+
         channel.write().await.send(message).await
     }
 
@@ -88,26 +92,26 @@ impl ChannelManager {
     pub async fn broadcast(&self, message: SendMessage) -> Result<Vec<ChannelMessage>> {
         let channels = self.channels.read().await;
         let mut results = Vec::new();
-        
+
         for (name, channel) in channels.iter() {
             match channel.write().await.send(message.clone()).await {
                 Ok(msg) => results.push(msg),
                 Err(e) => tracing::warn!("Failed to send to channel {}: {}", name, e),
             }
         }
-        
+
         Ok(results)
     }
 
     pub async fn health_check_all(&self) -> HashMap<String, bool> {
         let channels = self.channels.read().await;
         let mut results = HashMap::new();
-        
+
         for (name, channel) in channels.iter() {
             let health = channel.read().await.health_check().await.unwrap_or(false);
             results.insert(name.clone(), health);
         }
-        
+
         results
     }
 }

@@ -1,13 +1,13 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn, error};
+use tracing::{debug, error, info, warn};
 
 use crate::audit::{AuditEvent, AuditEventType, AuditLogger, AuditSeverity};
-use crate::classifier::{PromptCategory, PromptClassifier, LlmClassification};
+use crate::classifier::{LlmClassification, PromptCategory, PromptClassifier};
 use crate::input_filter::InputFilter;
-use crate::self_healer::{SelfHealer, OperationState, RecoveryStrategy};
-use crate::validator::{OutputValidator, OutputValidation};
+use crate::self_healer::{OperationState, RecoveryStrategy, SelfHealer};
+use crate::validator::{OutputValidation, OutputValidator};
 
 #[derive(Debug, Clone)]
 pub struct PipelineConfig {
@@ -59,10 +59,7 @@ impl Default for SecurityPipeline {
 impl SecurityPipeline {
     pub fn new(config: PipelineConfig) -> Self {
         let audit_logger = Arc::new(AuditLogger::new());
-        let self_healer = Arc::new(
-            SelfHealer::new()
-                .with_timeout(config.stuck_timeout)
-        );
+        let self_healer = Arc::new(SelfHealer::new().with_timeout(config.stuck_timeout));
 
         Self {
             config,
@@ -82,7 +79,11 @@ impl SecurityPipeline {
         self.self_healer.clone()
     }
 
-    pub async fn check_input(&self, session_id: &str, input: &str) -> (PipelineResult, Option<LlmClassification>) {
+    pub async fn check_input(
+        &self,
+        session_id: &str,
+        input: &str,
+    ) -> (PipelineResult, Option<LlmClassification>) {
         if self.config.enable_audit {
             self.audit_logger.log_input(session_id, input).await;
         }
@@ -91,7 +92,9 @@ impl SecurityPipeline {
             let filtered = self.input_filter.check(input).await;
             if !filtered.allowed {
                 if self.config.enable_audit {
-                    self.audit_logger.log_filtered(session_id, input, &filtered.reason).await;
+                    self.audit_logger
+                        .log_filtered(session_id, input, &filtered.reason)
+                        .await;
                 }
                 return (PipelineResult::Block(filtered.reason), None);
             }
@@ -103,15 +106,17 @@ impl SecurityPipeline {
             } else {
                 None
             };
-            
+
             let classification = self.classifier.classify(input, context).await;
-            
+
             if self.config.enable_audit {
-                self.audit_logger.log_classification(
-                    session_id,
-                    &classification.category,
-                    classification.risk_score
-                ).await;
+                self.audit_logger
+                    .log_classification(
+                        session_id,
+                        &classification.category,
+                        classification.risk_score,
+                    )
+                    .await;
             }
 
             let result = match classification.category {
@@ -128,9 +133,7 @@ impl SecurityPipeline {
                         PipelineResult::Warn("Suspicious prompt detected".to_string())
                     }
                 }
-                PromptCategory::Benign | PromptCategory::Safe => {
-                    PipelineResult::Allow
-                }
+                PromptCategory::Benign | PromptCategory::Safe => PipelineResult::Allow,
             };
 
             (result, Some(classification))
@@ -139,24 +142,33 @@ impl SecurityPipeline {
         }
     }
 
-    pub async fn validate_output(&self, session_id: &str, output: &str) -> (String, OutputValidation) {
+    pub async fn validate_output(
+        &self,
+        session_id: &str,
+        output: &str,
+    ) -> (String, OutputValidation) {
         if !self.config.enable_output_validation {
-            return (output.to_string(), OutputValidation {
-                level: crate::validator::ValidationLevel::Safe,
-                matches: vec![],
-                total_count: 0,
-                requires_action: false,
-            });
+            return (
+                output.to_string(),
+                OutputValidation {
+                    level: crate::validator::ValidationLevel::Safe,
+                    matches: vec![],
+                    total_count: 0,
+                    requires_action: false,
+                },
+            );
         }
 
         let (redacted, validation) = self.output_validator.validate_and_redact(output).await;
 
         if self.config.enable_audit {
-            self.audit_logger.log_validation(
-                session_id,
-                validation.total_count,
-                validation.requires_action
-            ).await;
+            self.audit_logger
+                .log_validation(
+                    session_id,
+                    validation.total_count,
+                    validation.requires_action,
+                )
+                .await;
         }
 
         (redacted, validation)
@@ -165,18 +177,13 @@ impl SecurityPipeline {
     pub async fn start_operation(&self, session_id: &str, tool_id: &str, action: &str) -> String {
         if self.config.enable_self_healer {
             let op_id = self.self_healer.start_operation(tool_id, action).await;
-            
+
             if self.config.enable_audit {
-                self.audit_logger.log_tool_execution(
-                    session_id,
-                    tool_id,
-                    action,
-                    "",
-                    "started",
-                    0
-                ).await;
+                self.audit_logger
+                    .log_tool_execution(session_id, tool_id, action, "", "started", 0)
+                    .await;
             }
-            
+
             op_id
         } else {
             String::new()
@@ -189,19 +196,20 @@ impl SecurityPipeline {
         }
     }
 
-    pub async fn complete_operation(&self, session_id: &str, operation_id: &str, result: &str, duration_ms: u64) {
+    pub async fn complete_operation(
+        &self,
+        session_id: &str,
+        operation_id: &str,
+        result: &str,
+        duration_ms: u64,
+    ) {
         if self.config.enable_self_healer {
             self.self_healer.complete_operation(operation_id).await;
 
             if self.config.enable_audit {
-                self.audit_logger.log_tool_execution(
-                    session_id,
-                    "",
-                    "",
-                    "",
-                    result,
-                    duration_ms
-                ).await;
+                self.audit_logger
+                    .log_tool_execution(session_id, "", "", "", result, duration_ms)
+                    .await;
             }
         }
     }
@@ -220,7 +228,9 @@ impl SecurityPipeline {
             return false;
         }
 
-        self.self_healer.attempt_recovery(operation_id, strategy).await
+        self.self_healer
+            .attempt_recovery(operation_id, strategy)
+            .await
     }
 
     pub async fn get_stats(&self) -> PipelineStats {

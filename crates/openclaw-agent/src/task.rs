@@ -4,8 +4,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use openclaw_core::Message;
 use crate::types::Capability;
+use openclaw_core::Message;
 
 /// 任务类型
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -139,9 +139,10 @@ impl TaskRequest {
 
     /// 从用户消息创建对话任务
     pub fn from_message(message: Message) -> Self {
-        let input = TaskInput::Message { message: message.clone() };
-        Self::new(TaskType::Conversation, input)
-            .with_context(vec![message])
+        let input = TaskInput::Message {
+            message: message.clone(),
+        };
+        Self::new(TaskType::Conversation, input).with_context(vec![message])
     }
 }
 
@@ -162,7 +163,10 @@ pub enum TaskInput {
     /// 搜索查询
     SearchQuery { query: String },
     /// 工具调用
-    ToolCall { name: String, arguments: serde_json::Value },
+    ToolCall {
+        name: String,
+        arguments: serde_json::Value,
+    },
 }
 
 /// 任务结果

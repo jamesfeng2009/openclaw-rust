@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
-use super::{CustomSttConfig, CustomTtsConfig, CustomSttProvider, CustomTtsProvider};
+use super::{CustomSttConfig, CustomSttProvider, CustomTtsConfig, CustomTtsProvider};
 
 /// 自定义提供商配置
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -126,7 +126,10 @@ impl ProviderRegistry {
         }
     }
 
-    pub async fn create_custom_tts(&self, name: &str) -> Option<Box<dyn crate::tts::TextToSpeech + Send + Sync>> {
+    pub async fn create_custom_tts(
+        &self,
+        name: &str,
+    ) -> Option<Box<dyn crate::tts::TextToSpeech + Send + Sync>> {
         if let Some(config) = self.tts.get(name).await {
             Some(Box::new(CustomTtsProvider::new(config)))
         } else {
@@ -134,7 +137,10 @@ impl ProviderRegistry {
         }
     }
 
-    pub async fn create_custom_stt(&self, name: &str) -> Option<Box<dyn crate::stt::SpeechToText + Send + Sync>> {
+    pub async fn create_custom_stt(
+        &self,
+        name: &str,
+    ) -> Option<Box<dyn crate::stt::SpeechToText + Send + Sync>> {
         if let Some(config) = self.stt.get(name).await {
             Some(Box::new(CustomSttProvider::new(config)))
         } else {
@@ -150,10 +156,10 @@ impl ProviderRegistry {
             "google".to_string(),
             "elevenlabs".to_string(),
         ];
-        
+
         let custom = self.tts.list().await;
         names.extend(custom);
-        
+
         names
     }
 
@@ -164,10 +170,10 @@ impl ProviderRegistry {
             "azure".to_string(),
             "google".to_string(),
         ];
-        
+
         let custom = self.stt.list().await;
         names.extend(custom);
-        
+
         names
     }
 }
@@ -187,11 +193,11 @@ mod tests {
     #[tokio::test]
     async fn test_provider_registry_new() {
         let registry = ProviderRegistry::new();
-        
+
         let tts_providers = registry.list_tts_providers().await;
         assert!(tts_providers.contains(&"openai".to_string()));
         assert!(tts_providers.contains(&"azure".to_string()));
-        
+
         let stt_providers = registry.list_stt_providers().await;
         assert!(stt_providers.contains(&"openai".to_string()));
         assert!(stt_providers.contains(&"azure".to_string()));
@@ -200,7 +206,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_custom_tts() {
         let registry = ProviderRegistry::new();
-        
+
         let config = CustomTtsConfig {
             name: "my_custom_tts".to_string(),
             endpoint: "https://my-api.com/tts".to_string(),
@@ -209,9 +215,9 @@ mod tests {
             request_template: r#"{"text": "{{text}}"}"#.to_string(),
             response_type: CustomResponseType::Binary,
         };
-        
+
         registry.register_custom_tts(config).await;
-        
+
         let providers = registry.list_tts_providers().await;
         assert!(providers.contains(&"my_custom_tts".to_string()));
     }
@@ -219,7 +225,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_custom_stt() {
         let registry = ProviderRegistry::new();
-        
+
         let config = CustomSttConfig {
             name: "my_custom_stt".to_string(),
             endpoint: "https://my-api.com/stt".to_string(),
@@ -228,9 +234,9 @@ mod tests {
             audio_field: "audio".to_string(),
             response_type: CustomSttResponseType::Text,
         };
-        
+
         registry.register_custom_stt(config).await;
-        
+
         let providers = registry.list_stt_providers().await;
         assert!(providers.contains(&"my_custom_stt".to_string()));
     }
@@ -256,25 +262,23 @@ mod tests {
                     response_type: CustomResponseType::Binary,
                 },
             ],
-            custom_stt: vec![
-                CustomSttConfig {
-                    name: "custom_stt1".to_string(),
-                    endpoint: "https://api1.com/stt".to_string(),
-                    method: "POST".to_string(),
-                    headers: HashMap::new(),
-                    audio_field: "audio".to_string(),
-                    response_type: CustomSttResponseType::Text,
-                },
-            ],
+            custom_stt: vec![CustomSttConfig {
+                name: "custom_stt1".to_string(),
+                endpoint: "https://api1.com/stt".to_string(),
+                method: "POST".to_string(),
+                headers: HashMap::new(),
+                audio_field: "audio".to_string(),
+                response_type: CustomSttResponseType::Text,
+            }],
         };
-        
+
         let registry = ProviderRegistry::new();
         registry.load_from_config(&config).await;
-        
+
         let tts_providers = registry.list_tts_providers().await;
         assert!(tts_providers.contains(&"custom1".to_string()));
         assert!(tts_providers.contains(&"custom2".to_string()));
-        
+
         let stt_providers = registry.list_stt_providers().await;
         assert!(stt_providers.contains(&"custom_stt1".to_string()));
     }
@@ -282,7 +286,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_custom_tts() {
         let registry = ProviderRegistry::new();
-        
+
         let config = CustomTtsConfig {
             name: "create_test".to_string(),
             endpoint: "https://test.com/tts".to_string(),
@@ -291,12 +295,12 @@ mod tests {
             request_template: r#"{"text": "{{text}}"}"#.to_string(),
             response_type: CustomResponseType::Binary,
         };
-        
+
         registry.register_custom_tts(config).await;
-        
+
         let provider = registry.create_custom_tts("create_test").await;
         assert!(provider.is_some());
-        
+
         let not_found = registry.create_custom_tts("nonexistent").await;
         assert!(not_found.is_none());
     }
@@ -304,7 +308,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_custom_stt() {
         let registry = ProviderRegistry::new();
-        
+
         let config = CustomSttConfig {
             name: "create_test_stt".to_string(),
             endpoint: "https://test.com/stt".to_string(),
@@ -313,12 +317,12 @@ mod tests {
             audio_field: "audio".to_string(),
             response_type: CustomSttResponseType::Text,
         };
-        
+
         registry.register_custom_stt(config).await;
-        
+
         let provider = registry.create_custom_stt("create_test_stt").await;
         assert!(provider.is_some());
-        
+
         let not_found = registry.create_custom_stt("nonexistent").await;
         assert!(not_found.is_none());
     }
@@ -326,7 +330,7 @@ mod tests {
     #[test]
     fn test_custom_provider_config_default() {
         let config = CustomProviderConfig::default();
-        
+
         assert!(config.custom_tts.is_empty());
         assert!(config.custom_stt.is_empty());
     }

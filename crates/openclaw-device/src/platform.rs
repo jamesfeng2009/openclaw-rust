@@ -1,5 +1,5 @@
 //! 平台检测模块
-//! 
+//!
 //! 检测当前运行环境：弹性计算 (Cloud/Wasm/Docker) 和 边缘计算 (Edge/Embedded)
 
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ pub enum Platform {
     WasmBrowser,
     WasmRuntime,
     Serverless,
-    
+
     // 边缘计算
     LinuxDesktop,
     LinuxServer,
@@ -33,12 +33,12 @@ pub enum Platform {
     MacOSAppleSilicon,
     Android,
     iOS,
-    
+
     // 车载系统
     AndroidAuto,
     AppleCarPlay,
     AutomotiveGradeLinux,
-    
+
     // ARM 开发板
     RaspberryPi,
     RaspberryPi2,
@@ -53,13 +53,13 @@ pub enum Platform {
     NvidiaJetsonOrin,
     NvidiaJetsonOrinNano,
     GoogleCoral,
-    
+
     // Arduino
     ArduinoUno,
     ArduinoNano,
     ArduinoMega,
     ArduinoDue,
-    
+
     // 嵌入式
     Esp32,
     Esp32S2,
@@ -74,7 +74,7 @@ pub enum Platform {
     RpiPicoW,
     Nrf52,
     RiscV,
-    
+
     Unknown,
 }
 
@@ -82,35 +82,67 @@ impl Platform {
     pub fn category(&self) -> ComputeCategory {
         match self {
             // 弹性计算
-            Self::CloudServer | Self::Docker | Self::Kubernetes 
-            | Self::WasmBrowser | Self::WasmRuntime | Self::Serverless => ComputeCategory::Elastic,
-            
+            Self::CloudServer
+            | Self::Docker
+            | Self::Kubernetes
+            | Self::WasmBrowser
+            | Self::WasmRuntime
+            | Self::Serverless => ComputeCategory::Elastic,
+
             // 边缘计算 - 车载系统
-            Self::AndroidAuto | Self::AppleCarPlay | Self::AutomotiveGradeLinux => ComputeCategory::Edge,
-            
+            Self::AndroidAuto | Self::AppleCarPlay | Self::AutomotiveGradeLinux => {
+                ComputeCategory::Edge
+            }
+
             // 边缘计算 - ARM 开发板
-            Self::RaspberryPi | Self::RaspberryPi2 | Self::RaspberryPi3 | Self::RaspberryPi4 | Self::RaspberryPi5
-            | Self::OrangePi | Self::BananaPi | Self::RockchipRk3588
-            | Self::NvidiaJetsonNano | Self::NvidiaJetsonXavier | Self::NvidiaJetsonOrin | Self::NvidiaJetsonOrinNano
+            Self::RaspberryPi
+            | Self::RaspberryPi2
+            | Self::RaspberryPi3
+            | Self::RaspberryPi4
+            | Self::RaspberryPi5
+            | Self::OrangePi
+            | Self::BananaPi
+            | Self::RockchipRk3588
+            | Self::NvidiaJetsonNano
+            | Self::NvidiaJetsonXavier
+            | Self::NvidiaJetsonOrin
+            | Self::NvidiaJetsonOrinNano
             | Self::GoogleCoral => ComputeCategory::Edge,
-            
+
             // 边缘计算 - 标准平台
-            Self::LinuxDesktop | Self::LinuxServer | Self::LinuxEmbedded
-            | Self::Windows | Self::MacOSIntel | Self::MacOSAppleSilicon
-            | Self::Android | Self::iOS => ComputeCategory::Edge,
-            
+            Self::LinuxDesktop
+            | Self::LinuxServer
+            | Self::LinuxEmbedded
+            | Self::Windows
+            | Self::MacOSIntel
+            | Self::MacOSAppleSilicon
+            | Self::Android
+            | Self::iOS => ComputeCategory::Edge,
+
             // 嵌入式 - Arduino
-            Self::ArduinoUno | Self::ArduinoNano | Self::ArduinoMega | Self::ArduinoDue => ComputeCategory::Embedded,
-            
+            Self::ArduinoUno | Self::ArduinoNano | Self::ArduinoMega | Self::ArduinoDue => {
+                ComputeCategory::Embedded
+            }
+
             // 嵌入式 - 其他
-            Self::Esp32 | Self::Esp32S2 | Self::Esp32S3 | Self::Esp32C3 | Self::Esp32C6 | Self::Esp32P4
-            | Self::Stm32F1 | Self::Stm32F4 | Self::Stm32H7
-            | Self::RpiPico | Self::RpiPicoW | Self::Nrf52 | Self::RiscV => ComputeCategory::Embedded,
-            
+            Self::Esp32
+            | Self::Esp32S2
+            | Self::Esp32S3
+            | Self::Esp32C3
+            | Self::Esp32C6
+            | Self::Esp32P4
+            | Self::Stm32F1
+            | Self::Stm32F4
+            | Self::Stm32H7
+            | Self::RpiPico
+            | Self::RpiPicoW
+            | Self::Nrf52
+            | Self::RiscV => ComputeCategory::Embedded,
+
             Self::Unknown => ComputeCategory::Edge,
         }
     }
-    
+
     pub fn name(&self) -> &'static str {
         match self {
             Self::CloudServer => "cloud_server",
@@ -186,7 +218,7 @@ impl PlatformInfo {
     pub fn detect() -> Self {
         let platform = Self::detect_platform();
         let category = platform.category();
-        
+
         Self {
             platform,
             category,
@@ -197,48 +229,48 @@ impl PlatformInfo {
             is_embedded: category == ComputeCategory::Embedded,
         }
     }
-    
+
     fn detect_platform() -> Platform {
         #[cfg(target_arch = "wasm32")]
         {
             return Self::detect_wasm();
         }
-        
+
         #[cfg(target_os = "linux")]
         {
             return Self::detect_linux();
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             return Platform::Windows;
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             return Self::detect_macos();
         }
-        
+
         #[cfg(target_os = "android")]
         {
             return Platform::Android;
         }
-        
+
         #[cfg(target_os = "ios")]
         {
             return Platform::iOS;
         }
-        
+
         // 嵌入式检测 (编译时)
         #[cfg(feature = "esp32")]
         return Platform::Esp32;
-        
+
         #[cfg(feature = "stm32h7")]
         return Platform::Stm32H7;
-        
+
         Platform::Unknown
     }
-    
+
     fn detect_wasm() -> Platform {
         // 检测是否在浏览器中
         #[cfg(all(target_arch = "wasm32", feature = "browser"))]
@@ -249,10 +281,10 @@ impl PlatformInfo {
                 }
             }
         }
-        
+
         Platform::WasmRuntime
     }
-    
+
     fn detect_linux() -> Platform {
         // 检测容器
         if Self::detect_container() {
@@ -261,7 +293,7 @@ impl PlatformInfo {
             }
             return Platform::Docker;
         }
-        
+
         // 检测是否为嵌入式 Linux
         if std::path::Path::new("/proc/device-tree/model").exists() {
             if let Ok(model) = std::fs::read_to_string("/proc/device-tree/model") {
@@ -270,33 +302,33 @@ impl PlatformInfo {
                 }
             }
         }
-        
+
         // 检测桌面环境
         if std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok() {
             return Platform::LinuxDesktop;
         }
-        
+
         Platform::LinuxServer
     }
-    
+
     fn detect_macos() -> Platform {
         // 检测 Apple Silicon
         #[cfg(target_arch = "aarch64")]
         {
             return Platform::MacOSAppleSilicon;
         }
-        
+
         Platform::MacOSIntel
     }
-    
+
     fn detect_arch() -> String {
         std::env::consts::ARCH.to_string()
     }
-    
+
     fn detect_os() -> String {
         std::env::consts::OS.to_string()
     }
-    
+
     fn detect_env_vars() -> HashMap<String, String> {
         let mut vars = HashMap::new();
         for (key, value) in std::env::vars() {
@@ -304,25 +336,28 @@ impl PlatformInfo {
         }
         vars
     }
-    
+
     fn detect_container() -> bool {
         // 检查 cgroup
         if let Ok(cgroup) = std::fs::read_to_string("/proc/1/cgroup") {
-            if cgroup.contains("docker") || cgroup.contains("containerd") || cgroup.contains("kubepods") {
+            if cgroup.contains("docker")
+                || cgroup.contains("containerd")
+                || cgroup.contains("kubepods")
+            {
                 return true;
             }
         }
-        
+
         // 检查 .dockerenv
         if std::path::Path::new("/.dockerenv").exists() {
             return true;
         }
-        
+
         // 检查环境变量
         if std::env::var("DOCKER_CONTAINER").is_ok() {
             return true;
         }
-        
+
         false
     }
 }

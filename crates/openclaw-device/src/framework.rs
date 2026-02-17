@@ -2,13 +2,18 @@
 //!
 //! 提供与外部框架和协议的集成接口
 
-pub mod ros2;
-pub mod mqtt;
 pub mod can;
+pub mod mqtt;
+pub mod ros2;
 
-pub use ros2::{Ros2Client, Ros2Topic, Ros2Service, Ros2Action, Ros2Error, Ros2Result, Ros2TopicInfo, Ros2ServiceInfo};
-pub use mqtt::{MqttClient, MqttConfig, MqttMessage, MqttError, MqttResult, MqttSubscription, MqttQos};
-pub use can::{CanBus, CanFrame, CanFilter, CanError, CanResult, CanId, CanState, CanBusInfo};
+pub use can::{CanBus, CanBusInfo, CanError, CanFilter, CanFrame, CanId, CanResult, CanState};
+pub use mqtt::{
+    MqttClient, MqttConfig, MqttError, MqttMessage, MqttQos, MqttResult, MqttSubscription,
+};
+pub use ros2::{
+    Ros2Action, Ros2Client, Ros2Error, Ros2Result, Ros2Service, Ros2ServiceInfo, Ros2Topic,
+    Ros2TopicInfo,
+};
 
 use crate::platform::Platform;
 use async_trait::async_trait;
@@ -25,15 +30,15 @@ pub struct FrameworkConfig {
 #[async_trait]
 pub trait FrameworkModule: Send + Sync {
     fn name(&self) -> &str;
-    
+
     fn supported_platforms(&self) -> &[Platform];
-    
+
     fn is_connected(&self) -> bool;
-    
+
     async fn connect(&self, config: &FrameworkConfig) -> FrameworkResult<()>;
-    
+
     async fn disconnect(&self) -> FrameworkResult<()>;
-    
+
     async fn health_check(&self) -> FrameworkResult<bool>;
 }
 
@@ -43,25 +48,25 @@ pub type FrameworkResult<T> = Result<T, FrameworkError>;
 pub enum FrameworkError {
     #[error("Connection failed: {0}")]
     ConnectionFailed(String),
-    
+
     #[error("Not connected")]
     NotConnected,
-    
+
     #[error("Timeout: {0}")]
     Timeout(String),
-    
+
     #[error("Message error: {0}")]
     MessageError(String),
-    
+
     #[error("Service error: {0}")]
     ServiceError(String),
-    
+
     #[error("Platform not supported: {0}")]
     PlatformNotSupported(String),
-    
+
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),
-    
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
 }

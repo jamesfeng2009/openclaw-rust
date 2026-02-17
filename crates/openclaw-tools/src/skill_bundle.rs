@@ -229,19 +229,19 @@ impl SkillBundle {
     pub async fn from_archive(archive_path: &Path) -> Result<Self, BundleError> {
         // 解压到临时目录
         let temp_dir = tempfile::tempdir()?;
-        
+
         // 使用 zip 解压
         let file = std::fs::File::open(archive_path)?;
         let mut archive = zip::ZipArchive::new(file)
             .map_err(|e| BundleError::CorruptedBundle(format!("解压失败: {}", e)))?;
-        
+
         for i in 0..archive.len() {
             let mut file = archive.by_index(i).unwrap();
             let outpath = match file.enclosed_name() {
                 Some(path) => temp_dir.path().join(path),
                 None => continue,
             };
-            
+
             if file.name().ends_with('/') {
                 std::fs::create_dir_all(&outpath)?;
             } else {
@@ -262,20 +262,24 @@ impl SkillBundle {
     pub async fn pack(&self, output_path: &Path) -> Result<(), BundleError> {
         let file = std::fs::File::create(output_path)?;
         let mut zip = zip::ZipWriter::new(file);
-        let options = zip::write::FileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated);
+        let options =
+            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
         // 写入清单
-        zip.start_file("bundle.json", options).map_err(|e| BundleError::Zip(e.to_string()))?;
+        zip.start_file("bundle.json", options)
+            .map_err(|e| BundleError::Zip(e.to_string()))?;
         let manifest_json = serde_json::to_string_pretty(&self.manifest)?;
-        zip.write_all(manifest_json.as_bytes()).map_err(|e| BundleError::Zip(e.to_string()))?;
+        zip.write_all(manifest_json.as_bytes())
+            .map_err(|e| BundleError::Zip(e.to_string()))?;
 
         // 写入技能文件
         for skill in &self.manifest.skills {
             let skill_path = format!("skills/{}.json", skill.id);
-            zip.start_file(&skill_path, options).map_err(|e| BundleError::Zip(e.to_string()))?;
+            zip.start_file(&skill_path, options)
+                .map_err(|e| BundleError::Zip(e.to_string()))?;
             let skill_json = serde_json::to_string_pretty(skill)?;
-            zip.write_all(skill_json.as_bytes()).map_err(|e| BundleError::Zip(e.to_string()))?;
+            zip.write_all(skill_json.as_bytes())
+                .map_err(|e| BundleError::Zip(e.to_string()))?;
         }
 
         zip.finish().map_err(|e| BundleError::Zip(e.to_string()))?;
@@ -316,7 +320,7 @@ impl WorkspaceSkillsConfig {
     /// 加载工作区配置
     pub fn load(workspace_path: &Path) -> Result<Self, BundleError> {
         let config_path = workspace_path.join(".openclaw").join("skills.json");
-        
+
         if config_path.exists() {
             let content = std::fs::read_to_string(&config_path)?;
             let config: WorkspaceSkillsConfig = serde_json::from_str(&content)?;
@@ -336,11 +340,11 @@ impl WorkspaceSkillsConfig {
     pub fn save(&self) -> Result<(), BundleError> {
         let config_dir = self.workspace_path.join(".openclaw");
         std::fs::create_dir_all(&config_dir)?;
-        
+
         let config_path = config_dir.join("skills.json");
         let content = serde_json::to_string_pretty(self)?;
         std::fs::write(&config_path, content)?;
-        
+
         info!("工作区技能配置已保存: {:?}", config_path);
         Ok(())
     }
@@ -412,7 +416,11 @@ impl BundleManager {
     }
 
     /// 创建带自定义市场 URL 的管理器
-    pub fn with_marketplace(platform: Arc<SkillPlatform>, bundles_dir: PathBuf, marketplace_url: &str) -> Self {
+    pub fn with_marketplace(
+        platform: Arc<SkillPlatform>,
+        bundles_dir: PathBuf,
+        marketplace_url: &str,
+    ) -> Self {
         Self {
             platform,
             installed_bundles: Arc::new(RwLock::new(HashMap::new())),
@@ -425,15 +433,15 @@ impl BundleManager {
     /// 初始化 - 加载已安装的技能包
     pub async fn init(&self) -> Result<(), BundleError> {
         std::fs::create_dir_all(&self.bundles_dir)?;
-        
+
         let mut bundles = self.installed_bundles.write().await;
-        
+
         // 遍历目录加载技能包
         if self.bundles_dir.exists() {
             for entry in std::fs::read_dir(&self.bundles_dir)? {
                 let entry = entry?;
                 let path = entry.path();
-                
+
                 if path.is_dir() {
                     if let Ok(bundle) = SkillBundle::from_dir(&path) {
                         bundles.insert(bundle.manifest.id.clone(), bundle);
@@ -457,23 +465,27 @@ impl BundleManager {
         };
 
         // 检查依赖
-        self.check_dependencies(&bundle.manifest.dependencies).await?;
+        self.check_dependencies(&bundle.manifest.dependencies)
+            .await?;
 
         // 安装技能
         for skill_def in &bundle.manifest.skills {
-            let skill_id = self.platform.create_skill(
-                skill_def.name.clone(),
-                skill_def.description.clone(),
-                skill_def.category.clone(),
-                skill_def.tools.clone(),
-                skill_def.triggers.clone(),
-            ).await;
+            let skill_id = self
+                .platform
+                .create_skill(
+                    skill_def.name.clone(),
+                    skill_def.description.clone(),
+                    skill_def.category.clone(),
+                    skill_def.tools.clone(),
+                    skill_def.triggers.clone(),
+                )
+                .await;
 
             debug!("已安装技能: {}", skill_id);
         }
 
         let bundle_id = bundle.manifest.id.clone();
-        
+
         // 保存到已安装列表
         {
             let mut bundles = self.installed_bundles.write().await;
@@ -488,7 +500,8 @@ impl BundleManager {
     pub async fn uninstall_bundle(&self, bundle_id: &BundleId) -> Result<(), BundleError> {
         let bundle = {
             let bundles = self.installed_bundles.read().await;
-            bundles.get(bundle_id)
+            bundles
+                .get(bundle_id)
                 .cloned()
                 .ok_or_else(|| BundleError::BundleNotFound(bundle_id.clone()))?
         };
@@ -525,7 +538,10 @@ impl BundleManager {
     }
 
     /// 检查依赖
-    async fn check_dependencies(&self, dependencies: &[BundleDependency]) -> Result<(), BundleError> {
+    async fn check_dependencies(
+        &self,
+        dependencies: &[BundleDependency],
+    ) -> Result<(), BundleError> {
         let bundles = self.installed_bundles.read().await;
 
         for dep in dependencies {
@@ -533,9 +549,9 @@ impl BundleManager {
                 continue;
             }
 
-            let found = bundles.values().any(|b| {
-                b.manifest.name == dep.name || b.manifest.id == dep.name
-            });
+            let found = bundles
+                .values()
+                .any(|b| b.manifest.name == dep.name || b.manifest.id == dep.name);
 
             if !found {
                 return Err(BundleError::MissingDependency(format!(
@@ -595,9 +611,14 @@ impl BundleManager {
     }
 
     /// 导出技能包
-    pub async fn export_bundle(&self, bundle_id: &BundleId, output_path: &Path) -> Result<(), BundleError> {
+    pub async fn export_bundle(
+        &self,
+        bundle_id: &BundleId,
+        output_path: &Path,
+    ) -> Result<(), BundleError> {
         let bundles = self.installed_bundles.read().await;
-        let bundle = bundles.get(bundle_id)
+        let bundle = bundles
+            .get(bundle_id)
             .ok_or_else(|| BundleError::BundleNotFound(bundle_id.clone()))?;
 
         bundle.pack(output_path).await?;
@@ -607,10 +628,10 @@ impl BundleManager {
     /// 设置工作区
     pub async fn set_workspace(&self, workspace_path: &Path) -> Result<(), BundleError> {
         let config = WorkspaceSkillsConfig::load(workspace_path)?;
-        
+
         let mut workspace = self.workspace_config.write().await;
         *workspace = Some(config);
-        
+
         info!("工作区已设置: {:?}", workspace_path);
         Ok(())
     }
@@ -618,11 +639,11 @@ impl BundleManager {
     /// 获取工作区技能
     pub async fn get_workspace_skills(&self) -> Vec<SkillDefinition> {
         let workspace = self.workspace_config.read().await;
-        
+
         match workspace.as_ref() {
             Some(config) => {
                 let mut skills = config.custom_skills.clone();
-                
+
                 // 添加来自已启用包的技能
                 let bundles = self.installed_bundles.read().await;
                 for bundle_id in &config.enabled_bundles {
@@ -630,7 +651,7 @@ impl BundleManager {
                         skills.extend(bundle.manifest.skills.clone());
                     }
                 }
-                
+
                 // 应用覆盖配置
                 for skill in &mut skills {
                     if let Some(override_config) = config.skill_overrides.get(&skill.id) {
@@ -642,7 +663,7 @@ impl BundleManager {
                         }
                     }
                 }
-                
+
                 skills
             }
             None => Vec::new(),
@@ -652,32 +673,39 @@ impl BundleManager {
     /// 添加工作区自定义技能
     pub async fn add_workspace_skill(&self, skill: SkillDefinition) -> Result<(), BundleError> {
         let mut workspace = self.workspace_config.write().await;
-        
+
         if let Some(ref mut config) = *workspace {
             config.add_custom_skill(skill);
             config.save()?;
         }
-        
+
         Ok(())
     }
 
     /// 搜索市场
-    pub async fn search_marketplace(&self, query: &str) -> Result<Vec<MarketplaceEntry>, BundleError> {
-        let url = format!("{}/bundles/search?q={}", self.marketplace_url, urlencoding::encode(query));
-        
+    pub async fn search_marketplace(
+        &self,
+        query: &str,
+    ) -> Result<Vec<MarketplaceEntry>, BundleError> {
+        let url = format!(
+            "{}/bundles/search?q={}",
+            self.marketplace_url,
+            urlencoding::encode(query)
+        );
+
         let client = reqwest::Client::new();
         match client.get(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
                     match response.json::<Vec<MarketplaceEntry>>().await {
                         Ok(entries) => Ok(entries),
-                        Err(_) => Ok(self.get_fallback_entries(query))
+                        Err(_) => Ok(self.get_fallback_entries(query)),
                     }
                 } else {
                     Ok(self.get_fallback_entries(query))
                 }
             }
-            Err(_) => Ok(self.get_fallback_entries(query))
+            Err(_) => Ok(self.get_fallback_entries(query)),
         }
     }
 
@@ -733,35 +761,40 @@ impl BundleManager {
                 docs_url: Some("https://docs.openclaw.ai/skills/image-processor".to_string()),
             },
         ];
-        
+
         if query.is_empty() {
             return all_entries;
         }
-        
-        all_entries.into_iter().filter(|e| {
-            e.name.to_lowercase().contains(&query_lower) ||
-            e.description.to_lowercase().contains(&query_lower) ||
-            e.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
-        }).collect()
+
+        all_entries
+            .into_iter()
+            .filter(|e| {
+                e.name.to_lowercase().contains(&query_lower)
+                    || e.description.to_lowercase().contains(&query_lower)
+                    || e.tags
+                        .iter()
+                        .any(|t| t.to_lowercase().contains(&query_lower))
+            })
+            .collect()
     }
 
     /// 获取市场分类列表
     pub async fn get_categories(&self) -> Result<Vec<String>, BundleError> {
         let url = format!("{}/categories", self.marketplace_url);
-        
+
         let client = reqwest::Client::new();
         match client.get(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
                     match response.json::<Vec<String>>().await {
                         Ok(categories) => Ok(categories),
-                        Err(_) => Ok(self.get_default_categories())
+                        Err(_) => Ok(self.get_default_categories()),
                     }
                 } else {
                     Ok(self.get_default_categories())
                 }
             }
-            Err(_) => Ok(self.get_default_categories())
+            Err(_) => Ok(self.get_default_categories()),
         }
     }
 
@@ -777,18 +810,24 @@ impl BundleManager {
     }
 
     /// 从市场安装
-    pub async fn install_from_marketplace(&self, entry: &MarketplaceEntry) -> Result<BundleId, BundleError> {
+    pub async fn install_from_marketplace(
+        &self,
+        entry: &MarketplaceEntry,
+    ) -> Result<BundleId, BundleError> {
         // 下载技能包
-        let response = reqwest::get(&entry.download_url).await
+        let response = reqwest::get(&entry.download_url)
+            .await
             .map_err(|e| BundleError::CorruptedBundle(format!("下载失败: {}", e)))?;
-        
-        let bytes = response.bytes().await
+
+        let bytes = response
+            .bytes()
+            .await
             .map_err(|e| BundleError::CorruptedBundle(format!("读取响应失败: {}", e)))?;
-        
+
         // 保存临时文件
         let temp_file = tempfile::NamedTempFile::new()?;
         std::fs::write(temp_file.path(), bytes)?;
-        
+
         // 安装
         self.install_bundle(temp_file.path()).await
     }
@@ -833,15 +872,13 @@ mod tests {
     #[tokio::test]
     async fn test_search_marketplace_fallback() {
         let platform = Arc::new(SkillPlatform::new());
-        let manager = BundleManager::new(
-            platform,
-            PathBuf::from("/tmp/test_bundles"),
-        );
-        
+        let manager = BundleManager::new(platform, PathBuf::from("/tmp/test_bundles"));
+
         let entries = manager.search_marketplace("web").await.unwrap();
         assert!(!entries.is_empty());
-        
-        let filtered: Vec<_> = entries.iter()
+
+        let filtered: Vec<_> = entries
+            .iter()
             .filter(|e| e.name.to_lowercase().contains("web"))
             .collect();
         assert!(!filtered.is_empty());
@@ -850,11 +887,8 @@ mod tests {
     #[tokio::test]
     async fn test_search_marketplace_empty_query() {
         let platform = Arc::new(SkillPlatform::new());
-        let manager = BundleManager::new(
-            platform,
-            PathBuf::from("/tmp/test_bundles"),
-        );
-        
+        let manager = BundleManager::new(platform, PathBuf::from("/tmp/test_bundles"));
+
         let entries = manager.search_marketplace("").await.unwrap();
         assert!(entries.len() >= 4);
     }
@@ -862,11 +896,8 @@ mod tests {
     #[tokio::test]
     async fn test_get_categories() {
         let platform = Arc::new(SkillPlatform::new());
-        let manager = BundleManager::new(
-            platform,
-            PathBuf::from("/tmp/test_bundles"),
-        );
-        
+        let manager = BundleManager::new(platform, PathBuf::from("/tmp/test_bundles"));
+
         let categories = manager.get_categories().await.unwrap();
         assert!(!categories.is_empty());
         assert!(categories.iter().any(|c| c == "Web Development"));

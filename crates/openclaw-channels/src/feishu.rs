@@ -49,13 +49,14 @@ impl FeishuChannel {
         }
 
         let url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal";
-        
+
         let body = json!({
             "app_id": self.config.app_id,
             "app_secret": self.config.app_secret
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(url)
             .header("Content-Type", "application/json")
             .json(&body)
@@ -63,13 +64,16 @@ impl FeishuChannel {
             .await
             .map_err(|e| OpenClawError::Http(format!("飞书 API 请求失败: {}", e)))?;
 
-        let result: FeishuTokenResponse = response.json().await
+        let result: FeishuTokenResponse = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
 
         if result.code != 0 {
-            return Err(OpenClawError::AIProvider(
-                format!("飞书 API 返回错误: {} - {}", result.code, result.msg)
-            ));
+            return Err(OpenClawError::AIProvider(format!(
+                "飞书 API 返回错误: {} - {}",
+                result.code, result.msg
+            )));
         }
 
         self.access_token = Some(result.tenant_access_token.clone());
@@ -78,9 +82,11 @@ impl FeishuChannel {
 
     /// 发送文本消息（Webhook 方式）
     pub async fn send_text_webhook(&self, content: &str) -> Result<()> {
-        let webhook = self.config.webhook.as_ref().ok_or_else(|| {
-            OpenClawError::Config("未配置 Webhook 地址".to_string())
-        })?;
+        let webhook = self
+            .config
+            .webhook
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("未配置 Webhook 地址".to_string()))?;
 
         let body = json!({
             "msg_type": "text",
@@ -89,7 +95,8 @@ impl FeishuChannel {
             }
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(webhook)
             .header("Content-Type", "application/json")
             .json(&body)
@@ -99,7 +106,10 @@ impl FeishuChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("飞书 API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "飞书 API 错误: {}",
+                error_text
+            )));
         }
 
         Ok(())
@@ -107,9 +117,11 @@ impl FeishuChannel {
 
     /// 发送富文本消息
     pub async fn send_post(&self, title: &str, content: Vec<PostContent>) -> Result<()> {
-        let webhook = self.config.webhook.as_ref().ok_or_else(|| {
-            OpenClawError::Config("未配置 Webhook 地址".to_string())
-        })?;
+        let webhook = self
+            .config
+            .webhook
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("未配置 Webhook 地址".to_string()))?;
 
         let body = json!({
             "msg_type": "post",
@@ -123,7 +135,8 @@ impl FeishuChannel {
             }
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(webhook)
             .header("Content-Type", "application/json")
             .json(&body)
@@ -133,7 +146,10 @@ impl FeishuChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("飞书 API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "飞书 API 错误: {}",
+                error_text
+            )));
         }
 
         Ok(())
@@ -141,16 +157,19 @@ impl FeishuChannel {
 
     /// 发送交互式卡片消息
     pub async fn send_interactive(&self, card: CardContent) -> Result<()> {
-        let webhook = self.config.webhook.as_ref().ok_or_else(|| {
-            OpenClawError::Config("未配置 Webhook 地址".to_string())
-        })?;
+        let webhook = self
+            .config
+            .webhook
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("未配置 Webhook 地址".to_string()))?;
 
         let body = json!({
             "msg_type": "interactive",
             "card": card
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(webhook)
             .header("Content-Type", "application/json")
             .json(&body)
@@ -160,7 +179,10 @@ impl FeishuChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("飞书 API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "飞书 API 错误: {}",
+                error_text
+            )));
         }
 
         Ok(())
@@ -226,7 +248,7 @@ impl Channel for FeishuChannel {
             }
         } else {
             return Err(OpenClawError::Config(
-                "飞书通道需要配置 webhook 或 app_id/app_secret".to_string()
+                "飞书通道需要配置 webhook 或 app_id/app_secret".to_string(),
             ));
         }
 

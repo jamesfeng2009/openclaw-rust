@@ -73,8 +73,8 @@ impl WebChatClient {
 
     /// 处理接收到的 Webhook 消息
     pub async fn handle_webhook(&self, payload: serde_json::Value) -> Result<ChannelMessage> {
-        let msg: WebChatMessage = serde_json::from_value(payload)
-            .map_err(|e| OpenClawError::Serialization(e))?;
+        let msg: WebChatMessage =
+            serde_json::from_value(payload).map_err(|e| OpenClawError::Serialization(e))?;
 
         Ok(ChannelMessage {
             id: msg.id,
@@ -92,7 +92,7 @@ impl WebChatClient {
         if let Some(secret) = &self.config.webhook_secret {
             use hmac::{Hmac, Mac};
             type HmacSha256 = Hmac<sha2::Sha256>;
-            
+
             let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
             mac.update(payload.as_bytes());
             let result = mac.finalize();

@@ -208,10 +208,7 @@ impl SessionPruner {
     }
 
     /// 修剪会话中的消息
-    pub async fn prune_session_messages<T: Prunable>(
-        &self,
-        messages: &mut Vec<T>,
-    ) -> usize {
+    pub async fn prune_session_messages<T: Prunable>(&self, messages: &mut Vec<T>) -> usize {
         if messages.len() <= self.config.max_messages_per_session {
             return 0;
         }
@@ -261,10 +258,7 @@ impl SessionPruner {
     }
 
     /// 修剪工作记忆
-    pub async fn prune_working_memory<T: Prunable>(
-        &self,
-        items: &mut Vec<T>,
-    ) -> usize {
+    pub async fn prune_working_memory<T: Prunable>(&self, items: &mut Vec<T>) -> usize {
         if items.len() <= self.config.max_working_memory {
             return 0;
         }
@@ -299,10 +293,7 @@ impl SessionPruner {
     }
 
     /// 修剪短期记忆摘要
-    pub async fn prune_short_term<T: Prunable + Clone>(
-        &self,
-        summaries: &mut Vec<T>,
-    ) -> usize {
+    pub async fn prune_short_term<T: Prunable + Clone>(&self, summaries: &mut Vec<T>) -> usize {
         if summaries.len() <= self.config.max_short_term_summaries {
             return 0;
         }
@@ -334,12 +325,7 @@ impl SessionPruner {
     }
 
     /// 执行完整修剪
-    pub async fn full_prune<
-        T: Prunable + Clone,
-        M: Prunable,
-        W: Prunable,
-        S: Prunable + Clone,
-    >(
+    pub async fn full_prune<T: Prunable + Clone, M: Prunable, W: Prunable, S: Prunable + Clone>(
         &self,
         sessions: &mut HashMap<String, T>,
         session_messages: &mut HashMap<String, Vec<M>>,
@@ -390,10 +376,7 @@ impl SessionPruner {
     }
 
     /// 检查是否需要修剪
-    pub fn needs_pruning<T: Prunable>(
-        &self,
-        sessions: &HashMap<String, T>,
-    ) -> bool {
+    pub fn needs_pruning<T: Prunable>(&self, sessions: &HashMap<String, T>) -> bool {
         let now = Utc::now();
         let max_age = Duration::days(self.config.max_session_age_days as i64);
         let cutoff = now - max_age;

@@ -38,10 +38,17 @@ impl TeamsChannel {
     }
 
     /// 发送消息卡片
-    pub async fn send_message_card(&self, title: &str, text: &str, theme_color: Option<&str>) -> Result<()> {
-        let webhook_url = self.config.webhook_url.as_ref().ok_or_else(|| {
-            OpenClawError::Config("未配置 Webhook URL".to_string())
-        })?;
+    pub async fn send_message_card(
+        &self,
+        title: &str,
+        text: &str,
+        theme_color: Option<&str>,
+    ) -> Result<()> {
+        let webhook_url = self
+            .config
+            .webhook_url
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("未配置 Webhook URL".to_string()))?;
 
         let mut body = json!({
             "@type": "MessageCard",
@@ -54,7 +61,8 @@ impl TeamsChannel {
             body["themeColor"] = json!(color);
         }
 
-        let response = self.client
+        let response = self
+            .client
             .post(webhook_url)
             .header("Content-Type", "application/json")
             .json(&body)
@@ -64,7 +72,10 @@ impl TeamsChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Teams API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Teams API 错误: {}",
+                error_text
+            )));
         }
 
         Ok(())
@@ -72,9 +83,11 @@ impl TeamsChannel {
 
     /// 发送自适应卡片
     pub async fn send_adaptive_card(&self, card: AdaptiveCard) -> Result<()> {
-        let webhook_url = self.config.webhook_url.as_ref().ok_or_else(|| {
-            OpenClawError::Config("未配置 Webhook URL".to_string())
-        })?;
+        let webhook_url = self
+            .config
+            .webhook_url
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("未配置 Webhook URL".to_string()))?;
 
         let body = json!({
             "type": "message",
@@ -85,7 +98,8 @@ impl TeamsChannel {
             }]
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(webhook_url)
             .header("Content-Type", "application/json")
             .json(&body)
@@ -95,7 +109,10 @@ impl TeamsChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Teams API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Teams API 错误: {}",
+                error_text
+            )));
         }
 
         Ok(())
@@ -113,9 +130,11 @@ impl TeamsChannel {
         text: &str,
         actions: Vec<CardAction>,
     ) -> Result<()> {
-        let webhook_url = self.config.webhook_url.as_ref().ok_or_else(|| {
-            OpenClawError::Config("未配置 Webhook URL".to_string())
-        })?;
+        let webhook_url = self
+            .config
+            .webhook_url
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("未配置 Webhook URL".to_string()))?;
 
         let body = json!({
             "@type": "MessageCard",
@@ -125,7 +144,8 @@ impl TeamsChannel {
             "potentialAction": actions
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(webhook_url)
             .header("Content-Type", "application/json")
             .json(&body)
@@ -135,7 +155,10 @@ impl TeamsChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Teams API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Teams API 错误: {}",
+                error_text
+            )));
         }
 
         Ok(())
@@ -167,7 +190,9 @@ impl Channel for TeamsChannel {
         let message_id = uuid::Uuid::new_v4().to_string();
 
         if self.config.webhook_url.is_none() {
-            return Err(OpenClawError::Config("Teams 通道需要配置 webhook_url".to_string()));
+            return Err(OpenClawError::Config(
+                "Teams 通道需要配置 webhook_url".to_string(),
+            ));
         }
 
         match message.message_type.as_str() {
@@ -189,11 +214,13 @@ impl Channel for TeamsChannel {
                     name: "查看详情".to_string(),
                     targets: vec![json!({"os": "default", "uri": "https://example.com"})],
                 }];
-                self.send_action_card(title, &message.content, actions).await?;
+                self.send_action_card(title, &message.content, actions)
+                    .await?;
             }
             _ => {
                 let title = message.title.as_deref().unwrap_or("消息");
-                self.send_message_card(title, &message.content, None).await?;
+                self.send_message_card(title, &message.content, None)
+                    .await?;
             }
         }
 

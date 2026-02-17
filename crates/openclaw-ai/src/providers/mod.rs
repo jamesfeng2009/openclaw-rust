@@ -5,35 +5,35 @@
 //! - 国内: Qwen, Doubao, GLM, Minimax, Kimi
 //! - 自定义: CustomProvider (用户自定义)
 
+mod anthropic;
 mod base;
+mod custom;
+mod deepseek;
+mod doubao;
+mod factory;
+mod gemini;
+mod glm;
+mod kimi;
+mod minimax;
+mod ollama;
 mod openai;
 mod openai_compatible;
-mod anthropic;
-mod gemini;
-mod deepseek;
 mod qwen;
-mod doubao;
-mod glm;
-mod minimax;
-mod kimi;
-mod custom;
-mod ollama;
-mod factory;
 
+pub use anthropic::*;
 pub use base::*;
+pub use custom::*;
+pub use deepseek::*;
+pub use doubao::*;
+pub use factory::*;
+pub use gemini::*;
+pub use glm::*;
+pub use kimi::*;
+pub use minimax::*;
+pub use ollama::*;
 pub use openai::*;
 pub use openai_compatible::*;
-pub use anthropic::*;
-pub use gemini::*;
-pub use deepseek::*;
 pub use qwen::*;
-pub use doubao::*;
-pub use glm::*;
-pub use minimax::*;
-pub use kimi::*;
-pub use custom::*;
-pub use ollama::*;
-pub use factory::*;
 
 use async_trait::async_trait;
 use futures::Stream;

@@ -36,23 +36,16 @@ pub enum CanvasError {
 #[serde(tag = "action")]
 pub enum AgentAction {
     /// 添加元素
-    AddElement {
-        element: Element,
-    },
+    AddElement { element: Element },
     /// 更新元素
     UpdateElement {
         element_id: String,
         updates: ElementUpdate,
     },
     /// 删除元素
-    DeleteElement {
-        element_id: String,
-    },
+    DeleteElement { element_id: String },
     /// 移动元素
-    MoveElement {
-        element_id: String,
-        position: Point,
-    },
+    MoveElement { element_id: String, position: Point },
     /// 缩放元素
     ScaleElement {
         element_id: String,
@@ -60,15 +53,9 @@ pub enum AgentAction {
         scale_y: f64,
     },
     /// 旋转元素
-    RotateElement {
-        element_id: String,
-        angle: f64,
-    },
+    RotateElement { element_id: String, angle: f64 },
     /// 更改元素颜色
-    ChangeColor {
-        element_id: String,
-        color: Color,
-    },
+    ChangeColor { element_id: String, color: Color },
     /// 添加文本
     AddText {
         position: Point,
@@ -84,10 +71,7 @@ pub enum AgentAction {
         height: f64,
     },
     /// 添加形状
-    AddShape {
-        shape: Shape,
-        position: Point,
-    },
+    AddShape { shape: Shape, position: Point },
     /// 撤销操作
     Undo,
     /// 重做操作
@@ -95,9 +79,7 @@ pub enum AgentAction {
     /// 清空画布
     Clear,
     /// 设置背景色
-    SetBackground {
-        color: Color,
-    },
+    SetBackground { color: Color },
 }
 
 /// 画布管理器
@@ -326,7 +308,9 @@ impl CanvasOps {
         let mut state = canvas.write().await;
 
         if state.layers.len() <= 1 {
-            return Err(CanvasError::InvalidOperation("至少需要一个图层".to_string()));
+            return Err(CanvasError::InvalidOperation(
+                "至少需要一个图层".to_string(),
+            ));
         }
 
         let layer_idx = state
@@ -337,9 +321,7 @@ impl CanvasOps {
 
         // 删除该图层上的所有元素
         let layer_id_clone = layer_id.to_string();
-        state.elements.retain(|_, e| {
-            e.layer != layer_idx
-        });
+        state.elements.retain(|_, e| e.layer != layer_idx);
 
         state.layers.remove(layer_idx);
         state.updated_at = Utc::now();

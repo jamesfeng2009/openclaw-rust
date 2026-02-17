@@ -4,7 +4,7 @@ use crate::types::*;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{RwLock, broadcast};
 use tracing::{debug, info};
 use uuid::Uuid;
 
@@ -13,10 +13,7 @@ use uuid::Uuid;
 #[serde(tag = "type")]
 pub enum CollabEvent {
     /// 用户加入画布
-    UserJoined {
-        canvas_id: CanvasId,
-        user: UserInfo,
-    },
+    UserJoined { canvas_id: CanvasId, user: UserInfo },
     /// 用户离开画布
     UserLeft {
         canvas_id: CanvasId,
@@ -50,10 +47,7 @@ pub enum CollabEvent {
         viewport: Viewport,
     },
     /// 图层操作
-    LayerAdded {
-        canvas_id: CanvasId,
-        layer: Layer,
-    },
+    LayerAdded { canvas_id: CanvasId, layer: Layer },
     LayerDeleted {
         canvas_id: CanvasId,
         layer_id: String,

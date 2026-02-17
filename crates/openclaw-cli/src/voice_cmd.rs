@@ -5,9 +5,8 @@
 use clap::Subcommand;
 use openclaw_core::OpenClawError;
 use openclaw_voice::{
-    SttProvider, SynthesisOptions,
-    TalkModeBuilder, TalkModeEvent, TtsProvider, VoiceConfigManager,
-    AudioUtils, AudioPlayer,
+    AudioPlayer, AudioUtils, SttProvider, SynthesisOptions, TalkModeBuilder, TalkModeEvent,
+    TtsProvider, VoiceConfigManager,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -16,7 +15,8 @@ use tokio::sync::RwLock;
 use openclaw_voice::provider::ProviderRegistry;
 
 lazy_static! {
-    static ref PROVIDER_REGISTRY: Arc<RwLock<ProviderRegistry>> = Arc::new(RwLock::new(ProviderRegistry::new()));
+    static ref PROVIDER_REGISTRY: Arc<RwLock<ProviderRegistry>> =
+        Arc::new(RwLock::new(ProviderRegistry::new()));
 }
 
 #[derive(Debug, Subcommand)]
@@ -224,7 +224,10 @@ impl VoiceCommand {
 
                 let output_path = PathBuf::from(output);
 
-                match tts.synthesize_to_file(text, &output_path, Some(options)).await {
+                match tts
+                    .synthesize_to_file(text, &output_path, Some(options))
+                    .await
+                {
                     Ok(_) => {
                         println!("✅ 语音已保存到: {}", output);
                     }
@@ -263,26 +266,24 @@ impl VoiceCommand {
                 // 监听事件
                 loop {
                     match rx.recv().await {
-                        Ok(event) => {
-                            match event {
-                                TalkModeEvent::ListeningStarted => {
-                                    println!("👂 正在监听...");
-                                }
-                                TalkModeEvent::Transcription(text) => {
-                                    println!("👤 你: {}", text);
-                                }
-                                TalkModeEvent::AiResponse(text) => {
-                                    println!("🤖 AI: {}", text);
-                                }
-                                TalkModeEvent::StateChanged(state) => {
-                                    tracing::debug!("状态: {:?}", state);
-                                }
-                                TalkModeEvent::Error(e) => {
-                                    println!("❌ 错误: {}", e);
-                                }
-                                _ => {}
+                        Ok(event) => match event {
+                            TalkModeEvent::ListeningStarted => {
+                                println!("👂 正在监听...");
                             }
-                        }
+                            TalkModeEvent::Transcription(text) => {
+                                println!("👤 你: {}", text);
+                            }
+                            TalkModeEvent::AiResponse(text) => {
+                                println!("🤖 AI: {}", text);
+                            }
+                            TalkModeEvent::StateChanged(state) => {
+                                tracing::debug!("状态: {:?}", state);
+                            }
+                            TalkModeEvent::Error(e) => {
+                                println!("❌ 错误: {}", e);
+                            }
+                            _ => {}
+                        },
                         Err(_) => break,
                     }
 
@@ -295,16 +296,20 @@ impl VoiceCommand {
             VoiceCommand::Enable { enabled } => {
                 manager.set_enabled(*enabled);
                 manager.save()?;
-                println!(
-                    "✅ 语音功能已{}",
-                    if *enabled { "启用" } else { "禁用" }
-                );
+                println!("✅ 语音功能已{}", if *enabled { "启用" } else { "禁用" });
             }
 
             VoiceCommand::Config => {
                 println!("📋 语音配置:");
                 println!();
-                println!("  状态: {}", if manager.voice.enabled { "已启用" } else { "已禁用" });
+                println!(
+                    "  状态: {}",
+                    if manager.voice.enabled {
+                        "已启用"
+                    } else {
+                        "已禁用"
+                    }
+                );
                 println!("  STT 提供商: {:?}", manager.voice.stt_provider);
                 println!("  TTS 提供商: {:?}", manager.voice.tts_provider);
                 println!();
@@ -354,7 +359,7 @@ impl VoiceCommand {
 
             VoiceCommand::CheckMic => {
                 println!("🎤 检查麦克风...");
-                
+
                 match AudioUtils::get_input_device_info() {
                     Ok((name, info)) => {
                         println!("✅ 找到麦克风: {}", name);
@@ -370,7 +375,7 @@ impl VoiceCommand {
                         println!("  2. 麦克风已正确连接");
                     }
                 }
-                
+
                 let input_devices = AudioUtils::list_input_devices().unwrap_or_default();
                 if !input_devices.is_empty() {
                     println!();
@@ -389,7 +394,7 @@ impl VoiceCommand {
                 }
 
                 println!("▶️  播放音频: {}", audio_file);
-                
+
                 let player = AudioPlayer::new();
                 match player.play_file(&path) {
                     Ok(_) => {
@@ -448,27 +453,24 @@ mod tests {
     #[test]
     fn test_mask_api_key() {
         assert_eq!(mask_api_key("sk-short"), "********");
-        assert_eq!(
-            mask_api_key("sk-1234567890abcdef"),
-            "sk-12345****cdef"
-        );
+        assert_eq!(mask_api_key("sk-1234567890abcdef"), "sk-12345****cdef");
     }
 
     #[test]
     fn test_voice_command_parsing() {
         use clap::Parser;
-        
+
         #[derive(Parser)]
         struct Cli {
             #[command(subcommand)]
             voice: VoiceCommand,
         }
-        
+
         let check_mic = VoiceCommand::CheckMic;
         assert!(matches!(check_mic, VoiceCommand::CheckMic));
-        
-        let play = VoiceCommand::Play { 
-            audio_file: "test.mp3".to_string() 
+
+        let play = VoiceCommand::Play {
+            audio_file: "test.mp3".to_string(),
         };
         assert!(matches!(play, VoiceCommand::Play { .. }));
     }

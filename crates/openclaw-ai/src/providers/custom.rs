@@ -34,34 +34,47 @@ impl CustomProvider {
     ///     "sk-xxxx",
     /// );
     /// ```
-    pub fn new(name: impl Into<String>, base_url: impl Into<String>, api_key: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        base_url: impl Into<String>,
+        api_key: impl Into<String>,
+    ) -> Self {
         let config = ProviderConfig::new(name, api_key).with_base_url(base_url);
-        let inner = OpenAICompatibleProvider::new(config, ProviderInfo {
-            name: "custom",
-            default_base_url: "",
-            default_models: &[],
-        });
+        let inner = OpenAICompatibleProvider::new(
+            config,
+            ProviderInfo {
+                name: "custom",
+                default_base_url: "",
+                default_models: &[],
+            },
+        );
         Self { inner }
     }
 
     /// 从配置创建 Custom Provider
     pub fn from_config(config: ProviderConfig) -> Self {
-        let inner = OpenAICompatibleProvider::new(config, ProviderInfo {
-            name: "custom",
-            default_base_url: "",
-            default_models: &[],
-        });
+        let inner = OpenAICompatibleProvider::new(
+            config,
+            ProviderInfo {
+                name: "custom",
+                default_base_url: "",
+                default_models: &[],
+            },
+        );
         Self { inner }
     }
 
     /// 设置默认模型
     pub fn with_default_model(mut self, model: impl Into<String>) -> Self {
         let config = self.inner.config().with_default_model(model);
-        self.inner = OpenAICompatibleProvider::new(config, ProviderInfo {
-            name: "custom",
-            default_base_url: "",
-            default_models: &[],
-        });
+        self.inner = OpenAICompatibleProvider::new(
+            config,
+            ProviderInfo {
+                name: "custom",
+                default_base_url: "",
+                default_models: &[],
+            },
+        );
         self
     }
 }
@@ -76,7 +89,10 @@ impl AIProvider for CustomProvider {
         self.inner.chat(request).await
     }
 
-    async fn chat_stream(&self, request: ChatRequest) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
+    async fn chat_stream(
+        &self,
+        request: ChatRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
         self.inner.chat_stream(request).await
     }
 
@@ -145,13 +161,13 @@ impl CustomProviderBuilder {
 
     /// 构建 Custom Provider
     pub fn build(self) -> Result<CustomProvider> {
-        let base_url = self.base_url.ok_or_else(|| {
-            openclaw_core::OpenClawError::Config("base_url is required".into())
-        })?;
+        let base_url = self
+            .base_url
+            .ok_or_else(|| openclaw_core::OpenClawError::Config("base_url is required".into()))?;
 
-        let api_key = self.api_key.ok_or_else(|| {
-            openclaw_core::OpenClawError::Config("api_key is required".into())
-        })?;
+        let api_key = self
+            .api_key
+            .ok_or_else(|| openclaw_core::OpenClawError::Config("api_key is required".into()))?;
 
         let mut provider = CustomProvider::new(&self.name, base_url, api_key);
 

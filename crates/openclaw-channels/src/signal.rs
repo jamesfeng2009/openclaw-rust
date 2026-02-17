@@ -66,14 +66,15 @@ impl SignalChannel {
     /// 发送文本消息
     async fn send_text(&self, to: &str, message: &str) -> Result<SignalMessageResponse> {
         let url = self.endpoint(&format!("/send/{}", self.config.phone_number));
-        
+
         let body = SendMessageRequest {
             message: message.to_string(),
             number: to.to_string(),
             recipients: None,
         };
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .json(&body)
             .send()
@@ -82,10 +83,14 @@ impl SignalChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::Api(format!("Signal 发送失败: {}", error_text)));
+            return Err(OpenClawError::Api(format!(
+                "Signal 发送失败: {}",
+                error_text
+            )));
         }
 
-        response.json::<SignalMessageResponse>()
+        response
+            .json::<SignalMessageResponse>()
             .await
             .map_err(|e| OpenClawError::Parse(format!("解析响应失败: {}", e)))
     }
@@ -94,7 +99,8 @@ impl SignalChannel {
     async fn get_messages(&self) -> Result<Vec<SignalMessage>> {
         let url = self.endpoint(&format!("/messages/{}", self.config.phone_number));
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .send()
             .await
@@ -104,7 +110,8 @@ impl SignalChannel {
             return Ok(Vec::new());
         }
 
-        response.json::<Vec<SignalMessage>>()
+        response
+            .json::<Vec<SignalMessage>>()
             .await
             .map_err(|e| OpenClawError::Parse(format!("解析消息失败: {}", e)))
     }
@@ -153,7 +160,10 @@ impl Channel for SignalChannel {
                 warn!("Signal CLI API 返回错误状态: {}", resp.status());
             }
             Err(e) => {
-                warn!("无法连接 Signal CLI API: {}。请确保 signal-cli-rest-api 服务已启动", e);
+                warn!(
+                    "无法连接 Signal CLI API: {}。请确保 signal-cli-rest-api 服务已启动",
+                    e
+                );
             }
         }
 
@@ -220,7 +230,7 @@ impl Channel for SignalChannel {
 
     async fn health_check(&self) -> Result<bool> {
         let url = self.endpoint("/health");
-        
+
         match self.client.get(&url).send().await {
             Ok(resp) => Ok(resp.status().is_success()),
             Err(_) => Ok(false),
@@ -290,13 +300,15 @@ impl SignalChannel {
     pub async fn list_groups(&self) -> Result<Vec<SignalGroup>> {
         let url = self.endpoint(&format!("/groups/{}", self.config.phone_number));
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .send()
             .await
             .map_err(|e| OpenClawError::Network(format!("获取群组失败: {}", e)))?;
 
-        response.json::<Vec<SignalGroup>>()
+        response
+            .json::<Vec<SignalGroup>>()
             .await
             .map_err(|e| OpenClawError::Parse(format!("解析群组失败: {}", e)))
     }
@@ -310,20 +322,26 @@ impl SignalChannel {
             "members": members,
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .json(&body)
             .send()
             .await
             .map_err(|e| OpenClawError::Network(format!("创建群组失败: {}", e)))?;
 
-        response.json::<SignalGroup>()
+        response
+            .json::<SignalGroup>()
             .await
             .map_err(|e| OpenClawError::Parse(format!("解析群组失败: {}", e)))
     }
 
     /// 发送群组消息
-    pub async fn send_group_message(&self, group_id: &str, message: &str) -> Result<ChannelMessage> {
+    pub async fn send_group_message(
+        &self,
+        group_id: &str,
+        message: &str,
+    ) -> Result<ChannelMessage> {
         let url = self.endpoint(&format!("/send/{}", self.config.phone_number));
 
         let body = serde_json::json!({
@@ -331,14 +349,16 @@ impl SignalChannel {
             "recipients": [group_id],
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .json(&body)
             .send()
             .await
             .map_err(|e| OpenClawError::Network(format!("发送群组消息失败: {}", e)))?;
 
-        let resp = response.json::<SignalMessageResponse>()
+        let resp = response
+            .json::<SignalMessageResponse>()
             .await
             .map_err(|e| OpenClawError::Parse(format!("解析响应失败: {}", e)))?;
 

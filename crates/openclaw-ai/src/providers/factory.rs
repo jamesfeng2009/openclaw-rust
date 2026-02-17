@@ -95,33 +95,15 @@ impl ProviderFactory {
         use super::*;
 
         match provider_type {
-            ProviderType::OpenAI => {
-                Ok(Arc::new(OpenAIProvider::new(config)))
-            }
-            ProviderType::Anthropic => {
-                Ok(Arc::new(AnthropicProvider::new(config)))
-            }
-            ProviderType::Gemini => {
-                Ok(Arc::new(GeminiProvider::new(config)))
-            }
-            ProviderType::DeepSeek => {
-                Ok(Arc::new(DeepSeekProvider::new(config)))
-            }
-            ProviderType::Qwen => {
-                Ok(Arc::new(QwenProvider::new(config)))
-            }
-            ProviderType::Doubao => {
-                Ok(Arc::new(DoubaoProvider::new(config)))
-            }
-            ProviderType::Glm => {
-                Ok(Arc::new(GlmProvider::new(config)))
-            }
-            ProviderType::Minimax => {
-                Ok(Arc::new(MinimaxProvider::new(config)))
-            }
-            ProviderType::Kimi => {
-                Ok(Arc::new(KimiProvider::new(config)))
-            }
+            ProviderType::OpenAI => Ok(Arc::new(OpenAIProvider::new(config))),
+            ProviderType::Anthropic => Ok(Arc::new(AnthropicProvider::new(config))),
+            ProviderType::Gemini => Ok(Arc::new(GeminiProvider::new(config))),
+            ProviderType::DeepSeek => Ok(Arc::new(DeepSeekProvider::new(config))),
+            ProviderType::Qwen => Ok(Arc::new(QwenProvider::new(config))),
+            ProviderType::Doubao => Ok(Arc::new(DoubaoProvider::new(config))),
+            ProviderType::Glm => Ok(Arc::new(GlmProvider::new(config))),
+            ProviderType::Minimax => Ok(Arc::new(MinimaxProvider::new(config))),
+            ProviderType::Kimi => Ok(Arc::new(KimiProvider::new(config))),
             ProviderType::OpenRouter => {
                 let info = openai_compatible::ProviderInfo {
                     name: "openrouter",
@@ -136,19 +118,17 @@ impl ProviderFactory {
                 };
                 Ok(Arc::new(OpenAICompatibleProvider::new(config, info)))
             }
-            ProviderType::Ollama => {
-                Ok(Arc::new(OllamaProvider::new(config)))
-            }
+            ProviderType::Ollama => Ok(Arc::new(OllamaProvider::new(config))),
             ProviderType::Custom => {
-                let base_url = config.base_url.clone()
+                let base_url = config
+                    .base_url
+                    .clone()
                     .unwrap_or_else(|| "https://api.example.com/v1".to_string());
-                let api_key = config.api_key.clone()
+                let api_key = config
+                    .api_key
+                    .clone()
                     .unwrap_or_else(|| "dummy".to_string());
-                Ok(Arc::new(CustomProvider::new(
-                    "custom",
-                    base_url,
-                    api_key,
-                )))
+                Ok(Arc::new(CustomProvider::new("custom", base_url, api_key)))
             }
         }
     }
@@ -160,13 +140,10 @@ impl ProviderFactory {
         api_key: Option<String>,
         base_url: Option<String>,
     ) -> Result<Arc<dyn AIProvider>, String> {
-        let provider_type = ProviderType::from_str(name)
-            .ok_or_else(|| format!("Unknown provider: {}", name))?;
+        let provider_type =
+            ProviderType::from_str(name).ok_or_else(|| format!("Unknown provider: {}", name))?;
 
-        let mut config = ProviderConfig::new(
-            name,
-            api_key.unwrap_or_else(|| "dummy".to_string()),
-        );
+        let mut config = ProviderConfig::new(name, api_key.unwrap_or_else(|| "dummy".to_string()));
 
         if let Some(url) = base_url {
             config = config.with_base_url(url);
@@ -202,45 +179,63 @@ pub fn default_provider_info() -> HashMap<&'static str, ProviderInfo> {
 
     let mut map = HashMap::new();
 
-    map.insert("openai", ProviderInfo {
-        name: "openai",
-        default_base_url: "https://api.openai.com/v1",
-        default_models: &["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "o1", "o1-mini"],
-    });
+    map.insert(
+        "openai",
+        ProviderInfo {
+            name: "openai",
+            default_base_url: "https://api.openai.com/v1",
+            default_models: &["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "o1", "o1-mini"],
+        },
+    );
 
-    map.insert("anthropic", ProviderInfo {
-        name: "anthropic",
-        default_base_url: "https://api.anthropic.com/v1",
-        default_models: &["claude-4-opus", "claude-4-sonnet", "claude-3.5-sonnet"],
-    });
+    map.insert(
+        "anthropic",
+        ProviderInfo {
+            name: "anthropic",
+            default_base_url: "https://api.anthropic.com/v1",
+            default_models: &["claude-4-opus", "claude-4-sonnet", "claude-3.5-sonnet"],
+        },
+    );
 
-    map.insert("deepseek", ProviderInfo {
-        name: "deepseek",
-        default_base_url: "https://api.deepseek.com/v1",
-        default_models: &["deepseek-chat", "deepseek-coder"],
-    });
+    map.insert(
+        "deepseek",
+        ProviderInfo {
+            name: "deepseek",
+            default_base_url: "https://api.deepseek.com/v1",
+            default_models: &["deepseek-chat", "deepseek-coder"],
+        },
+    );
 
-    map.insert("qwen", ProviderInfo {
-        name: "qwen",
-        default_base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        default_models: &["qwen-plus", "qwen-turbo", "qwen-max"],
-    });
+    map.insert(
+        "qwen",
+        ProviderInfo {
+            name: "qwen",
+            default_base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            default_models: &["qwen-plus", "qwen-turbo", "qwen-max"],
+        },
+    );
 
-    map.insert("openrouter", ProviderInfo {
-        name: "openrouter",
-        default_base_url: "https://openrouter.ai/api/v1",
-        default_models: &[
-            "openai/gpt-4o",
-            "openai/gpt-4o-mini",
-            "anthropic/claude-3.5-sonnet",
-        ],
-    });
+    map.insert(
+        "openrouter",
+        ProviderInfo {
+            name: "openrouter",
+            default_base_url: "https://openrouter.ai/api/v1",
+            default_models: &[
+                "openai/gpt-4o",
+                "openai/gpt-4o-mini",
+                "anthropic/claude-3.5-sonnet",
+            ],
+        },
+    );
 
-    map.insert("ollama", ProviderInfo {
-        name: "ollama",
-        default_base_url: "http://localhost:11434",
-        default_models: &["llama3.1", "mistral", "codellama"],
-    });
+    map.insert(
+        "ollama",
+        ProviderInfo {
+            name: "ollama",
+            default_base_url: "http://localhost:11434",
+            default_models: &["llama3.1", "mistral", "codellama"],
+        },
+    );
 
     map
 }

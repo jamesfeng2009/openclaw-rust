@@ -1,7 +1,7 @@
 use crate::nodes::{CaptureResult, DeviceError};
 use chrono::Utc;
-use std::process::Command;
 use std::fs;
+use std::process::Command;
 
 pub struct ScreenManager;
 
@@ -12,21 +12,23 @@ impl ScreenManager {
 
     pub async fn screenshot(&self, display_id: Option<u32>) -> Result<CaptureResult, DeviceError> {
         let timestamp = Utc::now().timestamp_millis();
-        
+
         #[cfg(target_os = "macos")]
         {
             use std::path::PathBuf;
 
             let output_dir = PathBuf::from("/tmp/openclaw");
-            fs::create_dir_all(&output_dir).map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
-            
+            fs::create_dir_all(&output_dir)
+                .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
             let display = display_id.unwrap_or(0);
             let output_path = output_dir.join(format!("screen_{}.png", timestamp));
 
             let output = Command::new("screencapture")
                 .args([
                     "-x",
-                    "-D", &display.to_string(),
+                    "-D",
+                    &display.to_string(),
                     output_path.to_str().unwrap(),
                 ])
                 .output()
@@ -35,10 +37,11 @@ impl ScreenManager {
             if output.status.success() {
                 let data = fs::read(&output_path)
                     .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
-                let base64_data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
-                
+                let base64_data =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
+
                 fs::remove_file(&output_path).ok();
-                
+
                 Ok(CaptureResult {
                     success: true,
                     data: Some(base64_data),
@@ -70,9 +73,13 @@ impl ScreenManager {
         }
     }
 
-    pub async fn record_screen(&self, display_id: Option<u32>, duration_secs: Option<u32>) -> Result<CaptureResult, DeviceError> {
+    pub async fn record_screen(
+        &self,
+        display_id: Option<u32>,
+        duration_secs: Option<u32>,
+    ) -> Result<CaptureResult, DeviceError> {
         let timestamp = Utc::now().timestamp_millis();
-        
+
         #[cfg(target_os = "macos")]
         {
             use std::path::PathBuf;
@@ -80,8 +87,9 @@ impl ScreenManager {
             use std::time::Duration;
 
             let output_dir = PathBuf::from("/tmp/openclaw");
-            fs::create_dir_all(&output_dir).map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
-            
+            fs::create_dir_all(&output_dir)
+                .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
             let display = display_id.unwrap_or(0);
             let output_path = output_dir.join(format!("recording_{}.mov", timestamp));
             let duration = duration_secs.unwrap_or(10);
@@ -93,8 +101,10 @@ impl ScreenManager {
                 let output = Command::new("screencapture")
                     .args([
                         "-v",
-                        "-D", &display_clone.to_string(),
-                        "-t", &duration.to_string(),
+                        "-D",
+                        &display_clone.to_string(),
+                        "-t",
+                        &duration.to_string(),
                         output_path_clone.to_str().unwrap(),
                     ])
                     .output()
@@ -109,10 +119,11 @@ impl ScreenManager {
                 if output_path.exists() {
                     let data = fs::read(&output_path)
                         .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
-                    let base64_data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
-                    
+                    let base64_data =
+                        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
+
                     fs::remove_file(&output_path).ok();
-                    
+
                     Ok(CaptureResult {
                         success: true,
                         data: Some(base64_data),
@@ -156,11 +167,14 @@ impl ScreenManager {
     pub fn list_displays(&self) -> Vec<(u32, String)> {
         #[cfg(target_os = "macos")]
         {
-            if let Ok(output) = Command::new("system_profiler").args(["SPDisplaysDataType"]).output() {
+            if let Ok(output) = Command::new("system_profiler")
+                .args(["SPDisplaysDataType"])
+                .output()
+            {
                 let output_str = String::from_utf8_lossy(&output.stdout);
                 let mut displays = Vec::new();
                 let mut display_id = 0u32;
-                
+
                 for line in output_str.lines() {
                     if line.contains("Display") {
                         display_id += 1;
@@ -170,7 +184,7 @@ impl ScreenManager {
                         }
                     }
                 }
-                
+
                 if displays.is_empty() {
                     displays.push((0, "主显示器".to_string()));
                 }

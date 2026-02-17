@@ -111,8 +111,7 @@ pub trait ToolExecutor: Send + Sync {
 
     /// 获取工具定义
     fn definition(&self) -> ToolDefinition {
-        ToolDefinition::new(self.name(), self.description())
-            .with_parameters(self.parameters())
+        ToolDefinition::new(self.name(), self.description()).with_parameters(self.parameters())
     }
 
     /// 执行工具
@@ -148,8 +147,9 @@ impl ToolRegistry {
 
     /// 执行工具
     pub async fn execute(&self, name: &str, arguments: Value) -> Result<String> {
-        let tool = self.get(name)
-            .ok_or_else(|| openclaw_core::OpenClawError::Unknown(format!("Tool not found: {}", name)))?;
+        let tool = self.get(name).ok_or_else(|| {
+            openclaw_core::OpenClawError::Unknown(format!("Tool not found: {}", name))
+        })?;
         tool.execute(arguments).await
     }
 }
@@ -198,7 +198,11 @@ impl ToolExecutor for CurrentTimeTool {
     async fn execute(&self, arguments: Value) -> Result<String> {
         let timezone = arguments["timezone"].as_str().unwrap_or("UTC");
         let now = chrono::Utc::now();
-        Ok(format!("当前时间 ({}): {}", timezone, now.format("%Y-%m-%d %H:%M:%S")))
+        Ok(format!(
+            "当前时间 ({}): {}",
+            timezone,
+            now.format("%Y-%m-%d %H:%M:%S")
+        ))
     }
 }
 
@@ -229,13 +233,14 @@ impl ToolExecutor for CalculatorTool {
     }
 
     async fn execute(&self, arguments: Value) -> Result<String> {
-        let expr = arguments["expression"].as_str()
+        let expr = arguments["expression"]
+            .as_str()
             .ok_or_else(|| openclaw_core::OpenClawError::Unknown("Missing expression".into()))?;
-        
+
         // 简单的计算实现（仅支持基本运算）
         // 实际应用中应使用更安全的表达式解析库
         let expr = expr.replace(" ", "");
-        
+
         // 使用 evalexpr 库会更安全，这里简单实现
         Ok(format!("表达式 '{}' 的计算结果", expr))
     }
@@ -268,9 +273,10 @@ impl ToolExecutor for WeatherTool {
     }
 
     async fn execute(&self, arguments: Value) -> Result<String> {
-        let city = arguments["city"].as_str()
+        let city = arguments["city"]
+            .as_str()
             .ok_or_else(|| openclaw_core::OpenClawError::Unknown("Missing city".into()))?;
-        
+
         // 模拟天气查询
         Ok(format!("{} 今天天气晴朗，温度 25°C", city))
     }
@@ -291,7 +297,7 @@ mod tests {
     fn test_tool_registry() {
         let mut registry = ToolRegistry::new();
         registry.register(Box::new(CurrentTimeTool));
-        
+
         assert!(registry.get("get_current_time").is_some());
         assert_eq!(registry.definitions().len(), 1);
     }
@@ -306,7 +312,10 @@ mod tests {
     #[tokio::test]
     async fn test_weather_tool() {
         let tool = WeatherTool;
-        let result = tool.execute(serde_json::json!({"city": "北京"})).await.unwrap();
+        let result = tool
+            .execute(serde_json::json!({"city": "北京"}))
+            .await
+            .unwrap();
         assert!(result.contains("北京"));
     }
 }

@@ -8,13 +8,13 @@ impl AIEOSPromptGenerator {
 
         sections.push("# Identity".to_string());
         sections.push(Self::generate_identity(&aieos.identity));
-        
+
         sections.push("\n# Psychology".to_string());
         sections.push(Self::generate_psychology(&aieos.psychology));
-        
+
         sections.push("\n# Communication Style".to_string());
         sections.push(Self::generate_linguistics(&aieos.linguistics));
-        
+
         sections.push("\n# Motivations".to_string());
         sections.push(Self::generate_motivations(&aieos.motivations));
 
@@ -32,10 +32,8 @@ impl AIEOSPromptGenerator {
     }
 
     pub fn generate_identity(identity: &Identity) -> String {
-        let mut parts = vec![
-            format!("- Name: {}", identity.names.first),
-        ];
-        
+        let mut parts = vec![format!("- Name: {}", identity.names.first)];
+
         if let Some(nickname) = &identity.names.nickname {
             parts.push(format!("- Nickname: {}", nickname));
         }
@@ -49,12 +47,15 @@ impl AIEOSPromptGenerator {
             parts.push(format!("- Role: {}", role));
         }
         if let Some(pronouns) = &identity.pronouns {
-            parts.push(format!("- Pronouns: {}/{}", pronouns.subject, pronouns.object));
+            parts.push(format!(
+                "- Pronouns: {}/{}",
+                pronouns.subject, pronouns.object
+            ));
         }
         if let Some(avatar) = &identity.avatar {
             parts.push(format!("- Avatar: {}", avatar));
         }
-        
+
         parts.join("\n")
     }
 
@@ -77,10 +78,22 @@ impl AIEOSPromptGenerator {
         if let Some(big_five) = &psychology.traits.big_five {
             parts.push("\n## Big Five Traits".to_string());
             parts.push(format!("- Openness: {:.0}%", big_five.openness * 100.0));
-            parts.push(format!("- Conscientiousness: {:.0}%", big_five.conscientiousness * 100.0));
-            parts.push(format!("- Extraversion: {:.0}%", big_five.extraversion * 100.0));
-            parts.push(format!("- Agreeableness: {:.0}%", big_five.agreeableness * 100.0));
-            parts.push(format!("- Neuroticism: {:.0}%", big_five.neuroticism * 100.0));
+            parts.push(format!(
+                "- Conscientiousness: {:.0}%",
+                big_five.conscientiousness * 100.0
+            ));
+            parts.push(format!(
+                "- Extraversion: {:.0}%",
+                big_five.extraversion * 100.0
+            ));
+            parts.push(format!(
+                "- Agreeableness: {:.0}%",
+                big_five.agreeableness * 100.0
+            ));
+            parts.push(format!(
+                "- Neuroticism: {:.0}%",
+                big_five.neuroticism * 100.0
+            ));
         }
 
         if !psychology.traits.custom.is_empty() {
@@ -100,7 +113,10 @@ impl AIEOSPromptGenerator {
 
         if let Some(emotional) = &psychology.emotional_model {
             parts.push("\n## Emotional Model".to_string());
-            parts.push(format!("- Volatility: {:.0}%", emotional.volatility * 100.0));
+            parts.push(format!(
+                "- Volatility: {:.0}%",
+                emotional.volatility * 100.0
+            ));
             parts.push(format!("- Warmth: {:.0}%", emotional.warmth * 100.0));
             if !emotional.mood_patterns.is_empty() {
                 parts.push("- Mood Patterns:".to_string());
@@ -117,8 +133,14 @@ impl AIEOSPromptGenerator {
         let style = &linguistics.text_style;
         let mut parts = Vec::new();
 
-        parts.push(format!("- Formality: {:.0}%", style.formality_level * 100.0));
-        parts.push(format!("- Uses Slang: {}", if style.slang_usage { "Yes" } else { "No" }));
+        parts.push(format!(
+            "- Formality: {:.0}%",
+            style.formality_level * 100.0
+        ));
+        parts.push(format!(
+            "- Uses Slang: {}",
+            if style.slang_usage { "Yes" } else { "No" }
+        ));
 
         if let Some(humor) = style.humor_level {
             parts.push(format!("- Humor Level: {:.0}%", humor * 100.0));
@@ -139,7 +161,10 @@ impl AIEOSPromptGenerator {
         if !linguistics.speech_patterns.is_empty() {
             parts.push("\n## Speech Patterns".to_string());
             for pattern in &linguistics.speech_patterns {
-                let freq = pattern.frequency.map(|f| format!(" ({:.0}%)", f * 100.0)).unwrap_or_default();
+                let freq = pattern
+                    .frequency
+                    .map(|f| format!(" ({:.0}%)", f * 100.0))
+                    .unwrap_or_default();
                 parts.push(format!("- \"{}\"{}", pattern.pattern, freq));
             }
         }
@@ -147,21 +172,21 @@ impl AIEOSPromptGenerator {
         if let Some(vocab) = &linguistics.vocabulary {
             if !vocab.technical_terms.is_empty() || !vocab.preferred_words.is_empty() {
                 parts.push("\n## Vocabulary".to_string());
-                
+
                 if !vocab.technical_terms.is_empty() {
                     parts.push("- Technical Terms:".to_string());
                     for term in &vocab.technical_terms {
                         parts.push(format!("  - {}", term));
                     }
                 }
-                
+
                 if !vocab.preferred_words.is_empty() {
                     parts.push("- Preferred Words:".to_string());
                     for word in &vocab.preferred_words {
                         parts.push(format!("  - {}", word));
                     }
                 }
-                
+
                 if !vocab.avoided_words.is_empty() {
                     parts.push("- Avoided Words:".to_string());
                     for word in &vocab.avoided_words {
@@ -176,7 +201,7 @@ impl AIEOSPromptGenerator {
 
     pub fn generate_motivations(motivations: &Motivations) -> String {
         let mut parts = vec![format!("- Core Drive: {}", motivations.core_drive)];
-        
+
         if !motivations.goals.is_empty() {
             parts.push("\n## Goals".to_string());
             for goal in &motivations.goals {
@@ -243,19 +268,22 @@ impl AIEOSPromptGenerator {
     pub fn generate_compact(aieos: &AIEOS) -> String {
         let name = &aieos.identity.names.first;
         let _nickname = aieos.identity.names.nickname.as_deref().unwrap_or(name);
-        
+
         let mut prompt = format!("You are {}.", name);
-        
+
         if let Some(role) = &aieos.identity.role {
             prompt.push_str(&format!(" You are a {}.", role));
         }
-        
+
         if let Some(mbti) = &aieos.psychology.traits.mbti {
             prompt.push_str(&format!(" Your MBTI personality type is {}.", mbti));
         }
-        
-        prompt.push_str(&format!(" Your core drive is: {}.", aieos.motivations.core_drive));
-        
+
+        prompt.push_str(&format!(
+            " Your core drive is: {}.",
+            aieos.motivations.core_drive
+        ));
+
         let nm = &aieos.psychology.neural_matrix;
         if nm.creativity > 0.7 {
             prompt.push_str(" You are highly creative.");
@@ -263,7 +291,7 @@ impl AIEOSPromptGenerator {
         if nm.empathy > 0.7 {
             prompt.push_str(" You are very empathetic.");
         }
-        
+
         let style = &aieos.linguistics.text_style;
         if style.formality_level > 0.7 {
             prompt.push_str(" You communicate in a formal manner.");

@@ -15,14 +15,14 @@ pub struct DeepSeekProvider(OpenAICompatibleProvider);
 impl DeepSeekProvider {
     /// 创建新的 DeepSeek 提供商
     pub fn new(config: ProviderConfig) -> Self {
-        Self(OpenAICompatibleProvider::new(config, ProviderInfo {
-            name: "deepseek",
-            default_base_url: "https://api.deepseek.com/v1",
-            default_models: &[
-                "deepseek-chat",
-                "deepseek-coder",
-            ],
-        }))
+        Self(OpenAICompatibleProvider::new(
+            config,
+            ProviderInfo {
+                name: "deepseek",
+                default_base_url: "https://api.deepseek.com/v1",
+                default_models: &["deepseek-chat", "deepseek-coder"],
+            },
+        ))
     }
 }
 
@@ -36,7 +36,10 @@ impl AIProvider for DeepSeekProvider {
         self.0.chat(request).await
     }
 
-    async fn chat_stream(&self, request: ChatRequest) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
+    async fn chat_stream(
+        &self,
+        request: ChatRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
         self.0.chat_stream(request).await
     }
 

@@ -67,7 +67,7 @@ impl WebhookManager {
         };
 
         let id = webhook.id.clone();
-        
+
         let mut webhooks = self.webhooks.write().await;
         webhooks.insert(id.clone(), webhook);
 
@@ -76,9 +76,13 @@ impl WebhookManager {
     }
 
     /// 更新 Webhook
-    pub async fn update_webhook(&self, webhook_id: &WebhookId, updates: WebhookUpdates) -> Result<(), WebhookError> {
+    pub async fn update_webhook(
+        &self,
+        webhook_id: &WebhookId,
+        updates: WebhookUpdates,
+    ) -> Result<(), WebhookError> {
         let mut webhooks = self.webhooks.write().await;
-        
+
         let webhook = webhooks
             .get_mut(webhook_id)
             .ok_or_else(|| WebhookError::WebhookNotFound(webhook_id.clone()))?;
@@ -104,7 +108,7 @@ impl WebhookManager {
     /// 删除 Webhook
     pub async fn delete_webhook(&self, webhook_id: &WebhookId) -> Result<(), WebhookError> {
         let mut webhooks = self.webhooks.write().await;
-        
+
         if webhooks.remove(webhook_id).is_some() {
             info!("删除 Webhook: {}", webhook_id);
             Ok(())
@@ -140,24 +144,22 @@ impl WebhookManager {
             }
 
             // 检查事件是否匹配
-            let matches = webhook.events.iter().any(|e| {
-                match (e, &event) {
-                    (WebhookEvent::SandboxCreated, WebhookEvent::SandboxCreated) => true,
-                    (WebhookEvent::SandboxStarted, WebhookEvent::SandboxStarted) => true,
-                    (WebhookEvent::SandboxStopped, WebhookEvent::SandboxStopped) => true,
-                    (WebhookEvent::CanvasCreated, WebhookEvent::CanvasCreated) => true,
-                    (WebhookEvent::CanvasUpdated, WebhookEvent::CanvasUpdated) => true,
-                    (WebhookEvent::CanvasDeleted, WebhookEvent::CanvasDeleted) => true,
-                    (WebhookEvent::ToolExecuted, WebhookEvent::ToolExecuted) => true,
-                    (WebhookEvent::TaskCompleted, WebhookEvent::TaskCompleted) => true,
-                    (WebhookEvent::TaskFailed, WebhookEvent::TaskFailed) => true,
-                    (WebhookEvent::SystemStarted, WebhookEvent::SystemStarted) => true,
-                    (WebhookEvent::SystemStopped, WebhookEvent::SystemStopped) => true,
-                    (WebhookEvent::Custom { name: n1 }, WebhookEvent::Custom { name: n2 }) => n1 == n2,
-                    _ => false,
-                }
+            let matches = webhook.events.iter().any(|e| match (e, &event) {
+                (WebhookEvent::SandboxCreated, WebhookEvent::SandboxCreated) => true,
+                (WebhookEvent::SandboxStarted, WebhookEvent::SandboxStarted) => true,
+                (WebhookEvent::SandboxStopped, WebhookEvent::SandboxStopped) => true,
+                (WebhookEvent::CanvasCreated, WebhookEvent::CanvasCreated) => true,
+                (WebhookEvent::CanvasUpdated, WebhookEvent::CanvasUpdated) => true,
+                (WebhookEvent::CanvasDeleted, WebhookEvent::CanvasDeleted) => true,
+                (WebhookEvent::ToolExecuted, WebhookEvent::ToolExecuted) => true,
+                (WebhookEvent::TaskCompleted, WebhookEvent::TaskCompleted) => true,
+                (WebhookEvent::TaskFailed, WebhookEvent::TaskFailed) => true,
+                (WebhookEvent::SystemStarted, WebhookEvent::SystemStarted) => true,
+                (WebhookEvent::SystemStopped, WebhookEvent::SystemStopped) => true,
+                (WebhookEvent::Custom { name: n1 }, WebhookEvent::Custom { name: n2 }) => n1 == n2,
+                _ => false,
             });
-            
+
             if !matches {
                 continue;
             }
@@ -199,9 +201,14 @@ impl WebhookManager {
         };
 
         // 构建请求
-        let mut request = self.client.post(&webhook.url)
+        let mut request = self
+            .client
+            .post(&webhook.url)
             .header("Content-Type", "application/json")
-            .header("X-Webhook-Event", serde_json::to_string(event).unwrap_or_default())
+            .header(
+                "X-Webhook-Event",
+                serde_json::to_string(event).unwrap_or_default(),
+            )
             .header("X-Webhook-ID", &trigger_id)
             .body(body_str.clone());
 
@@ -223,12 +230,15 @@ impl WebhookManager {
                 if code >= 200 && code < 300 {
                     (TriggerStatus::Success, Some(code), Some(body.clone()), None)
                 } else {
-                    (TriggerStatus::Failed, Some(code), Some(body), Some(format!("HTTP {}", code)))
+                    (
+                        TriggerStatus::Failed,
+                        Some(code),
+                        Some(body),
+                        Some(format!("HTTP {}", code)),
+                    )
                 }
             }
-            Err(e) => {
-                (TriggerStatus::Failed, None, None, Some(e.to_string()))
-            }
+            Err(e) => (TriggerStatus::Failed, None, None, Some(e.to_string())),
         };
 
         let duration = start.elapsed().as_millis() as u64;
@@ -273,7 +283,7 @@ impl WebhookManager {
     /// 验证签名
     pub fn verify_signature(&self, secret: &str, body: &[u8], signature: &str) -> bool {
         let expected = signature.trim_start_matches("sha256=");
-        
+
         let mut hasher = Sha256::new();
         hasher.update(secret.as_bytes());
         hasher.update(body);
@@ -285,9 +295,10 @@ impl WebhookManager {
     /// 获取触发历史
     pub async fn get_trigger_history(&self, webhook_id: Option<&WebhookId>) -> Vec<WebhookTrigger> {
         let triggers = self.triggers.read().await;
-        
+
         match webhook_id {
-            Some(id) => triggers.iter()
+            Some(id) => triggers
+                .iter()
                 .filter(|t| &t.webhook_id == id)
                 .cloned()
                 .collect(),

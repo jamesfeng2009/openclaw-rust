@@ -2,7 +2,7 @@
 //!
 //! MQTT (Message Queuing Telemetry Transport) 协议接口
 
-use crate::framework::{FrameworkModule, FrameworkConfig, FrameworkResult};
+use crate::framework::{FrameworkConfig, FrameworkModule, FrameworkResult};
 use crate::platform::Platform;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -99,18 +99,18 @@ impl Default for MqttConfig {
 
 pub trait MqttClient: FrameworkModule {
     fn client_id(&self) -> &str;
-    
+
     fn is_connected(&self) -> bool;
-    
+
     fn subscribe(&self, topics: &[MqttSubscription]) -> MqttResult<()>;
-    
+
     fn unsubscribe(&self, topics: &[String]) -> MqttResult<()>;
-    
+
     fn publish(&self, message: MqttMessage) -> MqttResult<()>;
-    
+
     fn set_message_callback<F>(&self, callback: F)
     where
         F: Fn(MqttMessage) + Send + Sync + 'static;
-    
+
     fn pending_messages(&self) -> usize;
 }

@@ -29,7 +29,11 @@ pub fn magnitude(v: &Embedding) -> f32 {
 }
 
 pub fn euclidean_distance(a: &Embedding, b: &Embedding) -> f32 {
-    a.iter().zip(b.iter()).map(|(x, y)| (x - y).powi(2)).sum::<f32>().sqrt()
+    a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| (x - y).powi(2))
+        .sum::<f32>()
+        .sqrt()
 }
 
 pub struct OpenAIEmbedding {
@@ -68,9 +72,15 @@ impl OpenAIEmbedding {
 
 #[async_trait]
 impl EmbeddingProvider for OpenAIEmbedding {
-    fn name(&self) -> &str { "openai" }
-    fn model(&self) -> &str { &self.model }
-    fn dimensions(&self) -> usize { self.dimensions }
+    fn name(&self) -> &str {
+        "openai"
+    }
+    fn model(&self) -> &str {
+        &self.model
+    }
+    fn dimensions(&self) -> usize {
+        self.dimensions
+    }
 
     async fn embed(&self, text: &str) -> Result<Embedding> {
         let embeddings = self.embed_batch(&[text.to_string()]).await?;
@@ -79,7 +89,7 @@ impl EmbeddingProvider for OpenAIEmbedding {
 
     async fn embed_batch(&self, texts: &[String]) -> Result<Embeddings> {
         let client = reqwest::Client::new();
-        
+
         let response = client
             .post(&format!("{}/embeddings", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
@@ -97,7 +107,9 @@ impl EmbeddingProvider for OpenAIEmbedding {
             return Err(OpenClawError::AIProvider(error));
         }
 
-        let json: serde_json::Value = response.json().await
+        let json: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::AIProvider(e.to_string()))?;
 
         let embeddings: Embeddings = json["data"]
@@ -147,13 +159,19 @@ impl OllamaEmbedding {
 
 #[async_trait]
 impl EmbeddingProvider for OllamaEmbedding {
-    fn name(&self) -> &str { "ollama" }
-    fn model(&self) -> &str { &self.model }
-    fn dimensions(&self) -> usize { self.calc_dimensions() }
+    fn name(&self) -> &str {
+        "ollama"
+    }
+    fn model(&self) -> &str {
+        &self.model
+    }
+    fn dimensions(&self) -> usize {
+        self.calc_dimensions()
+    }
 
     async fn embed(&self, text: &str) -> Result<Embedding> {
         let client = reqwest::Client::new();
-        
+
         let response = client
             .post(&format!("{}/api/embeddings", self.base_url))
             .json(&serde_json::json!({
@@ -169,7 +187,9 @@ impl EmbeddingProvider for OllamaEmbedding {
             return Err(OpenClawError::AIProvider(error));
         }
 
-        let json: serde_json::Value = response.json().await
+        let json: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::AIProvider(e.to_string()))?;
 
         let embedding: Embedding = json["embedding"]

@@ -2,7 +2,7 @@
 
 use crate::types::*;
 use async_trait::async_trait;
-use openclaw_browser::{BrowserPool, BrowserConfig, Selector, ScreenshotOptions, PdfOptions};
+use openclaw_browser::{BrowserConfig, BrowserPool, PdfOptions, ScreenshotOptions, Selector};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -46,27 +46,40 @@ impl BrowserTools {
                 parameters: ToolParameters {
                     properties: {
                         let mut props = HashMap::new();
-                        props.insert("browser_id".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "浏览器实例 ID".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
-                        props.insert("page_id".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "页面 ID".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
-                        props.insert("url".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "目标 URL".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
+                        props.insert(
+                            "browser_id".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "浏览器实例 ID".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
+                        props.insert(
+                            "page_id".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "页面 ID".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
+                        props.insert(
+                            "url".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "目标 URL".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
                         props
                     },
-                    required: vec!["browser_id".to_string(), "page_id".to_string(), "url".to_string()],
+                    required: vec![
+                        "browser_id".to_string(),
+                        "page_id".to_string(),
+                        "url".to_string(),
+                    ],
                 },
                 category: ToolCategory::Browser,
                 enabled: true,
@@ -78,27 +91,40 @@ impl BrowserTools {
                 parameters: ToolParameters {
                     properties: {
                         let mut props = HashMap::new();
-                        props.insert("browser_id".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "浏览器实例 ID".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
-                        props.insert("page_id".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "页面 ID".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
-                        props.insert("selector".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "CSS 选择器".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
+                        props.insert(
+                            "browser_id".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "浏览器实例 ID".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
+                        props.insert(
+                            "page_id".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "页面 ID".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
+                        props.insert(
+                            "selector".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "CSS 选择器".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
                         props
                     },
-                    required: vec!["browser_id".to_string(), "page_id".to_string(), "selector".to_string()],
+                    required: vec![
+                        "browser_id".to_string(),
+                        "page_id".to_string(),
+                        "selector".to_string(),
+                    ],
                 },
                 category: ToolCategory::Browser,
                 enabled: true,
@@ -110,33 +136,50 @@ impl BrowserTools {
                 parameters: ToolParameters {
                     properties: {
                         let mut props = HashMap::new();
-                        props.insert("browser_id".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "浏览器实例 ID".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
-                        props.insert("page_id".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "页面 ID".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
-                        props.insert("selector".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "CSS 选择器".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
-                        props.insert("text".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "要输入的文本".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
+                        props.insert(
+                            "browser_id".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "浏览器实例 ID".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
+                        props.insert(
+                            "page_id".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "页面 ID".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
+                        props.insert(
+                            "selector".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "CSS 选择器".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
+                        props.insert(
+                            "text".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "要输入的文本".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
                         props
                     },
-                    required: vec!["browser_id".to_string(), "page_id".to_string(), "selector".to_string(), "text".to_string()],
+                    required: vec![
+                        "browser_id".to_string(),
+                        "page_id".to_string(),
+                        "selector".to_string(),
+                        "text".to_string(),
+                    ],
                 },
                 category: ToolCategory::Browser,
                 enabled: true,
@@ -148,24 +191,33 @@ impl BrowserTools {
                 parameters: ToolParameters {
                     properties: {
                         let mut props = HashMap::new();
-                        props.insert("browser_id".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "浏览器实例 ID".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
-                        props.insert("page_id".to_string(), ParameterProperty {
-                            param_type: "string".to_string(),
-                            description: "页面 ID".to_string(),
-                            enum_values: vec![],
-                            default: None,
-                        });
-                        props.insert("full_page".to_string(), ParameterProperty {
-                            param_type: "boolean".to_string(),
-                            description: "是否截取整个页面".to_string(),
-                            enum_values: vec![],
-                            default: Some(Value::Bool(false)),
-                        });
+                        props.insert(
+                            "browser_id".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "浏览器实例 ID".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
+                        props.insert(
+                            "page_id".to_string(),
+                            ParameterProperty {
+                                param_type: "string".to_string(),
+                                description: "页面 ID".to_string(),
+                                enum_values: vec![],
+                                default: None,
+                            },
+                        );
+                        props.insert(
+                            "full_page".to_string(),
+                            ParameterProperty {
+                                param_type: "boolean".to_string(),
+                                description: "是否截取整个页面".to_string(),
+                                enum_values: vec![],
+                                default: Some(Value::Bool(false)),
+                            },
+                        );
                         props
                     },
                     required: vec!["browser_id".to_string(), "page_id".to_string()],
@@ -185,95 +237,143 @@ impl BrowserTools {
     ) -> Result<ToolResult, BrowserToolError> {
         match tool_id {
             "browser_navigate" => {
-                let browser_id = params.get("browser_id")
+                let browser_id = params
+                    .get("browser_id")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| BrowserToolError::OperationFailed("缺少 browser_id".to_string()))?;
-                let page_id = params.get("page_id")
+                    .ok_or_else(|| {
+                        BrowserToolError::OperationFailed("缺少 browser_id".to_string())
+                    })?;
+                let page_id = params
+                    .get("page_id")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| BrowserToolError::OperationFailed("缺少 page_id".to_string()))?;
-                let url = params.get("url")
+                let url = params
+                    .get("url")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| BrowserToolError::OperationFailed("缺少 url".to_string()))?;
 
-                let browser = self.pool.get_browser(&browser_id.to_string())
+                let browser = self
+                    .pool
+                    .get_browser(&browser_id.to_string())
                     .await
                     .ok_or_else(|| BrowserToolError::BrowserNotFound(browser_id.to_string()))?;
-                let page = browser.get_page(&page_id.to_string())
+                let page = browser
+                    .get_page(&page_id.to_string())
                     .await
                     .ok_or_else(|| BrowserToolError::PageNotFound(page_id.to_string()))?;
 
-                page.goto(url, None).await
+                page.goto(url, None)
+                    .await
                     .map_err(|e| BrowserToolError::OperationFailed(e.to_string()))?;
 
-                Ok(ToolResult::success(Value::String(format!("已导航到 {}", url))))
+                Ok(ToolResult::success(Value::String(format!(
+                    "已导航到 {}",
+                    url
+                ))))
             }
 
             "browser_click" => {
-                let browser_id = params.get("browser_id")
+                let browser_id = params
+                    .get("browser_id")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| BrowserToolError::OperationFailed("缺少 browser_id".to_string()))?;
-                let page_id = params.get("page_id")
+                    .ok_or_else(|| {
+                        BrowserToolError::OperationFailed("缺少 browser_id".to_string())
+                    })?;
+                let page_id = params
+                    .get("page_id")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| BrowserToolError::OperationFailed("缺少 page_id".to_string()))?;
-                let selector = params.get("selector")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| BrowserToolError::OperationFailed("缺少 selector".to_string()))?;
+                let selector =
+                    params
+                        .get("selector")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| {
+                            BrowserToolError::OperationFailed("缺少 selector".to_string())
+                        })?;
 
-                let browser = self.pool.get_browser(&browser_id.to_string())
+                let browser = self
+                    .pool
+                    .get_browser(&browser_id.to_string())
                     .await
                     .ok_or_else(|| BrowserToolError::BrowserNotFound(browser_id.to_string()))?;
-                let page = browser.get_page(&page_id.to_string())
+                let page = browser
+                    .get_page(&page_id.to_string())
                     .await
                     .ok_or_else(|| BrowserToolError::PageNotFound(page_id.to_string()))?;
 
-                page.click(&Selector::css(selector), None).await
+                page.click(&Selector::css(selector), None)
+                    .await
                     .map_err(|e| BrowserToolError::OperationFailed(e.to_string()))?;
 
                 Ok(ToolResult::success(Value::String("点击成功".to_string())))
             }
 
             "browser_type" => {
-                let browser_id = params.get("browser_id")
+                let browser_id = params
+                    .get("browser_id")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| BrowserToolError::OperationFailed("缺少 browser_id".to_string()))?;
-                let page_id = params.get("page_id")
+                    .ok_or_else(|| {
+                        BrowserToolError::OperationFailed("缺少 browser_id".to_string())
+                    })?;
+                let page_id = params
+                    .get("page_id")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| BrowserToolError::OperationFailed("缺少 page_id".to_string()))?;
-                let selector = params.get("selector")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| BrowserToolError::OperationFailed("缺少 selector".to_string()))?;
-                let text = params.get("text")
+                let selector =
+                    params
+                        .get("selector")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| {
+                            BrowserToolError::OperationFailed("缺少 selector".to_string())
+                        })?;
+                let text = params
+                    .get("text")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| BrowserToolError::OperationFailed("缺少 text".to_string()))?;
 
-                let browser = self.pool.get_browser(&browser_id.to_string())
+                let browser = self
+                    .pool
+                    .get_browser(&browser_id.to_string())
                     .await
                     .ok_or_else(|| BrowserToolError::BrowserNotFound(browser_id.to_string()))?;
-                let page = browser.get_page(&page_id.to_string())
+                let page = browser
+                    .get_page(&page_id.to_string())
                     .await
                     .ok_or_else(|| BrowserToolError::PageNotFound(page_id.to_string()))?;
 
-                page.type_text(&Selector::css(selector), text, None).await
+                page.type_text(&Selector::css(selector), text, None)
+                    .await
                     .map_err(|e| BrowserToolError::OperationFailed(e.to_string()))?;
 
-                Ok(ToolResult::success(Value::String(format!("已输入: {}", text))))
+                Ok(ToolResult::success(Value::String(format!(
+                    "已输入: {}",
+                    text
+                ))))
             }
 
             "browser_screenshot" => {
-                let browser_id = params.get("browser_id")
+                let browser_id = params
+                    .get("browser_id")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| BrowserToolError::OperationFailed("缺少 browser_id".to_string()))?;
-                let page_id = params.get("page_id")
+                    .ok_or_else(|| {
+                        BrowserToolError::OperationFailed("缺少 browser_id".to_string())
+                    })?;
+                let page_id = params
+                    .get("page_id")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| BrowserToolError::OperationFailed("缺少 page_id".to_string()))?;
-                let full_page = params.get("full_page")
+                let full_page = params
+                    .get("full_page")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
 
-                let browser = self.pool.get_browser(&browser_id.to_string())
+                let browser = self
+                    .pool
+                    .get_browser(&browser_id.to_string())
                     .await
                     .ok_or_else(|| BrowserToolError::BrowserNotFound(browser_id.to_string()))?;
-                let page = browser.get_page(&page_id.to_string())
+                let page = browser
+                    .get_page(&page_id.to_string())
                     .await
                     .ok_or_else(|| BrowserToolError::PageNotFound(page_id.to_string()))?;
 
@@ -282,13 +382,18 @@ impl BrowserTools {
                     ..Default::default()
                 };
 
-                let base64 = page.screenshot_base64(Some(options)).await
+                let base64 = page
+                    .screenshot_base64(Some(options))
+                    .await
                     .map_err(|e| BrowserToolError::OperationFailed(e.to_string()))?;
 
                 Ok(ToolResult::success(Value::String(base64)))
             }
 
-            _ => Err(BrowserToolError::OperationFailed(format!("未知工具: {}", tool_id))),
+            _ => Err(BrowserToolError::OperationFailed(format!(
+                "未知工具: {}",
+                tool_id
+            ))),
         }
     }
 }

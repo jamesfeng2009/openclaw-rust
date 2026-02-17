@@ -121,25 +121,31 @@ impl Filter {
             return "TRUE".to_string();
         }
 
-        let conditions: Vec<String> = self.conditions.iter().map(|c| {
-            let value_str = match &c.value {
-                serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
-                serde_json::Value::Number(n) => n.to_string(),
-                serde_json::Value::Bool(b) => b.to_string(),
-                _ => format!("'{}'", c.value.to_string().replace('\'', "''")),
-            };
+        let conditions: Vec<String> = self
+            .conditions
+            .iter()
+            .map(|c| {
+                let value_str = match &c.value {
+                    serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    serde_json::Value::Bool(b) => b.to_string(),
+                    _ => format!("'{}'", c.value.to_string().replace('\'', "''")),
+                };
 
-            match c.operator {
-                FilterOperator::Eq => format!("{} = {}", c.field, value_str),
-                FilterOperator::Ne => format!("{} != {}", c.field, value_str),
-                FilterOperator::Gt => format!("{} > {}", c.field, value_str),
-                FilterOperator::Gte => format!("{} >= {}", c.field, value_str),
-                FilterOperator::Lt => format!("{} < {}", c.field, value_str),
-                FilterOperator::Lte => format!("{} <= {}", c.field, value_str),
-                FilterOperator::In => format!("{} = ANY(string_to_array({}, ','))", c.field, value_str),
-                FilterOperator::Contains => format!("{} LIKE '%{}%'", c.field, c.value),
-            }
-        }).collect();
+                match c.operator {
+                    FilterOperator::Eq => format!("{} = {}", c.field, value_str),
+                    FilterOperator::Ne => format!("{} != {}", c.field, value_str),
+                    FilterOperator::Gt => format!("{} > {}", c.field, value_str),
+                    FilterOperator::Gte => format!("{} >= {}", c.field, value_str),
+                    FilterOperator::Lt => format!("{} < {}", c.field, value_str),
+                    FilterOperator::Lte => format!("{} <= {}", c.field, value_str),
+                    FilterOperator::In => {
+                        format!("{} = ANY(string_to_array({}, ','))", c.field, value_str)
+                    }
+                    FilterOperator::Contains => format!("{} LIKE '%{}%'", c.field, c.value),
+                }
+            })
+            .collect();
 
         conditions.join(" AND ")
     }

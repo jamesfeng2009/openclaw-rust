@@ -288,14 +288,14 @@ impl SubAgentManager {
             );
         }
 
-        let context = parent_context.unwrap_or_else(|| {
-            SubAgentContext::new(Uuid::nil())
-        });
+        let context = parent_context.unwrap_or_else(|| SubAgentContext::new(Uuid::nil()));
 
         let mut results = Vec::new();
 
         for (agent_id, task) in calls.into_iter().take(self.config.max_parallel) {
-            let result = self.call_sub_agent(&agent_id, task, Some(context.clone())).await;
+            let result = self
+                .call_sub_agent(&agent_id, task, Some(context.clone()))
+                .await;
             results.push(result);
         }
 
@@ -309,7 +309,9 @@ impl SubAgentManager {
         strategy: AggregationStrategy,
     ) -> std::result::Result<TaskOutput, SubAgentError> {
         if results.is_empty() {
-            return Err(SubAgentError::ExecutionFailed("没有可聚合的结果".to_string()));
+            return Err(SubAgentError::ExecutionFailed(
+                "没有可聚合的结果".to_string(),
+            ));
         }
 
         match strategy {
@@ -329,11 +331,9 @@ impl SubAgentManager {
                     .min_by_key(|r| r.duration_ms);
 
                 match best {
-                    Some(r) => r
-                        .result
-                        .output
-                        .clone()
-                        .ok_or_else(|| SubAgentError::ExecutionFailed("最佳结果无输出".to_string())),
+                    Some(r) => r.result.output.clone().ok_or_else(|| {
+                        SubAgentError::ExecutionFailed("最佳结果无输出".to_string())
+                    }),
                     None => Err(SubAgentError::ExecutionFailed(
                         "没有成功的子代理结果".to_string(),
                     )),
@@ -509,16 +509,10 @@ impl SubAgentOrchestrator {
             .collect();
 
         // 批量调用
-        let results = self
-            .manager
-            .call_multiple(calls, Some(context))
-            .await;
+        let results = self.manager.call_multiple(calls, Some(context)).await;
 
         // 收集成功的结果
-        let sub_results: Vec<SubAgentResult> = results
-            .into_iter()
-            .filter_map(|r| r.ok())
-            .collect();
+        let sub_results: Vec<SubAgentResult> = results.into_iter().filter_map(|r| r.ok()).collect();
 
         // 聚合结果
         let output = self

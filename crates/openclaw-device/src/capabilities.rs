@@ -1,5 +1,5 @@
 //! 设备能力检测模块
-//! 
+//!
 //! 自动检测设备的 CPU、内存、存储、网络、GPU 等能力
 
 use serde::{Deserialize, Serialize};
@@ -36,71 +36,71 @@ impl DeviceCapabilities {
             features: FeatureFlags::detect(),
         }
     }
-    
+
     pub fn is_embedded(&self) -> bool {
         matches!(self.cpu.architecture(), "cortex-m" | "xtensa" | "riscv")
     }
-    
+
     pub fn is_container(&self) -> bool {
         self.features.is_container
     }
-    
+
     pub fn is_wasm(&self) -> bool {
         self.features.is_wasm
     }
-    
+
     pub fn can_run_ai(&self) -> bool {
         self.gpu.has_gpu || self.features.has_npu
     }
-    
+
     fn detect_peripherals() -> Vec<PeripheralType> {
         let mut peripherals = Vec::new();
-        
+
         #[cfg(target_os = "linux")]
         {
             // 检测 USB
             if std::path::Path::new("/dev/bus/usb").exists() {
                 peripherals.push(PeripheralType::Usb);
             }
-            
+
             // 检测 GPIO
             if std::path::Path::new("/sys/class/gpio").exists() {
                 peripherals.push(PeripheralType::Gpio);
             }
-            
+
             // 检测 I2C
             if std::path::Path::new("/dev/i2c-").exists() {
                 peripherals.push(PeripheralType::I2c);
             }
-            
+
             // 检测 SPI
             if std::path::Path::new("/dev/spidev").exists() {
                 peripherals.push(PeripheralType::Spi);
             }
-            
+
             // 检测串口
             if std::path::Path::new("/dev/tty").exists() {
                 peripherals.push(PeripheralType::Uart);
             }
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             peripherals.push(PeripheralType::Thunderbolt);
             peripherals.push(PeripheralType::Bluetooth);
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             peripherals.push(PeripheralType::Com);
         }
-        
+
         peripherals
     }
-    
+
     fn detect_sensors() -> Vec<SensorType> {
         let mut sensors = Vec::new();
-        
+
         #[cfg(target_os = "linux")]
         {
             // 检测硬件传感器
@@ -109,18 +109,18 @@ impl DeviceCapabilities {
                 sensors.push(SensorType::Voltage);
                 sensors.push(SensorType::Fan);
             }
-            
+
             // 检测 GPS
             if std::path::Path::new("/dev/ttyUSB0").exists() {
                 sensors.push(SensorType::Gps);
             }
-            
+
             // 检测摄像头
             if std::path::Path::new("/dev/video0").exists() {
                 sensors.push(SensorType::Camera);
             }
         }
-        
+
         sensors
     }
 }
@@ -139,7 +139,7 @@ pub struct CpuCapability {
 impl CpuCapability {
     fn detect() -> Self {
         let cores = Self::detect_cores();
-        
+
         Self {
             cores,
             threads: cores,
@@ -150,20 +150,20 @@ impl CpuCapability {
             has_crypto: Self::detect_crypto(),
         }
     }
-    
+
     pub fn architecture(&self) -> &str {
         &self.architecture
     }
-    
+
     fn detect_cores() -> u32 {
         #[cfg(target_arch = "wasm32")]
         return 1;
-        
+
         std::thread::available_parallelism()
             .map(|p| p.get() as u32)
             .unwrap_or(1)
     }
-    
+
     fn detect_frequency() -> u32 {
         #[cfg(target_os = "linux")]
         {
@@ -179,7 +179,7 @@ impl CpuCapability {
                 }
             }
         }
-        
+
         // 默认值
         match std::env::consts::ARCH {
             "x86_64" => 3000,
@@ -188,18 +188,18 @@ impl CpuCapability {
             _ => 100,
         }
     }
-    
+
     fn detect_architecture() -> String {
         std::env::consts::ARCH.to_string()
     }
-    
+
     fn detect_simd() -> bool {
         match std::env::consts::ARCH {
             "x86_64" | "aarch64" | "arm" => true,
             _ => false,
         }
     }
-    
+
     fn detect_crypto() -> bool {
         #[cfg(target_arch = "x86_64")]
         {
@@ -228,7 +228,7 @@ impl MemoryCapability {
                 let mut available = 0u64;
                 let mut swap = 0u64;
                 let mut page_size = 4096u64;
-                
+
                 for line in meminfo.lines() {
                     if line.starts_with("MemTotal:") {
                         total = Self::parse_meminfo_value(line) * 1024;
@@ -238,7 +238,7 @@ impl MemoryCapability {
                         swap = Self::parse_meminfo_value(line) * 1024;
                     }
                 }
-                
+
                 return Self {
                     total_bytes: total,
                     available_bytes: available,
@@ -247,16 +247,16 @@ impl MemoryCapability {
                 };
             }
         }
-        
+
         // 默认值
         Self {
-            total_bytes: 8 * 1024 * 1024 * 1024, // 8GB
+            total_bytes: 8 * 1024 * 1024 * 1024,     // 8GB
             available_bytes: 4 * 1024 * 1024 * 1024, // 4GB
             swap_bytes: 0,
             page_size_bytes: 4096,
         }
     }
-    
+
     fn parse_meminfo_value(line: &str) -> u64 {
         line.split(':')
             .nth(1)
@@ -283,7 +283,7 @@ impl StorageCapability {
             let mut has_flash = std::path::Path::new("/sys/class/mtd").exists();
             let has_sdcard = std::path::Path::new("/dev/mmcblk0").exists();
             let has_emmc = std::path::Path::new("/dev/mmcblk0boot0").exists();
-            
+
             // 检测挂载的存储
             let mut total = 0u64;
             if let Ok(mounts) = std::fs::read_to_string("/proc/mounts") {
@@ -294,7 +294,7 @@ impl StorageCapability {
                     }
                 }
             }
-            
+
             return Self {
                 has_flash,
                 has_sdcard,
@@ -304,7 +304,7 @@ impl StorageCapability {
                 total_bytes: total,
             };
         }
-        
+
         Self::default()
     }
 }
@@ -362,7 +362,7 @@ impl NetworkCapability {
             let has_ethernet = std::path::Path::new("/sys/class/net/eth0").exists();
             let has_wifi = std::path::Path::new("/sys/class/net/wlan0").exists();
             let has_ble = std::path::Path::new("/sys/class/bluetooth").exists();
-            
+
             let mut protocols = Vec::new();
             if has_ethernet {
                 protocols.push(NetworkProtocol::Ethernet1G);
@@ -373,18 +373,24 @@ impl NetworkCapability {
             if has_ble {
                 protocols.push(NetworkProtocol::Ble);
             }
-            
+
             return Self {
                 has_ethernet,
                 has_wifi,
                 has_ble,
                 has_cellular: std::path::Path::new("/dev/cdc-wdm0").exists(),
                 has_usb_ethernet: std::path::Path::new("/sys/class/net/usb0").exists(),
-                max_speed_mbps: if has_ethernet { 1000 } else if has_wifi { 1200 } else { 100 },
+                max_speed_mbps: if has_ethernet {
+                    1000
+                } else if has_wifi {
+                    1200
+                } else {
+                    100
+                },
                 supported_protocols: protocols,
             };
         }
-        
+
         Self::default()
     }
 }
@@ -398,7 +404,11 @@ impl Default for NetworkCapability {
             has_cellular: false,
             has_usb_ethernet: false,
             max_speed_mbps: 1000,
-            supported_protocols: vec![NetworkProtocol::Ethernet1G, NetworkProtocol::Wifi5, NetworkProtocol::Ble],
+            supported_protocols: vec![
+                NetworkProtocol::Ethernet1G,
+                NetworkProtocol::Wifi5,
+                NetworkProtocol::Ble,
+            ],
         }
     }
 }
@@ -421,22 +431,26 @@ impl GpuCapability {
         {
             let has_gpu = std::path::Path::new("/dev/dri").exists();
             let has_npu = std::path::Path::new("/dev/npu").exists();
-            
+
             return Self {
                 has_gpu,
                 gpu_name: Self::detect_gpu_name(),
                 vram_bytes: Self::detect_vram(),
                 has_npu,
-                npu_name: if has_npu { Some("NPU".to_string()) } else { None },
+                npu_name: if has_npu {
+                    Some("NPU".to_string())
+                } else {
+                    None
+                },
                 supports_vulkan: std::path::Path::new("/dev/dri/renderD128").exists(),
                 supports_cuda: std::path::Path::new("/usr/bin/nvidia-smi").is_ok(),
                 supports_opencl: std::path::Path::new("/etc/OpenCL").exists(),
             };
         }
-        
+
         Self::default()
     }
-    
+
     fn detect_gpu_name() -> Option<String> {
         #[cfg(target_os = "linux")]
         {
@@ -457,7 +471,7 @@ impl GpuCapability {
         }
         None
     }
-    
+
     fn detect_vram() -> u64 {
         #[cfg(target_os = "linux")]
         {
@@ -508,43 +522,45 @@ impl FeatureFlags {
             has_npu: Self::detect_npu(),
         }
     }
-    
+
     fn detect_npu() -> bool {
         #[cfg(target_os = "linux")]
         {
-            std::path::Path::new("/dev/accel/accel0").exists() ||
-            std::path::Path::new("/dev/dri/card0").exists() ||
-            std::env::var("HABANA_VISIBLE_DEVICES").is_ok()
+            std::path::Path::new("/dev/accel/accel0").exists()
+                || std::path::Path::new("/dev/dri/card0").exists()
+                || std::env::var("HABANA_VISIBLE_DEVICES").is_ok()
         }
         #[cfg(not(target_os = "linux"))]
         {
             false
         }
     }
-    
+
     fn detect_container() -> bool {
-        std::path::Path::new("/.dockerenv").exists() ||
-        std::env::var("DOCKER_CONTAINER").is_ok()
+        std::path::Path::new("/.dockerenv").exists() || std::env::var("DOCKER_CONTAINER").is_ok()
     }
-    
+
     fn detect_wasm() -> bool {
         #[cfg(target_arch = "wasm32")]
         return true;
         false
     }
-    
+
     fn detect_virtualization() -> bool {
         #[cfg(target_os = "linux")]
         {
             if let Ok(cpuinfo) = std::fs::read_to_string("/proc/cpuinfo") {
-                if cpuinfo.contains("hypervisor") || cpuinfo.contains("QEMU") || cpuinfo.contains("KVM") {
+                if cpuinfo.contains("hypervisor")
+                    || cpuinfo.contains("QEMU")
+                    || cpuinfo.contains("KVM")
+                {
                     return true;
                 }
             }
         }
         false
     }
-    
+
     fn detect_sgx() -> bool {
         #[cfg(target_os = "linux")]
         {
@@ -552,15 +568,18 @@ impl FeatureFlags {
         }
         false
     }
-    
+
     fn detect_secure_boot() -> bool {
         #[cfg(target_os = "linux")]
         {
-            return std::path::Path::new("/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e09832b8cd").is_ok();
+            return std::path::Path::new(
+                "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e09832b8cd",
+            )
+            .is_ok();
         }
         false
     }
-    
+
     fn detect_hotplug() -> bool {
         #[cfg(target_os = "linux")]
         {

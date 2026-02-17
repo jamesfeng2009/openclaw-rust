@@ -15,16 +15,14 @@ pub struct GlmProvider(OpenAICompatibleProvider);
 impl GlmProvider {
     /// 创建新的 GLM 提供商
     pub fn new(config: ProviderConfig) -> Self {
-        Self(OpenAICompatibleProvider::new(config, ProviderInfo {
-            name: "glm",
-            default_base_url: "https://open.bigmodel.cn/api/paas/v4",
-            default_models: &[
-                "glm-4-plus",
-                "glm-4-air",
-                "glm-4-flash",
-                "glm-z1-air",
-            ],
-        }))
+        Self(OpenAICompatibleProvider::new(
+            config,
+            ProviderInfo {
+                name: "glm",
+                default_base_url: "https://open.bigmodel.cn/api/paas/v4",
+                default_models: &["glm-4-plus", "glm-4-air", "glm-4-flash", "glm-z1-air"],
+            },
+        ))
     }
 }
 
@@ -38,7 +36,10 @@ impl AIProvider for GlmProvider {
         self.0.chat(request).await
     }
 
-    async fn chat_stream(&self, request: ChatRequest) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
+    async fn chat_stream(
+        &self,
+        request: ChatRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
         self.0.chat_stream(request).await
     }
 

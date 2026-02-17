@@ -2,10 +2,10 @@
 //!
 //! 作为 AI 工具自动调用，根据上下文自动检索相关记忆
 
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use async_trait::async_trait;
 use openclaw_core::{Message, Result};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use crate::embedding::EmbeddingProvider;
 
@@ -68,7 +68,7 @@ impl SimpleMemoryRecall {
 impl MemoryRecall for SimpleMemoryRecall {
     async fn recall(&self, query: &str, _context: Option<&[Message]>) -> Result<RecallResult> {
         let _query_embedding = self.embedding.embed(query).await?;
-        
+
         Ok(RecallResult {
             items: vec![],
             query: query.to_string(),

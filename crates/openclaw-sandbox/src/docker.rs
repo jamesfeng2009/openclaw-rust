@@ -1,12 +1,12 @@
 //! Docker 容器管理
 
 use crate::types::*;
+use bollard::Docker;
 use bollard::container::{
-    Config, CreateContainerOptions, StartContainerOptions, StopContainerOptions,
-    WaitContainerOptions, LogsOptions, RemoveContainerOptions,
+    Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions,
+    StopContainerOptions, WaitContainerOptions,
 };
 use bollard::image::CreateImageOptions;
-use bollard::Docker;
 use futures::StreamExt;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -112,7 +112,7 @@ impl DockerClient {
     /// 创建沙箱
     pub async fn create_sandbox(&self, config: SandboxConfig) -> Result<SandboxId, DockerError> {
         let sandbox_id = Uuid::new_v4().to_string();
-        
+
         // 确保镜像存在
         self.pull_image(&config.image).await?;
 
@@ -120,11 +120,13 @@ impl DockerClient {
         let container_config = self.build_container_config(&config)?;
 
         // 创建容器
-        let container_name = config.name.clone().unwrap_or_else(|| {
-            format!("openclaw-sandbox-{}", &sandbox_id[..8])
-        });
+        let container_name = config
+            .name
+            .clone()
+            .unwrap_or_else(|| format!("openclaw-sandbox-{}", &sandbox_id[..8]));
 
-        let container = self.docker
+        let container = self
+            .docker
             .create_container(
                 Some(CreateContainerOptions {
                     name: &container_name,
@@ -202,9 +204,7 @@ impl DockerClient {
         };
 
         self.docker
-            .stop_container(&container_id, Some(StopContainerOptions {
-                t: 10,
-            }))
+            .stop_container(&container_id, Some(StopContainerOptions { t: 10 }))
             .await
             .map_err(|e| DockerError::ExecutionFailed(e.to_string()))?;
 
@@ -231,7 +231,8 @@ impl DockerClient {
                 .ok_or_else(|| DockerError::ContainerNotFound(sandbox_id.clone()))?
         };
 
-        let result = self.docker
+        let result = self
+            .docker
             .wait_container(&container_id, None::<WaitContainerOptions<String>>)
             .next()
             .await
@@ -277,17 +278,15 @@ impl DockerClient {
 
         while let Some(result) = stream.next().await {
             match result {
-                Ok(output) => {
-                    match output {
-                        bollard::container::LogOutput::StdOut { message } => {
-                            stdout.push_str(&String::from_utf8_lossy(&message));
-                        }
-                        bollard::container::LogOutput::StdErr { message } => {
-                            stderr.push_str(&String::from_utf8_lossy(&message));
-                        }
-                        _ => {}
+                Ok(output) => match output {
+                    bollard::container::LogOutput::StdOut { message } => {
+                        stdout.push_str(&String::from_utf8_lossy(&message));
                     }
-                }
+                    bollard::container::LogOutput::StdErr { message } => {
+                        stderr.push_str(&String::from_utf8_lossy(&message));
+                    }
+                    _ => {}
+                },
                 Err(e) => {
                     warn!("获取日志错误: {}", e);
                 }
@@ -308,10 +307,13 @@ impl DockerClient {
         };
 
         self.docker
-            .remove_container(&container_id, Some(RemoveContainerOptions {
-                force: true,
-                ..Default::default()
-            }))
+            .remove_container(
+                &container_id,
+                Some(RemoveContainerOptions {
+                    force: true,
+                    ..Default::default()
+                }),
+            )
             .await
             .map_err(|e| DockerError::ExecutionFailed(e.to_string()))?;
 
@@ -341,7 +343,10 @@ impl DockerClient {
     }
 
     /// 构建容器配置
-    fn build_container_config(&self, config: &SandboxConfig) -> Result<Config<String>, DockerError> {
+    fn build_container_config(
+        &self,
+        config: &SandboxConfig,
+    ) -> Result<Config<String>, DockerError> {
         // 环境变量
         let env: Vec<String> = config
             .env
@@ -374,7 +379,11 @@ impl DockerClient {
                 NetworkMode::Host => "host".to_string(),
                 NetworkMode::Custom(n) => n.clone(),
             }),
-            mounts: if mounts.is_empty() { None } else { Some(mounts) },
+            mounts: if mounts.is_empty() {
+                None
+            } else {
+                Some(mounts)
+            },
             auto_remove: Some(config.auto_remove),
             readonly_rootfs: Some(config.security.read_only_root_fs),
             cap_drop: Some(config.security.capabilities.drop.clone()),
@@ -399,7 +408,11 @@ impl DockerClient {
         Ok(Config {
             image: Some(config.image.clone()),
             env: if env.is_empty() { None } else { Some(env) },
-            cmd: if config.cmd.is_empty() { None } else { Some(config.cmd.clone()) },
+            cmd: if config.cmd.is_empty() {
+                None
+            } else {
+                Some(config.cmd.clone())
+            },
             working_dir: config.work_dir.clone(),
             host_config: Some(host_config),
             ..Default::default()

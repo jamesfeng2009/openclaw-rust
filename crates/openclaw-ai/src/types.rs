@@ -1,7 +1,7 @@
 //! AI 类型定义
 
-use serde::{Deserialize, Serialize};
 use openclaw_core::Message;
+use serde::{Deserialize, Serialize};
 
 /// AI 提供商类型
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

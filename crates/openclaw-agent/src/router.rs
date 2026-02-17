@@ -71,10 +71,7 @@ pub enum RouteStrategy {
     /// 随机分配
     Random,
     /// 首选 + 备用
-    Fallback {
-        primary: AgentId,
-        fallback: AgentId,
-    },
+    Fallback { primary: AgentId, fallback: AgentId },
 }
 
 /// 路由规则
@@ -100,7 +97,12 @@ fn default_true() -> bool {
 }
 
 impl RouteRule {
-    pub fn new(id: impl Into<String>, name: impl Into<String>, source: RouteSource, target: AgentId) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        source: RouteSource,
+        target: AgentId,
+    ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
@@ -215,7 +217,7 @@ impl AgentRouter {
     /// 根据上下文路由到 Agent
     pub async fn route(&self, context: &RouteContext) -> Option<AgentId> {
         let strategy = self.strategy.read().await.clone();
-        
+
         match strategy {
             RouteStrategy::Direct(id) => Some(id),
             RouteStrategy::ByChannel => self.route_by_channel(context).await,
@@ -225,7 +227,10 @@ impl AgentRouter {
             RouteStrategy::ByRegex => self.route_by_regex(context).await,
             RouteStrategy::RoundRobin => self.route_round_robin().await,
             RouteStrategy::Random => self.route_random().await,
-            RouteStrategy::Fallback { primary: _, fallback } => {
+            RouteStrategy::Fallback {
+                primary: _,
+                fallback,
+            } => {
                 if let Some(id) = self.try_route(context).await {
                     Some(id)
                 } else {
@@ -238,17 +243,17 @@ impl AgentRouter {
     /// 尝试匹配规则
     async fn try_route(&self, context: &RouteContext) -> Option<AgentId> {
         let rules = self.rules.read().await;
-        
+
         for rule in rules.iter() {
             if !rule.enabled {
                 continue;
             }
-            
+
             if self.match_rule(rule, context) {
                 return Some(rule.target.clone());
             }
         }
-        
+
         None
     }
 
@@ -258,15 +263,12 @@ impl AgentRouter {
             RouteSource::ChannelType(channel) => {
                 context.channel_type.to_lowercase() == channel.to_lowercase()
             }
-            RouteSource::UserId(user_id) => {
-                context.user_id == *user_id
-            }
-            RouteSource::ChatId(chat_id) => {
-                context.chat_id == *chat_id
-            }
-            RouteSource::Keyword(keyword) => {
-                context.content.to_lowercase().contains(&keyword.to_lowercase())
-            }
+            RouteSource::UserId(user_id) => context.user_id == *user_id,
+            RouteSource::ChatId(chat_id) => context.chat_id == *chat_id,
+            RouteSource::Keyword(keyword) => context
+                .content
+                .to_lowercase()
+                .contains(&keyword.to_lowercase()),
             RouteSource::Regex(pattern) => {
                 if let Ok(re) = regex::Regex::new(pattern) {
                     re.is_match(&context.content)
@@ -323,7 +325,7 @@ impl AgentRouter {
         if agents.is_empty() {
             return self.get_default().await;
         }
-        
+
         let mut index = self.round_robin_index.write().await;
         let agent = agents[*index % agents.len()].clone();
         *index += 1;
@@ -336,13 +338,13 @@ impl AgentRouter {
         if agents.is_empty() {
             return self.get_default().await;
         }
-        
+
         use std::time::{SystemTime, UNIX_EPOCH};
         let seed = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos() as usize;
-        
+
         let index = seed % agents.len();
         Some(agents[index].clone())
     }
@@ -389,11 +391,11 @@ impl RouterManager {
     /// 创建或获取路由器
     pub async fn get_or_create(&self, name: &str) -> Arc<AgentRouter> {
         let mut routers = self.routers.write().await;
-        
+
         if let Some(router) = routers.get(name) {
             return router.clone();
         }
-        
+
         let router = Arc::new(AgentRouter::new());
         routers.insert(name.to_string(), router.clone());
         router
@@ -425,16 +427,18 @@ mod tests {
     #[tokio::test]
     async fn test_route_by_channel() {
         let router = AgentRouter::new();
-        
-        router.add_rule(RouteRule::new(
-            "telegram-rule",
-            "Telegram 路由",
-            RouteSource::channel_type("telegram"),
-            "agent-telegram".to_string(),
-        )).await;
-        
+
+        router
+            .add_rule(RouteRule::new(
+                "telegram-rule",
+                "Telegram 路由",
+                RouteSource::channel_type("telegram"),
+                "agent-telegram".to_string(),
+            ))
+            .await;
+
         router.set_default_agent("default-agent".to_string()).await;
-        
+
         let context = RouteContext {
             channel_type: "telegram".to_string(),
             user_id: "user1".to_string(),
@@ -442,7 +446,7 @@ mod tests {
             content: "Hello".to_string(),
             metadata: None,
         };
-        
+
         let agent = router.route(&context).await;
         assert_eq!(agent, Some("agent-telegram".to_string()));
     }
@@ -450,16 +454,18 @@ mod tests {
     #[tokio::test]
     async fn test_route_by_keyword() {
         let router = AgentRouter::new();
-        
-        router.add_rule(RouteRule::new(
-            "help-rule",
-            "帮助命令",
-            RouteSource::keyword("help"),
-            "agent-help".to_string(),
-        )).await;
-        
+
+        router
+            .add_rule(RouteRule::new(
+                "help-rule",
+                "帮助命令",
+                RouteSource::keyword("help"),
+                "agent-help".to_string(),
+            ))
+            .await;
+
         router.set_default_agent("default-agent".to_string()).await;
-        
+
         let context = RouteContext {
             channel_type: "telegram".to_string(),
             user_id: "user1".to_string(),
@@ -467,7 +473,7 @@ mod tests {
             content: "Please help me".to_string(),
             metadata: None,
         };
-        
+
         let agent = router.route(&context).await;
         assert_eq!(agent, Some("agent-help".to_string()));
     }
@@ -475,14 +481,16 @@ mod tests {
     #[tokio::test]
     async fn test_round_robin() {
         let router = AgentRouter::new();
-        
+
         router.set_strategy(RouteStrategy::RoundRobin).await;
-        router.set_available_agents(vec![
-            "agent-1".to_string(),
-            "agent-2".to_string(),
-            "agent-3".to_string(),
-        ]).await;
-        
+        router
+            .set_available_agents(vec![
+                "agent-1".to_string(),
+                "agent-2".to_string(),
+                "agent-3".to_string(),
+            ])
+            .await;
+
         let context = RouteContext {
             channel_type: "telegram".to_string(),
             user_id: "user1".to_string(),
@@ -490,12 +498,12 @@ mod tests {
             content: "Hello".to_string(),
             metadata: None,
         };
-        
+
         let agent1 = router.route(&context).await;
         let agent2 = router.route(&context).await;
         let agent3 = router.route(&context).await;
         let agent4 = router.route(&context).await;
-        
+
         assert_eq!(agent1, Some("agent-1".to_string()));
         assert_eq!(agent2, Some("agent-2".to_string()));
         assert_eq!(agent3, Some("agent-3".to_string()));

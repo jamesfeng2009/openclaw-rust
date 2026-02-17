@@ -1,15 +1,14 @@
-use std::path::PathBuf;
-use std::sync::Arc;
 use anyhow::Result;
 use openclaw_memory::{
-    AgentWorkspace, 
-    Bm25Index, 
-    chunk::ChunkManager, 
-    recall_strategy::{RecallStrategy, RecallConfig, RecallItem as RecallStrategyItem},
+    AgentWorkspace, Bm25Index,
+    chunk::ChunkManager,
     file_tracker::{FileTracker, FileTrackerConfig},
     manager::MemoryManager as MemManager,
     recall::RecallResult,
+    recall_strategy::{RecallConfig, RecallItem as RecallStrategyItem, RecallStrategy},
 };
+use std::path::PathBuf;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct MemoryPipelineConfig {
@@ -65,19 +64,16 @@ impl MemoryPipeline {
 
     pub fn initialize(&mut self, agent_id: &str) -> Result<()> {
         let agent_workspace = self.config.workspace_path.join(agent_id);
-        
-        let workspace = AgentWorkspace::new(
-            agent_id.to_string(),
-            agent_workspace.clone(),
-        );
+
+        let workspace = AgentWorkspace::new(agent_id.to_string(), agent_workspace.clone());
         workspace.initialize()?;
-        
+
         self.workspace = Some(Arc::new(workspace));
-        
+
         let index_path = self.config.index_path.join(agent_id).join("bm25");
         let bm25_index = Bm25Index::new(&index_path)?;
         self.bm25_index = Some(Arc::new(bm25_index));
-        
+
         let tracker_config = FileTrackerConfig {
             data_dir: agent_workspace.join(".tracker"),
             index_file: agent_workspace.join(".tracker").join("index.json"),
@@ -85,7 +81,7 @@ impl MemoryPipeline {
         let mut file_tracker = FileTracker::new(tracker_config);
         file_tracker.load()?;
         self.file_tracker = Some(file_tracker);
-        
+
         Ok(())
     }
 
@@ -100,7 +96,7 @@ impl MemoryPipeline {
 
     pub fn recall(&self, query: &str, limit: usize) -> Result<Vec<RecallStrategyItem>> {
         let mut all_items = Vec::new();
-        
+
         if let Some(bm25) = &self.bm25_index {
             let bm25_results = bm25.search(query, limit)?;
             for r in bm25_results {
@@ -116,7 +112,7 @@ impl MemoryPipeline {
                 });
             }
         }
-        
+
         if let Some(memory) = &self.memory_manager {
             let retrieval: RecallResult = futures::executor::block_on(memory.recall(query))?;
             for item in retrieval.items {
@@ -132,9 +128,9 @@ impl MemoryPipeline {
                 });
             }
         }
-        
+
         let reranked = self.recall_strategy.rerank(all_items, query);
-        
+
         Ok(reranked)
     }
 
@@ -147,18 +143,15 @@ impl MemoryPipeline {
 
     pub async fn learn(&self, content: &str, source: &str) -> Result<()> {
         let chunks = self.chunk_manager.chunk_text(content, source)?;
-        
+
         if let Some(bm25) = &self.bm25_index {
             for chunk in chunks {
-                let _ = bm25.add_document(
-                    &chunk.id,
-                    &chunk.content,
-                    source,
-                    chunk.metadata.created_at,
-                ).await;
+                let _ = bm25
+                    .add_document(&chunk.id, &chunk.content, source, chunk.metadata.created_at)
+                    .await;
             }
         }
-        
+
         Ok(())
     }
 
@@ -166,33 +159,37 @@ impl MemoryPipeline {
         if self.workspace.is_none() || self.file_tracker.is_none() {
             return Ok(Vec::new());
         }
-        
+
         let ws_path = self.workspace.as_ref().unwrap().workspace_path();
         let tracker = self.file_tracker.as_mut().unwrap();
-        
+
         let changed = tracker.scan_directory(&ws_path)?;
-        
+
         let mut temp_chunks = Vec::new();
         for path in &changed {
             if let Ok(content) = std::fs::read_to_string(path) {
-                let chunks = self.chunk_manager.chunk_text(&content, &path.to_string_lossy())?;
+                let chunks = self
+                    .chunk_manager
+                    .chunk_text(&content, &path.to_string_lossy())?;
                 temp_chunks.extend(chunks);
             }
         }
-        
+
         if let Some(bm25) = &self.bm25_index {
             for chunk in temp_chunks {
-                let _ = bm25.add_document(
-                    &chunk.id,
-                    &chunk.content,
-                    &chunk.source,
-                    chunk.metadata.created_at,
-                ).await;
+                let _ = bm25
+                    .add_document(
+                        &chunk.id,
+                        &chunk.content,
+                        &chunk.source,
+                        chunk.metadata.created_at,
+                    )
+                    .await;
             }
         }
-        
+
         tracker.save()?;
-        
+
         Ok(changed)
     }
 }

@@ -1,28 +1,37 @@
 //! Agent Trait 和实现
 
 use async_trait::async_trait;
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 
-use openclaw_core::{Message, Result, Content};
-use openclaw_memory::MemoryManager;
 use openclaw_ai::{AIProvider, ChatRequest};
-use openclaw_security::{SecurityPipeline, PipelineResult};
+use openclaw_core::{Content, Message, Result};
+use openclaw_memory::MemoryManager;
+use openclaw_security::{PipelineResult, SecurityPipeline};
 
-use crate::types::{AgentConfig, AgentInfo, AgentStatus, AgentType, Capability};
 use crate::task::{TaskInput, TaskOutput, TaskRequest, TaskResult, TaskStatus};
+use crate::types::{AgentConfig, AgentInfo, AgentStatus, AgentType, Capability};
 
 fn extract_text_from_content(content: &[Content]) -> String {
-    content.iter().map(|c| {
-        match c {
+    content
+        .iter()
+        .map(|c| match c {
             Content::Text { text } => text.clone(),
             Content::Image { url } => format!("[Image: {}]", url),
             Content::Audio { url } => format!("[Audio: {}]", url),
-            Content::ToolCall { id: _, name, arguments: _ } => format!("[Tool: {}]", name),
-            Content::ToolResult { id: _, content: tool_content } => tool_content.clone(),
-        }
-    }).collect::<Vec<_>>().join("\n")
- }
+            Content::ToolCall {
+                id: _,
+                name,
+                arguments: _,
+            } => format!("[Tool: {}]", name),
+            Content::ToolResult {
+                id: _,
+                content: tool_content,
+            } => tool_content.clone(),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
 
 /// Agent Trait - 所有 Agent 必须实现
 #[async_trait]
@@ -91,7 +100,11 @@ impl BaseAgent {
         }
     }
 
-    pub fn from_type(id: impl Into<String>, name: impl Into<String>, agent_type: AgentType) -> Self {
+    pub fn from_type(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        agent_type: AgentType,
+    ) -> Self {
         let config = AgentConfig::new(id, name, agent_type);
         Self::new(config)
     }
@@ -110,14 +123,12 @@ impl BaseAgent {
 
     /// 创建默认的 Coder Agent
     pub fn coder() -> Self {
-        Self::from_type("coder", "Coder", AgentType::Coder)
-            .with_system_prompt(CODER_PROMPT)
+        Self::from_type("coder", "Coder", AgentType::Coder).with_system_prompt(CODER_PROMPT)
     }
 
     /// 创建默认的 Writer Agent
     pub fn writer() -> Self {
-        Self::from_type("writer", "Writer", AgentType::Writer)
-            .with_system_prompt(WRITER_PROMPT)
+        Self::from_type("writer", "Writer", AgentType::Writer).with_system_prompt(WRITER_PROMPT)
     }
 
     /// 创建默认的 Conversationalist Agent
@@ -165,7 +176,10 @@ impl BaseAgent {
                 messages.push(Message::user(format!("```{}\n{}\n```", language, code)));
             }
             TaskInput::Data { data } => {
-                messages.push(Message::user(format!("Data: {}", serde_json::to_string_pretty(data).unwrap_or_default())));
+                messages.push(Message::user(format!(
+                    "Data: {}",
+                    serde_json::to_string_pretty(data).unwrap_or_default()
+                )));
             }
             TaskInput::File { path, content } => {
                 messages.push(Message::user(format!("File: {}\n\n{}", path, content)));
@@ -174,7 +188,10 @@ impl BaseAgent {
                 messages.push(Message::user(format!("Search for: {}", query)));
             }
             TaskInput::ToolCall { name, arguments } => {
-                messages.push(Message::user(format!("Execute tool '{}' with arguments: {}", name, arguments)));
+                messages.push(Message::user(format!(
+                    "Execute tool '{}' with arguments: {}",
+                    name, arguments
+                )));
             }
         }
 
@@ -183,7 +200,10 @@ impl BaseAgent {
 
     /// 获取要使用的模型
     fn get_model(&self) -> String {
-        self.config.model.clone().unwrap_or_else(|| "gpt-4o".to_string())
+        self.config
+            .model
+            .clone()
+            .unwrap_or_else(|| "gpt-4o".to_string())
     }
 }
 
@@ -227,8 +247,9 @@ impl Agent for BaseAgent {
             };
 
             // 输入安全检查
-            let (security_result, _classification) = pipeline.check_input(&session_id, &input_text).await;
-            
+            let (security_result, _classification) =
+                pipeline.check_input(&session_id, &input_text).await;
+
             match security_result {
                 PipelineResult::Block(reason) => {
                     return Ok(TaskResult::failure(
@@ -265,7 +286,11 @@ impl Agent for BaseAgent {
 
         // 记录操作开始（用于自我修复）
         let operation_id = if let Some(pipeline) = &self.security_pipeline {
-            Some(pipeline.start_operation(&session_id, "agent", "process").await)
+            Some(
+                pipeline
+                    .start_operation(&session_id, "agent", "process")
+                    .await,
+            )
         } else {
             None
         };
@@ -284,12 +309,16 @@ impl Agent for BaseAgent {
                 // 安全检查：输出验证
                 let final_output = if let Some(pipeline) = &self.security_pipeline {
                     let output_text = extract_text_from_content(&response.message.content);
-                    let (redacted_output, validation) = pipeline.validate_output(&session_id, &output_text).await;
-                    
+                    let (redacted_output, validation) =
+                        pipeline.validate_output(&session_id, &output_text).await;
+
                     if validation.requires_action {
-                        tracing::warn!("Output validation blocked sensitive data in task {}", task.id);
+                        tracing::warn!(
+                            "Output validation blocked sensitive data in task {}",
+                            task.id
+                        );
                     }
-                    
+
                     redacted_output
                 } else {
                     extract_text_from_content(&response.message.content)
@@ -300,7 +329,14 @@ impl Agent for BaseAgent {
                 // 完成任务
                 if let (Some(pipeline), Some(op_id)) = (&self.security_pipeline, &operation_id) {
                     let duration = Utc::now().signed_duration_since(started_at);
-                    pipeline.complete_operation(&session_id, &op_id, "completed", duration.num_milliseconds() as u64).await;
+                    pipeline
+                        .complete_operation(
+                            &session_id,
+                            &op_id,
+                            "completed",
+                            duration.num_milliseconds() as u64,
+                        )
+                        .await;
                 }
 
                 // 构建任务结果
@@ -308,7 +344,9 @@ impl Agent for BaseAgent {
                     task_id: task.id,
                     agent_id: self.id().to_string(),
                     status: TaskStatus::Completed,
-                    output: Some(TaskOutput::Message { message: openclaw_core::Message::user(final_output) }),
+                    output: Some(TaskOutput::Message {
+                        message: openclaw_core::Message::user(final_output),
+                    }),
                     error: None,
                     started_at,
                     completed_at: Some(Utc::now()),
@@ -323,7 +361,9 @@ impl Agent for BaseAgent {
             Err(e) => {
                 // 标记操作失败
                 if let (Some(pipeline), Some(op_id)) = (&self.security_pipeline, &operation_id) {
-                    pipeline.complete_operation(&session_id, &op_id, &format!("error: {}", e), 0).await;
+                    pipeline
+                        .complete_operation(&session_id, &op_id, &format!("error: {}", e), 0)
+                        .await;
                 }
 
                 Ok(TaskResult::failure(
@@ -336,7 +376,7 @@ impl Agent for BaseAgent {
     }
 
     fn is_available(&self) -> bool {
-        self.config.enabled 
+        self.config.enabled
             && self.status == AgentStatus::Idle
             && self.current_tasks < self.config.max_concurrent_tasks
     }

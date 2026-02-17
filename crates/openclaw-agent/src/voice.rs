@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use openclaw_core::Result;
-use openclaw_voice::{SpeechToText, TextToSpeech, TalkMode, TalkModeConfig, VoiceAgent};
+use openclaw_voice::{SpeechToText, TalkMode, TalkModeConfig, TextToSpeech, VoiceAgent};
 
 pub struct AgentVoice {
     voice_agent: Option<VoiceAgent>,
@@ -42,12 +42,8 @@ impl AgentVoice {
         let mut this = self;
         if let (Some(stt), Some(tts)) = (this.stt.clone(), this.tts.clone()) {
             let talk_config = TalkModeConfig::default();
-            
-            this.voice_agent = Some(VoiceAgent::new(
-                stt,
-                tts,
-                talk_config,
-            ));
+
+            this.voice_agent = Some(VoiceAgent::new(stt, tts, talk_config));
         }
         this
     }
@@ -73,16 +69,18 @@ impl AgentVoice {
     }
 
     pub async fn process_voice_input(&self, audio_data: &[u8]) -> Result<String> {
-        let agent = self.voice_agent.as_ref()
-            .ok_or_else(|| openclaw_core::OpenClawError::Config("Voice agent not initialized".to_string()))?;
-        
+        let agent = self.voice_agent.as_ref().ok_or_else(|| {
+            openclaw_core::OpenClawError::Config("Voice agent not initialized".to_string())
+        })?;
+
         agent.process_audio(audio_data).await
     }
 
     pub async fn synthesize_voice(&self, text: &str) -> Result<Vec<u8>> {
-        let agent = self.voice_agent.as_ref()
-            .ok_or_else(|| openclaw_core::OpenClawError::Config("Voice agent not initialized".to_string()))?;
-        
+        let agent = self.voice_agent.as_ref().ok_or_else(|| {
+            openclaw_core::OpenClawError::Config("Voice agent not initialized".to_string())
+        })?;
+
         agent.speak(text).await
     }
 

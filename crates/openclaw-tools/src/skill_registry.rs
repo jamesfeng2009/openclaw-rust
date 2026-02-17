@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillRegistry {
@@ -274,7 +274,8 @@ impl SkillRegistry {
                 downloads: 1523,
                 rating: 4.5,
                 tags: vec!["爬虫".to_string(), "网页".to_string()],
-                manifest_url: "https://clawhub.example.com/skills/web_scraper/manifest.json".to_string(),
+                manifest_url: "https://clawhub.example.com/skills/web_scraper/manifest.json"
+                    .to_string(),
                 icon_url: None,
             },
         );
@@ -289,7 +290,8 @@ impl SkillRegistry {
                 downloads: 892,
                 rating: 4.2,
                 tags: vec!["PDF".to_string(), "文档".to_string()],
-                manifest_url: "https://clawhub.example.com/skills/pdf_tool/manifest.json".to_string(),
+                manifest_url: "https://clawhub.example.com/skills/pdf_tool/manifest.json"
+                    .to_string(),
                 icon_url: None,
             },
         );
@@ -303,7 +305,11 @@ impl SkillRegistry {
                 author: "Community".to_string(),
                 downloads: 2341,
                 rating: 4.8,
-                tags: vec!["OCR".to_string(), "文字识别".to_string(), "图像".to_string()],
+                tags: vec![
+                    "OCR".to_string(),
+                    "文字识别".to_string(),
+                    "图像".to_string(),
+                ],
                 manifest_url: "https://clawhub.example.com/skills/ocr/manifest.json".to_string(),
                 icon_url: None,
             },
@@ -315,7 +321,9 @@ impl SkillRegistry {
     }
 
     pub fn install_clawhub_skill(&mut self, skill_id: &str) -> Result<SkillMetadata, String> {
-        let clawhub_skill = self.clawhub_skills.get(skill_id)
+        let clawhub_skill = self
+            .clawhub_skills
+            .get(skill_id)
             .ok_or_else(|| format!("ClawHub 技能 {} 不存在", skill_id))?;
 
         let metadata = SkillMetadata {

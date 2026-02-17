@@ -7,77 +7,67 @@ use std::sync::Arc;
 use crate::{Agent, BaseAgent, TaskInput, TaskRequest, TaskType};
 use openclaw_ai::{
     AIProvider,
-    providers::{
-        OpenAIProvider, AnthropicProvider, GeminiProvider,
-        DeepSeekProvider, QwenProvider, GlmProvider,
-        MinimaxProvider, KimiProvider, ProviderConfig,
-        ProviderFactory, ProviderType,
-    },
     models::get_all_models,
+    providers::{
+        AnthropicProvider, DeepSeekProvider, GeminiProvider, GlmProvider, KimiProvider,
+        MinimaxProvider, OpenAIProvider, ProviderConfig, ProviderFactory, ProviderType,
+        QwenProvider,
+    },
 };
 
 // ============== 提供商创建函数 ==============
 
 /// 创建 OpenAI 提供商
 pub fn create_openai_provider(api_key: &str) -> Arc<dyn AIProvider> {
-    let config = ProviderConfig::new("openai", api_key)
-        .with_default_model("gpt-4o");
+    let config = ProviderConfig::new("openai", api_key).with_default_model("gpt-4o");
     Arc::new(OpenAIProvider::new(config))
 }
 
 /// 创建 Anthropic 提供商
 pub fn create_anthropic_provider(api_key: &str) -> Arc<dyn AIProvider> {
-    let config = ProviderConfig::new("anthropic", api_key)
-        .with_default_model("claude-3-7-sonnet");
+    let config = ProviderConfig::new("anthropic", api_key).with_default_model("claude-3-7-sonnet");
     Arc::new(AnthropicProvider::new(config))
 }
 
 /// 创建 Google Gemini 提供商
 pub fn create_gemini_provider(api_key: &str) -> Arc<dyn AIProvider> {
-    let config = ProviderConfig::new("google", api_key)
-        .with_default_model("gemini-2.0-flash");
+    let config = ProviderConfig::new("google", api_key).with_default_model("gemini-2.0-flash");
     Arc::new(GeminiProvider::new(config))
 }
 
 /// 创建 DeepSeek 提供商
 pub fn create_deepseek_provider(api_key: &str) -> Arc<dyn AIProvider> {
-    let config = ProviderConfig::new("deepseek", api_key)
-        .with_default_model("deepseek-chat");
+    let config = ProviderConfig::new("deepseek", api_key).with_default_model("deepseek-chat");
     Arc::new(DeepSeekProvider::new(config))
 }
 
 /// 创建 Qwen 通义千问提供商
 pub fn create_qwen_provider(api_key: &str) -> Arc<dyn AIProvider> {
-    let config = ProviderConfig::new("qwen", api_key)
-        .with_default_model("qwen-plus");
+    let config = ProviderConfig::new("qwen", api_key).with_default_model("qwen-plus");
     Arc::new(QwenProvider::new(config))
 }
 
 /// 创建 GLM 智谱提供商
 pub fn create_glm_provider(api_key: &str) -> Arc<dyn AIProvider> {
-    let config = ProviderConfig::new("glm", api_key)
-        .with_default_model("glm-4-flash");
+    let config = ProviderConfig::new("glm", api_key).with_default_model("glm-4-flash");
     Arc::new(GlmProvider::new(config))
 }
 
 /// 创建 Minimax 提供商
 pub fn create_minimax_provider(api_key: &str) -> Arc<dyn AIProvider> {
-    let config = ProviderConfig::new("minimax", api_key)
-        .with_default_model("abab6.5s-chat");
+    let config = ProviderConfig::new("minimax", api_key).with_default_model("abab6.5s-chat");
     Arc::new(MinimaxProvider::new(config))
 }
 
 /// 创建 Kimi 月之暗面提供商
 pub fn create_kimi_provider(api_key: &str) -> Arc<dyn AIProvider> {
-    let config = ProviderConfig::new("kimi", api_key)
-        .with_default_model("moonshot-v1-128k");
+    let config = ProviderConfig::new("kimi", api_key).with_default_model("moonshot-v1-128k");
     Arc::new(KimiProvider::new(config))
 }
 
 /// 创建 OpenRouter 提供商
 pub fn create_openrouter_provider(api_key: &str) -> Arc<dyn AIProvider> {
-    let config = ProviderConfig::new("openrouter", api_key)
-        .with_default_model("openai/gpt-4o");
+    let config = ProviderConfig::new("openrouter", api_key).with_default_model("openai/gpt-4o");
     match ProviderFactory::create(ProviderType::OpenRouter, config) {
         Ok(provider) => provider,
         Err(e) => panic!("Failed to create OpenRouter provider: {}", e),
@@ -97,14 +87,18 @@ pub fn create_ollama_provider(base_url: Option<&str>) -> Arc<dyn AIProvider> {
 }
 
 /// 使用工厂模式创建提供商 (推荐)
-pub fn create_provider(provider_type: ProviderType, api_key: &str, base_url: Option<&str>) -> Arc<dyn AIProvider> {
+pub fn create_provider(
+    provider_type: ProviderType,
+    api_key: &str,
+    base_url: Option<&str>,
+) -> Arc<dyn AIProvider> {
     let config = ProviderConfig::new(provider_type.to_string(), api_key);
     let config = if let Some(url) = base_url {
         config.with_base_url(url)
     } else {
         config
     };
-    
+
     match ProviderFactory::create(provider_type, config) {
         Ok(provider) => provider,
         Err(e) => panic!("Failed to create provider: {}", e),
@@ -112,7 +106,11 @@ pub fn create_provider(provider_type: ProviderType, api_key: &str, base_url: Opt
 }
 
 /// 从名称创建提供商 (支持动态配置)
-pub fn create_provider_by_name(name: &str, api_key: Option<String>, base_url: Option<String>) -> Result<Arc<dyn AIProvider>, String> {
+pub fn create_provider_by_name(
+    name: &str,
+    api_key: Option<String>,
+    base_url: Option<String>,
+) -> Result<Arc<dyn AIProvider>, String> {
     ProviderFactory::create_from_name(name, api_key, base_url)
 }
 
@@ -157,7 +155,9 @@ pub fn create_writer_agent(provider: Arc<dyn AIProvider>) -> BaseAgent {
 pub fn create_conversation_task(message: &str) -> TaskRequest {
     TaskRequest::new(
         TaskType::Conversation,
-        TaskInput::Text { content: message.to_string() },
+        TaskInput::Text {
+            content: message.to_string(),
+        },
     )
 }
 
@@ -165,7 +165,9 @@ pub fn create_conversation_task(message: &str) -> TaskRequest {
 pub fn create_code_task(description: &str) -> TaskRequest {
     TaskRequest::new(
         TaskType::CodeGeneration,
-        TaskInput::Text { content: description.to_string() },
+        TaskInput::Text {
+            content: description.to_string(),
+        },
     )
 }
 
@@ -173,7 +175,9 @@ pub fn create_code_task(description: &str) -> TaskRequest {
 pub fn create_qa_task(question: &str) -> TaskRequest {
     TaskRequest::new(
         TaskType::QuestionAnswer,
-        TaskInput::Text { content: question.to_string() },
+        TaskInput::Text {
+            content: question.to_string(),
+        },
     )
 }
 
@@ -181,7 +185,9 @@ pub fn create_qa_task(question: &str) -> TaskRequest {
 pub fn create_search_task(query: &str) -> TaskRequest {
     TaskRequest::new(
         TaskType::WebSearch,
-        TaskInput::Text { content: query.to_string() },
+        TaskInput::Text {
+            content: query.to_string(),
+        },
     )
 }
 
@@ -189,7 +195,10 @@ pub fn create_search_task(query: &str) -> TaskRequest {
 
 /// 获取所有支持的模型
 pub fn list_all_models() -> Vec<String> {
-    get_all_models().iter().map(|m| format!("{} ({})", m.id, m.name)).collect()
+    get_all_models()
+        .iter()
+        .map(|m| format!("{} ({})", m.id, m.name))
+        .collect()
 }
 
 /// 获取指定提供商的模型列表
@@ -238,7 +247,7 @@ mod tests {
     #[test]
     fn test_agent_creation() {
         let provider = create_openai_provider("test-key");
-        
+
         let coder = create_coder_agent(provider.clone());
         assert_eq!(coder.id(), "coder");
 

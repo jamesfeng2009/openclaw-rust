@@ -258,7 +258,7 @@ pub struct ElementUpdate {
 pub struct Transform {
     pub translate_x: f64,
     pub translate_y: f64,
-    pub rotate: f64,    // radians
+    pub rotate: f64, // radians
     pub scale_x: f64,
     pub scale_y: f64,
 }
@@ -290,13 +290,31 @@ pub struct UserCursor {
 #[serde(tag = "type")]
 pub enum Tool {
     Select,
-    Pen { stroke: StrokeStyle },
-    Eraser { size: f64 },
-    Line { stroke: StrokeStyle },
-    Rectangle { stroke: Option<StrokeStyle>, fill: Option<FillStyle> },
-    Ellipse { stroke: Option<StrokeStyle>, fill: Option<FillStyle> },
-    Text { font_size: f64, font_family: String, color: Color },
-    Image { data: Option<String> },
+    Pen {
+        stroke: StrokeStyle,
+    },
+    Eraser {
+        size: f64,
+    },
+    Line {
+        stroke: StrokeStyle,
+    },
+    Rectangle {
+        stroke: Option<StrokeStyle>,
+        fill: Option<FillStyle>,
+    },
+    Ellipse {
+        stroke: Option<StrokeStyle>,
+        fill: Option<FillStyle>,
+    },
+    Text {
+        font_size: f64,
+        font_family: String,
+        color: Color,
+    },
+    Image {
+        data: Option<String>,
+    },
     Pan,
     Zoom,
 }

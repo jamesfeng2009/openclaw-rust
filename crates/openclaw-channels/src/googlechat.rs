@@ -135,11 +135,12 @@ impl GoogleChatClient {
     }
 
     /// 发送卡片消息
-    pub async fn send_card(&self, space: &str, cards: Vec<serde_json::Value>) -> Result<GoogleChatSendResponse> {
-        let url = format!(
-            "https://chat.googleapis.com/v1/{}/messages",
-            space
-        );
+    pub async fn send_card(
+        &self,
+        space: &str,
+        cards: Vec<serde_json::Value>,
+    ) -> Result<GoogleChatSendResponse> {
+        let url = format!("https://chat.googleapis.com/v1/{}/messages", space);
 
         let body = GoogleChatSendRequest {
             text: None,
@@ -171,8 +172,8 @@ impl GoogleChatClient {
 
     /// 处理 Webhook 消息
     pub async fn handle_webhook(&self, payload: serde_json::Value) -> Result<ChannelMessage> {
-        let msg: GoogleChatMessage = serde_json::from_value(payload)
-            .map_err(|e| OpenClawError::Serialization(e))?;
+        let msg: GoogleChatMessage =
+            serde_json::from_value(payload).map_err(|e| OpenClawError::Serialization(e))?;
 
         let space = msg.space.as_ref();
         let sender = msg.sender.as_ref();
@@ -217,10 +218,14 @@ impl Channel for GoogleChatClient {
     }
 
     async fn send(&self, message: SendMessage) -> Result<ChannelMessage> {
-        let response = self.send_message(&message.chat_id, &message.content).await?;
+        let response = self
+            .send_message(&message.chat_id, &message.content)
+            .await?;
 
         Ok(ChannelMessage {
-            id: response.name.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+            id: response
+                .name
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
             channel_type: ChannelType::GoogleChat,
             chat_id: message.chat_id,
             user_id: "bot".to_string(),

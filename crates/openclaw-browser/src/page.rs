@@ -24,12 +24,14 @@ impl Page {
     }
 
     /// 导航到 URL
-    pub async fn goto(&self, url: &str, options: Option<NavigationOptions>) -> Result<(), BrowserError> {
+    pub async fn goto(
+        &self,
+        url: &str,
+        options: Option<NavigationOptions>,
+    ) -> Result<(), BrowserError> {
         debug!("页面 {} 导航到: {}", self.id, url);
 
-        let timeout = options
-            .and_then(|o| o.timeout_ms)
-            .unwrap_or(30000);
+        let timeout = options.and_then(|o| o.timeout_ms).unwrap_or(30000);
 
         self.inner
             .goto(url)
@@ -81,9 +83,13 @@ impl Page {
     }
 
     /// 点击元素
-    pub async fn click(&self, selector: &Selector, options: Option<ClickOptions>) -> Result<(), BrowserError> {
+    pub async fn click(
+        &self,
+        selector: &Selector,
+        options: Option<ClickOptions>,
+    ) -> Result<(), BrowserError> {
         let selector_str = self.selector_to_string(selector)?;
-        
+
         debug!("页面 {} 点击元素: {}", self.id, selector_str);
 
         let options = options.unwrap_or_default();
@@ -151,10 +157,7 @@ impl Page {
         let selector_str = self.selector_to_string(selector)?;
 
         // 使用 JavaScript 清除输入框
-        let script = format!(
-            "document.querySelector('{}').value = ''",
-            selector_str
-        );
+        let script = format!("document.querySelector('{}').value = ''", selector_str);
         self.evaluate(&script).await?;
 
         Ok(())
@@ -243,7 +246,10 @@ impl Page {
     }
 
     /// 查找所有元素
-    pub async fn query_selector_all(&self, selector: &Selector) -> Result<Vec<ElementInfo>, BrowserError> {
+    pub async fn query_selector_all(
+        &self,
+        selector: &Selector,
+    ) -> Result<Vec<ElementInfo>, BrowserError> {
         let selector_str = self.selector_to_string(selector)?;
 
         let elements = self
@@ -300,16 +306,10 @@ impl Page {
     /// 滚动页面
     pub async fn scroll(&self, options: ScrollOptions) -> Result<(), BrowserError> {
         if let Some(distance) = options.distance {
-            let script = format!(
-                "window.scrollBy({}, {})",
-                distance.x, distance.y
-            );
+            let script = format!("window.scrollBy({}, {})", distance.x, distance.y);
             self.evaluate(&script).await?;
         } else if let Some(selector) = options.selector {
-            let script = format!(
-                "document.querySelector('{}').scrollIntoView()",
-                selector
-            );
+            let script = format!("document.querySelector('{}').scrollIntoView()", selector);
             self.evaluate(&script).await?;
         }
 
@@ -318,10 +318,7 @@ impl Page {
 
     /// 设置视口大小 (通过 JavaScript 实现)
     pub async fn set_viewport(&self, width: u32, height: u32) -> Result<(), BrowserError> {
-        let script = format!(
-            "window.resizeTo({}, {})",
-            width, height
-        );
+        let script = format!("window.resizeTo({}, {})", width, height);
         self.evaluate(&script).await?;
         Ok(())
     }
@@ -374,9 +371,15 @@ impl Page {
     }
 
     /// 上传文件 (需要额外实现)
-    pub async fn upload_file(&self, _selector: &Selector, files: Vec<String>) -> Result<(), BrowserError> {
+    pub async fn upload_file(
+        &self,
+        _selector: &Selector,
+        files: Vec<String>,
+    ) -> Result<(), BrowserError> {
         debug!("页面 {} 上传文件请求: {:?}", self.id, files);
-        Err(BrowserError::ExecutionFailed("文件上传功能需要额外的实现".to_string()))
+        Err(BrowserError::ExecutionFailed(
+            "文件上传功能需要额外的实现".to_string(),
+        ))
     }
 
     /// 关闭页面
@@ -445,7 +448,10 @@ impl Page {
     }
 
     /// 截图
-    pub async fn screenshot(&self, options: Option<ScreenshotOptions>) -> Result<Vec<u8>, BrowserError> {
+    pub async fn screenshot(
+        &self,
+        options: Option<ScreenshotOptions>,
+    ) -> Result<Vec<u8>, BrowserError> {
         let options = options.unwrap_or_default();
 
         debug!("页面 {} 截图", self.id);
@@ -472,24 +478,32 @@ impl Page {
     }
 
     /// 截图并转为 Base64
-    pub async fn screenshot_base64(&self, options: Option<ScreenshotOptions>) -> Result<String, BrowserError> {
+    pub async fn screenshot_base64(
+        &self,
+        options: Option<ScreenshotOptions>,
+    ) -> Result<String, BrowserError> {
         let data = self.screenshot(options).await?;
-        Ok(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data))
+        Ok(base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            &data,
+        ))
     }
 
     /// 生成 PDF
     pub async fn pdf(&self, options: Option<PdfOptions>) -> Result<Vec<u8>, BrowserError> {
         let options = options.unwrap_or_default();
-        
+
         // 使用 chromiumoxide 的 pdf 方法
         let data = self
             .inner
-            .pdf(chromiumoxide_cdp::cdp::browser_protocol::page::PrintToPdfParams {
-                landscape: Some(options.landscape),
-                print_background: Some(options.print_background),
-                scale: Some(options.scale),
-                ..Default::default()
-            })
+            .pdf(
+                chromiumoxide_cdp::cdp::browser_protocol::page::PrintToPdfParams {
+                    landscape: Some(options.landscape),
+                    print_background: Some(options.print_background),
+                    scale: Some(options.scale),
+                    ..Default::default()
+                },
+            )
             .await
             .map_err(|e| BrowserError::ExecutionFailed(format!("PDF 生成失败: {}", e)))?;
 
@@ -499,6 +513,9 @@ impl Page {
     /// 生成 PDF 并转为 Base64
     pub async fn pdf_base64(&self, options: Option<PdfOptions>) -> Result<String, BrowserError> {
         let data = self.pdf(options).await?;
-        Ok(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data))
+        Ok(base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            &data,
+        ))
     }
 }

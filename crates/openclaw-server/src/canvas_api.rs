@@ -1,19 +1,19 @@
 //! 画布 API 路由
 
 use axum::{
+    Json, Router,
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
         Path, State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
     response::IntoResponse,
     routing::{delete, get, post, put},
-    Json, Router,
 };
 use futures::{SinkExt, StreamExt};
 use openclaw_canvas::{
-    CanvasId, CanvasManager, CanvasOps, CanvasState, CollabEvent, CollabManager,
-    DrawAction, DrawHistory, Element, ElementUpdate, Point, Shape, Tool, UserColorGenerator,
-    UserInfo, UserCursor, Viewport, WsMessage,
+    CanvasId, CanvasManager, CanvasOps, CanvasState, CollabEvent, CollabManager, DrawAction,
+    DrawHistory, Element, ElementUpdate, Point, Shape, Tool, UserColorGenerator, UserCursor,
+    UserInfo, Viewport, WsMessage,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -80,7 +80,11 @@ async fn create_canvas(
 ) -> Json<CreateCanvasResponse> {
     let id = state
         .canvas_manager
-        .create_canvas(req.name, req.width.unwrap_or(1920.0), req.height.unwrap_or(1080.0))
+        .create_canvas(
+            req.name,
+            req.width.unwrap_or(1920.0),
+            req.height.unwrap_or(1080.0),
+        )
         .await;
 
     Json(CreateCanvasResponse { id })
@@ -214,7 +218,10 @@ async fn handle_canvas_ws(socket: WebSocket, state: CanvasApiState, canvas_id: C
     let (mut tx, mut rx) = socket.split();
 
     // 获取或创建协作会话
-    let session = state.collab_manager.get_or_create_session(canvas_id.clone()).await;
+    let session = state
+        .collab_manager
+        .get_or_create_session(canvas_id.clone())
+        .await;
 
     // 生成用户信息
     let user_id = uuid::Uuid::new_v4().to_string();

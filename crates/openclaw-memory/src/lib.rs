@@ -13,37 +13,37 @@
 //! - MEMORY.md: 长期记忆汇总
 
 pub mod ai_adapter;
+pub mod bm25;
+pub mod chunk;
 pub mod compressor;
 pub mod config;
 pub mod embedding;
+pub mod file_tracker;
 pub mod hybrid_search;
 pub mod manager;
 pub mod pruning;
 pub mod recall;
+pub mod recall_strategy;
 pub mod scorer;
 pub mod store;
 pub mod types;
 pub mod working;
 pub mod workspace;
-pub mod bm25;
-pub mod chunk;
-pub mod recall_strategy;
-pub mod file_tracker;
 
+pub use bm25::*;
+pub use chunk::*;
 pub use compressor::*;
 pub use config::*;
 pub use embedding::*;
+pub use file_tracker::*;
 pub use hybrid_search::*;
 pub use manager::*;
 pub use pruning::*;
 pub use recall::*;
+pub use recall_strategy::*;
 pub use scorer::*;
 pub use store::*;
 pub use types::*;
 pub use working::*;
 pub use workspace::*;
 pub use workspace::*;
-pub use bm25::*;
-pub use chunk::*;
-pub use recall_strategy::*;
-pub use file_tracker::*;

@@ -149,7 +149,10 @@ impl ZaloClient {
         let response = self
             .client
             .post(&url)
-            .header("Access-Token", self.config.access_token.as_deref().unwrap_or(""))
+            .header(
+                "Access-Token",
+                self.config.access_token.as_deref().unwrap_or(""),
+            )
             .json(&body)
             .send()
             .await
@@ -179,7 +182,10 @@ impl ZaloClient {
         let response = self
             .client
             .post(url)
-            .header("Access-Token", self.config.access_token.as_deref().unwrap_or(""))
+            .header(
+                "Access-Token",
+                self.config.access_token.as_deref().unwrap_or(""),
+            )
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
@@ -214,9 +220,7 @@ impl Channel for ZaloClient {
 
     async fn start(&mut self) -> Result<()> {
         if self.config.access_token.is_none() {
-            return Err(OpenClawError::Channel(
-                "Zalo access token 未配置".into(),
-            ));
+            return Err(OpenClawError::Channel("Zalo access token 未配置".into()));
         }
 
         *self.running.write().unwrap() = true;

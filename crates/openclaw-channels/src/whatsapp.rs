@@ -65,7 +65,7 @@ impl WhatsAppChannel {
     /// 发送文本消息
     pub async fn send_text(&self, to: &str, text: &str) -> Result<()> {
         let url = self.get_api_url();
-        
+
         let body = json!({
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -89,7 +89,7 @@ impl WhatsAppChannel {
         components: Option<Vec<serde_json::Value>>,
     ) -> Result<()> {
         let url = self.get_api_url();
-        
+
         let mut template = json!({
             "name": template_name,
             "language": {
@@ -115,7 +115,7 @@ impl WhatsAppChannel {
     /// 发送图片消息
     pub async fn send_image(&self, to: &str, image_url: &str, caption: Option<&str>) -> Result<()> {
         let url = self.get_api_url();
-        
+
         let mut image = json!({
             "link": image_url
         });
@@ -144,7 +144,7 @@ impl WhatsAppChannel {
         caption: Option<&str>,
     ) -> Result<()> {
         let url = self.get_api_url();
-        
+
         let mut document = json!({
             "link": document_url,
             "filename": filename
@@ -173,7 +173,7 @@ impl WhatsAppChannel {
         buttons: Vec<WhatsAppButton>,
     ) -> Result<()> {
         let url = self.get_api_url();
-        
+
         let button_rows: Vec<serde_json::Value> = buttons
             .into_iter()
             .enumerate()
@@ -216,7 +216,7 @@ impl WhatsAppChannel {
         sections: Vec<WhatsAppListSection>,
     ) -> Result<()> {
         let url = self.get_api_url();
-        
+
         let body = json!({
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -249,7 +249,10 @@ impl WhatsAppChannel {
         let response = self
             .client
             .post(url)
-            .header("Authorization", format!("Bearer {}", self.config.access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.config.access_token),
+            )
             .header("Content-Type", "application/json")
             .json(body)
             .send()
@@ -270,7 +273,7 @@ impl WhatsAppChannel {
     /// 标记消息为已读
     pub async fn mark_as_read(&self, message_id: &str) -> Result<()> {
         let url = self.get_api_url();
-        
+
         let body = json!({
             "messaging_product": "whatsapp",
             "status": "read",
@@ -371,7 +374,7 @@ impl Channel for WhatsAppChannel {
                     .split(',')
                     .map(|s| s.trim())
                     .collect();
-                
+
                 let buttons: Vec<WhatsAppButton> = button_titles
                     .iter()
                     .enumerate()
@@ -380,8 +383,9 @@ impl Channel for WhatsAppChannel {
                         id: Some(format!("btn_{}", i)),
                     })
                     .collect();
-                
-                self.send_interactive_buttons(to, body_text, buttons).await?;
+
+                self.send_interactive_buttons(to, body_text, buttons)
+                    .await?;
             }
             _ => {
                 // 默认发送文本
@@ -402,8 +406,8 @@ impl Channel for WhatsAppChannel {
 
     async fn health_check(&self) -> Result<bool> {
         // 简单检查配置是否有效
-        Ok(self.config.enabled 
-            && !self.config.phone_number_id.is_empty() 
+        Ok(self.config.enabled
+            && !self.config.phone_number_id.is_empty()
             && !self.config.access_token.is_empty())
     }
 }

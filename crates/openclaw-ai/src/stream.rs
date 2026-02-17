@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use std::pin::Pin;
 
-use openclaw_core::Result;
 use crate::types::StreamChunk;
+use openclaw_core::Result;
 
 /// 流式响应处理器
 pub struct StreamHandler;
@@ -23,7 +23,7 @@ impl StreamHandler {
 
         while let Some(chunk) = stream.next().await {
             let chunk = chunk?;
-            
+
             if id.is_empty() {
                 id = chunk.id.clone();
             }
@@ -117,10 +117,10 @@ impl StreamResult {
 pub trait StreamResponder: Send + Sync {
     /// 发送流式块
     async fn send_chunk(&self, chunk: StreamChunk) -> Result<()>;
-    
+
     /// 发送完成
     async fn send_done(&self) -> Result<()>;
-    
+
     /// 发送错误
     async fn send_error(&self, error: &str) -> Result<()>;
 }

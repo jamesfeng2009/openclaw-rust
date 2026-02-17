@@ -19,7 +19,7 @@ pub trait SpeechToText: Send + Sync {
     fn provider(&self) -> SttProvider;
 
     /// 转录音频数据
-    /// 
+    ///
     /// # 参数
     /// - `audio_data`: 音频数据 (WAV/MP3/M4A 等格式)
     /// - `language`: 语言提示 (可选)
@@ -152,33 +152,38 @@ struct WhisperResponse {
 }
 
 /// Azure Speech STT
- pub struct AzureStt {
-     config: SttConfig,
-     client: Client,
- }
+pub struct AzureStt {
+    config: SttConfig,
+    client: Client,
+}
 
- impl AzureStt {
-     pub fn new(config: SttConfig) -> Self {
-         Self {
-             config,
-             client: Client::new(),
-         }
-     }
+impl AzureStt {
+    pub fn new(config: SttConfig) -> Self {
+        Self {
+            config,
+            client: Client::new(),
+        }
+    }
 
-     fn get_endpoint(&self) -> Result<String> {
-         let region = self.config.azure_region.as_ref()
-             .ok_or_else(|| OpenClawError::Config("Azure region 未配置".to_string()))?;
-         Ok(format!(
-             "https://{}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1",
-             region
-         ))
-     }
+    fn get_endpoint(&self) -> Result<String> {
+        let region = self
+            .config
+            .azure_region
+            .as_ref()
+            .ok_or_else(|| OpenClawError::Config("Azure region 未配置".to_string()))?;
+        Ok(format!(
+            "https://{}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1",
+            region
+        ))
+    }
 
-     fn get_api_key(&self) -> Result<String> {
-         self.config.azure_api_key.clone()
-             .ok_or_else(|| OpenClawError::Config("Azure API Key 未配置".to_string()))
-     }
- }
+    fn get_api_key(&self) -> Result<String> {
+        self.config
+            .azure_api_key
+            .clone()
+            .ok_or_else(|| OpenClawError::Config("Azure API Key 未配置".to_string()))
+    }
+}
 
 #[async_trait]
 impl SpeechToText for AzureStt {
@@ -193,8 +198,10 @@ impl SpeechToText for AzureStt {
     ) -> Result<TranscriptionResult> {
         let api_key = self.get_api_key()?;
         let endpoint = self.get_endpoint()?;
-        
-        let lang = language.or(self.config.language.as_deref()).unwrap_or("zh-CN");
+
+        let lang = language
+            .or(self.config.language.as_deref())
+            .unwrap_or("zh-CN");
 
         let form = reqwest::multipart::Form::new()
             .text("language", lang.to_string())
@@ -207,7 +214,8 @@ impl SpeechToText for AzureStt {
                     .map_err(|e| OpenClawError::Http(format!("创建 multipart 失败: {}", e)))?,
             );
 
-        let response = self.client
+        let response = self
+            .client
             .post(&endpoint)
             .header("Ocp-Apim-Subscription-Key", api_key)
             .multipart(form)
@@ -224,7 +232,9 @@ impl SpeechToText for AzureStt {
             )));
         }
 
-        let result: AzureSttResponse = response.json().await
+        let result: AzureSttResponse = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
 
         Ok(TranscriptionResult {
@@ -262,7 +272,9 @@ impl GoogleStt {
     }
 
     fn get_api_key(&self) -> Result<String> {
-        self.config.google_api_key.clone()
+        self.config
+            .google_api_key
+            .clone()
             .ok_or_else(|| OpenClawError::Config("Google API Key 未配置".to_string()))
     }
 }
@@ -279,7 +291,9 @@ impl SpeechToText for GoogleStt {
         language: Option<&str>,
     ) -> Result<TranscriptionResult> {
         let api_key = self.get_api_key()?;
-        let lang = language.or(self.config.language.as_deref()).unwrap_or("zh-CN");
+        let lang = language
+            .or(self.config.language.as_deref())
+            .unwrap_or("zh-CN");
 
         let audio_base64 = base64::engine::general_purpose::STANDARD.encode(audio_data);
 
@@ -299,7 +313,8 @@ impl SpeechToText for GoogleStt {
             api_key
         );
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request_body)
@@ -316,7 +331,9 @@ impl SpeechToText for GoogleStt {
             )));
         }
 
-        let result: GoogleSttResponse = response.json().await
+        let result: GoogleSttResponse = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
 
         let mut text = String::new();

@@ -54,7 +54,7 @@ pub enum ChannelEvent {
 pub trait ChannelHandler: Send + Sync {
     /// 处理消息
     async fn handle(&self, message: ChannelMessage) -> Result<Option<SendMessage>>;
-    
+
     /// 处理通道事件
     async fn handle_event(&self, event: ChannelEvent) -> Result<()> {
         match event {

@@ -51,13 +51,13 @@ impl NetworkWhitelist {
         allowed_domains.insert("api.minimax.chat".to_string());
         allowed_domains.insert("open.bigmodel.cn".to_string());
         allowed_domains.insert("dashscope.aliyuncs.com".to_string());
-        
+
         let mut allowed_ips = HashSet::new();
         allowed_ips.insert("127.0.0.1".to_string());
-        
+
         let mut denied_ips = HashSet::new();
         denied_ips.insert("169.254.169.254".to_string());
-        
+
         let default_policy = NetworkPolicy {
             allow_all: false,
             allowed_domains,
@@ -70,7 +70,7 @@ impl NetworkWhitelist {
         };
 
         let mut tool_policies = HashMap::new();
-        
+
         let browser_policy = NetworkPolicy {
             allow_all: false,
             allowed_domains: vec!["*".to_string()].into_iter().collect(),
@@ -91,14 +91,18 @@ impl NetworkWhitelist {
                 "api.deepseek.com".to_string(),
                 "*.openai.com".to_string(),
                 "*.anthropic.com".to_string(),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
             allowed_ips: HashSet::new(),
             allowed_ports: vec![443].into_iter().collect(),
             denied_domains: HashSet::new(),
             denied_ips: vec![
                 "169.254.169.254".to_string(),
                 "metadata.google.internal".to_string(),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
             max_request_size: 10 * 1024 * 1024,
             timeout_seconds: 30,
         };
@@ -115,37 +119,56 @@ impl NetworkWhitelist {
         }
     }
 
-    pub async fn check_request(&self, tool_id: &str, host: &str, port: u16, _path: Option<&str>) -> NetworkDecision {
+    pub async fn check_request(
+        &self,
+        tool_id: &str,
+        host: &str,
+        port: u16,
+        _path: Option<&str>,
+    ) -> NetworkDecision {
         let config = self.config.read().await;
-        
+
         if !config.enabled {
             return NetworkDecision::Allow;
         }
-        
-        let policy = config.tool_policies.get(tool_id)
+
+        let policy = config
+            .tool_policies
+            .get(tool_id)
             .unwrap_or(&config.default_policy);
-        
+
         if policy.allow_all {
             return NetworkDecision::Allow;
         }
-        
+
         if self.is_denied(host, &policy.denied_domains, &policy.denied_ips) {
             warn!("Network request denied by deny list: {:?}", host);
             return NetworkDecision::Deny;
         }
-        
-        if self.is_allowed(host, port, &policy.allowed_domains, &policy.allowed_ips, &policy.allowed_ports) {
+
+        if self.is_allowed(
+            host,
+            port,
+            &policy.allowed_domains,
+            &policy.allowed_ips,
+            &policy.allowed_ports,
+        ) {
             debug!("Network request allowed: {}:{}", host, port);
             return NetworkDecision::Allow;
         }
-        
+
         warn!("Network request not in whitelist: {}:{:?}", host, port);
         NetworkDecision::Deny
     }
 
-    fn is_denied(&self, host: &str, denied_domains: &HashSet<String>, denied_ips: &HashSet<String>) -> bool {
+    fn is_denied(
+        &self,
+        host: &str,
+        denied_domains: &HashSet<String>,
+        denied_ips: &HashSet<String>,
+    ) -> bool {
         let host_lower = host.to_lowercase();
-        
+
         for pattern in denied_domains {
             if pattern.starts_with("*.") {
                 let suffix = &pattern[2..];
@@ -156,32 +179,39 @@ impl NetworkWhitelist {
                 return true;
             }
         }
-        
+
         for ip in denied_ips {
             if host == ip {
                 return true;
             }
         }
-        
+
         false
     }
 
-    fn is_allowed(&self, host: &str, port: u16, allowed_domains: &HashSet<String>, allowed_ips: &HashSet<String>, allowed_ports: &HashSet<u16>) -> bool {
+    fn is_allowed(
+        &self,
+        host: &str,
+        port: u16,
+        allowed_domains: &HashSet<String>,
+        allowed_ips: &HashSet<String>,
+        allowed_ports: &HashSet<u16>,
+    ) -> bool {
         if !allowed_ports.is_empty() && !allowed_ports.contains(&port) {
             return false;
         }
-        
+
         if allowed_ips.contains(&host.to_string()) {
             return true;
         }
-        
+
         let host_lower = host.to_lowercase();
-        
+
         for pattern in allowed_domains {
             if pattern == "*" {
                 return true;
             }
-            
+
             if pattern.starts_with("*.") {
                 let suffix = &pattern[2..];
                 if host_lower.ends_with(suffix) || host_lower == suffix {
@@ -191,7 +221,7 @@ impl NetworkWhitelist {
                 return true;
             }
         }
-        
+
         false
     }
 

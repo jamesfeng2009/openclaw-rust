@@ -208,11 +208,7 @@ impl DmPolicyManager {
     }
 
     /// 获取或创建账户策略
-    pub async fn get_or_create_policy(
-        &self,
-        account_id: &str,
-        channel: &str,
-    ) -> AccountDmPolicy {
+    pub async fn get_or_create_policy(&self, account_id: &str, channel: &str) -> AccountDmPolicy {
         let key = format!("{}:{}", channel, account_id);
 
         let mut policies = self.account_policies.write().await;
@@ -236,13 +232,17 @@ impl DmPolicyManager {
             account_policy.policy = policy;
             account_policy.override_default = true;
         } else {
-            let mut account_policy = AccountDmPolicy::new(account_id.to_string(), channel.to_string());
+            let mut account_policy =
+                AccountDmPolicy::new(account_id.to_string(), channel.to_string());
             account_policy.policy = policy;
             account_policy.override_default = true;
             policies.insert(key, account_policy);
         }
 
-        info!("设置账户 {} 在 {} 的 DM 策略: {:?}", account_id, channel, policy);
+        info!(
+            "设置账户 {} 在 {} 的 DM 策略: {:?}",
+            account_id, channel, policy
+        );
     }
 
     /// 检查用户是否可以发送消息
@@ -340,12 +340,7 @@ impl DmPolicyManager {
     }
 
     /// 检查限流
-    pub async fn check_rate_limit(
-        &self,
-        account_id: &str,
-        channel: &str,
-        user_id: &str,
-    ) -> bool {
+    pub async fn check_rate_limit(&self, account_id: &str, channel: &str, user_id: &str) -> bool {
         let key = format!("{}:{}", channel, account_id);
 
         let mut policies = self.account_policies.write().await;
@@ -357,12 +352,7 @@ impl DmPolicyManager {
     }
 
     /// 添加到黑名单
-    pub async fn add_to_blocked(
-        &self,
-        account_id: &str,
-        channel: &str,
-        user_id: &str,
-    ) {
+    pub async fn add_to_blocked(&self, account_id: &str, channel: &str, user_id: &str) {
         let key = format!("{}:{}", channel, account_id);
 
         let mut policies = self.account_policies.write().await;
@@ -373,12 +363,7 @@ impl DmPolicyManager {
     }
 
     /// 添加到白名单
-    pub async fn add_to_allowed(
-        &self,
-        account_id: &str,
-        channel: &str,
-        user_id: &str,
-    ) {
+    pub async fn add_to_allowed(&self, account_id: &str, channel: &str, user_id: &str) {
         let key = format!("{}:{}", channel, account_id);
 
         let mut policies = self.account_policies.write().await;

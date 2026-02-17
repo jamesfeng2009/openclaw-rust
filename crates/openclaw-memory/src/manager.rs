@@ -5,13 +5,13 @@ use std::sync::Arc;
 use openclaw_core::{Message, OpenClawError, Result};
 use openclaw_vector::VectorStore;
 
-use crate::types::{MemoryConfig, MemoryItem, MemoryContent, MemoryLevel, MemoryRetrieval};
 use crate::compressor::MemoryCompressor;
-use crate::scorer::ImportanceScorer;
-use crate::working::WorkingMemory;
-use crate::hybrid_search::{HybridSearchManager, HybridSearchConfig};
 use crate::embedding::EmbeddingProvider;
+use crate::hybrid_search::{HybridSearchConfig, HybridSearchManager};
 use crate::recall::{MemoryRecall, RecallResult, SimpleMemoryRecall};
+use crate::scorer::ImportanceScorer;
+use crate::types::{MemoryConfig, MemoryContent, MemoryItem, MemoryLevel, MemoryRetrieval};
+use crate::working::WorkingMemory;
 
 /// 记忆管理器 - 统一管理三层记忆
 pub struct MemoryManager {
@@ -64,7 +64,9 @@ impl MemoryManager {
             let result = recall_tool.recall(query, None).await?;
             Ok(result)
         } else {
-            Err(OpenClawError::Memory("Embedding provider not configured".to_string()))
+            Err(OpenClawError::Memory(
+                "Embedding provider not configured".to_string(),
+            ))
         }
     }
 
@@ -86,7 +88,8 @@ impl MemoryManager {
                 if let Some(old_summary) = self.short_term.first().cloned() {
                     if self.config.long_term.enabled {
                         if let Some(store) = &self.long_term {
-                            self.archive_to_long_term(store.as_ref(), old_summary).await?;
+                            self.archive_to_long_term(store.as_ref(), old_summary)
+                                .await?;
                         }
                     }
                     self.short_term.remove(0);
@@ -126,13 +129,15 @@ impl MemoryManager {
             if let Some(search) = &self.hybrid_search {
                 let config = HybridSearchConfig::default();
                 if let Ok(results) = search.search(_query, None, &config).await {
-                     for result in results {
-                         let content_preview = result.payload.get("content")
-                             .and_then(|v| v.as_str())
-                             .unwrap_or("")
-                             .to_string();
-                         
-                         let token_count = content_preview.len() / 4;
+                    for result in results {
+                        let content_preview = result
+                            .payload
+                            .get("content")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+
+                        let token_count = content_preview.len() / 4;
                         let memory_item = MemoryItem {
                             id: uuid::Uuid::new_v4(),
                             level: MemoryLevel::LongTerm,
@@ -147,7 +152,7 @@ impl MemoryManager {
                             token_count,
                             metadata: crate::types::MemoryMetadata::default(),
                         };
-                        
+
                         if current_tokens + token_count <= max_tokens {
                             retrieval.add(memory_item);
                             current_tokens += token_count;
@@ -180,7 +185,7 @@ impl MemoryManager {
     pub async fn clear(&mut self) -> Result<()> {
         self.working.clear();
         self.short_term.clear();
-        
+
         if let Some(store) = &self.long_term {
             store.clear().await?;
         }
@@ -196,7 +201,7 @@ impl MemoryManager {
     ) -> Result<()> {
         let text = item.content.to_text();
         let vector_id = item.id.to_string();
-        
+
         let embedding = if let Some(provider) = &self.embedding_provider {
             provider.embed(&text).await?
         } else {
@@ -219,10 +224,14 @@ impl MemoryManager {
 
         item.content = crate::types::MemoryContent::VectorRef {
             vector_id,
-            preview: if text.len() > 200 { format!("{}...", &text[..200]) } else { text },
+            preview: if text.len() > 200 {
+                format!("{}...", &text[..200])
+            } else {
+                text
+            },
         };
         item.level = MemoryLevel::LongTerm;
-        
+
         Ok(())
     }
 }
@@ -262,18 +271,18 @@ mod tests {
     #[test]
     fn test_memory_content_to_text() {
         use crate::types::MemoryContent;
-        
+
         let content = MemoryContent::Message {
             message: Message::user("Hello"),
         };
         assert_eq!(content.to_text(), "Hello");
-        
+
         let summary = MemoryContent::Summary {
             text: "Summary text".to_string(),
             original_count: 5,
         };
         assert_eq!(summary.to_text(), "Summary text");
-        
+
         let vector_ref = MemoryContent::VectorRef {
             vector_id: "123".to_string(),
             preview: "Preview text".to_string(),

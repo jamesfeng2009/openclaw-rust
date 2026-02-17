@@ -15,19 +15,22 @@ pub struct OllamaProvider(OpenAICompatibleProvider);
 impl OllamaProvider {
     /// 创建新的 Ollama 提供商
     pub fn new(config: ProviderConfig) -> Self {
-        Self(OpenAICompatibleProvider::new(config, ProviderInfo {
-            name: "ollama",
-            default_base_url: "http://localhost:11434",
-            default_models: &[
-                "llama3.1",
-                "llama3",
-                "mistral",
-                "codellama",
-                "phi3",
-                "qwen2.5",
-                "glm4",
-            ],
-        }))
+        Self(OpenAICompatibleProvider::new(
+            config,
+            ProviderInfo {
+                name: "ollama",
+                default_base_url: "http://localhost:11434",
+                default_models: &[
+                    "llama3.1",
+                    "llama3",
+                    "mistral",
+                    "codellama",
+                    "phi3",
+                    "qwen2.5",
+                    "glm4",
+                ],
+            },
+        ))
     }
 }
 
@@ -41,7 +44,10 @@ impl AIProvider for OllamaProvider {
         self.0.chat(request).await
     }
 
-    async fn chat_stream(&self, request: ChatRequest) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
+    async fn chat_stream(
+        &self,
+        request: ChatRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
         self.0.chat_stream(request).await
     }
 

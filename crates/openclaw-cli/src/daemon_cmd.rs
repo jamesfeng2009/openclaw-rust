@@ -13,8 +13,8 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 use tracing::{debug, error, info, warn};
@@ -64,19 +64,17 @@ impl Default for DaemonConfig {
 impl DaemonConfig {
     /// 从配置文件加载
     pub fn from_file(path: &PathBuf) -> Result<Self> {
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("读取配置文件失败: {:?}", path))?;
-        let config: DaemonConfig = serde_json::from_str(&content)
-            .with_context(|| "解析配置文件失败")?;
+        let content =
+            fs::read_to_string(path).with_context(|| format!("读取配置文件失败: {:?}", path))?;
+        let config: DaemonConfig =
+            serde_json::from_str(&content).with_context(|| "解析配置文件失败")?;
         Ok(config)
     }
 
     /// 保存到配置文件
     pub fn save_to_file(&self, path: &PathBuf) -> Result<()> {
-        let content = serde_json::to_string_pretty(self)
-            .with_context(|| "序列化配置失败")?;
-        fs::write(path, content)
-            .with_context(|| format!("写入配置文件失败: {:?}", path))?;
+        let content = serde_json::to_string_pretty(self).with_context(|| "序列化配置失败")?;
+        fs::write(path, content).with_context(|| format!("写入配置文件失败: {:?}", path))?;
         Ok(())
     }
 
@@ -85,7 +83,13 @@ impl DaemonConfig {
         Self {
             name: "openclaw-gateway".to_string(),
             executable: "openclaw-rust".to_string(),
-            args: vec!["gateway".to_string(), "--port".to_string(), port.to_string(), "--host".to_string(), host.to_string()],
+            args: vec![
+                "gateway".to_string(),
+                "--port".to_string(),
+                port.to_string(),
+                "--host".to_string(),
+                host.to_string(),
+            ],
             auto_restart: true,
             restart_delay: 5,
             max_restarts: 10,
@@ -189,7 +193,8 @@ impl DaemonManager {
             cmd.stderr(Stdio::null());
         }
 
-        let child = cmd.spawn()
+        let child = cmd
+            .spawn()
             .with_context(|| format!("启动进程失败: {}", self.config.executable))?;
 
         self.process = Some(child);
@@ -206,7 +211,10 @@ impl DaemonManager {
             }
         }
 
-        info!("守护进程已启动, PID: {:?}", self.process.as_ref().map(|p| p.id()));
+        info!(
+            "守护进程已启动, PID: {:?}",
+            self.process.as_ref().map(|p| p.id())
+        );
         Ok(())
     }
 
@@ -230,7 +238,7 @@ impl DaemonManager {
                     .arg("-TERM")
                     .arg(child.id().to_string())
                     .status();
-                
+
                 // 等待进程退出
                 for _ in 0..10 {
                     match child.try_wait() {
@@ -272,11 +280,11 @@ impl DaemonManager {
     pub fn restart(&mut self) -> Result<()> {
         info!("重启守护进程: {}", self.config.name);
         self.stop()?;
-        
+
         if self.config.restart_delay > 0 {
             thread::sleep(Duration::from_secs(self.config.restart_delay));
         }
-        
+
         self.restart_count += 1;
         self.start()
     }
@@ -292,14 +300,18 @@ impl DaemonManager {
                     } else {
                         warn!("守护进程异常退出: {:?}", status);
                     }
-                    
+
                     self.status = DaemonStatus::Crashed;
                     self.process = None;
 
                     // 自动重启
                     if self.config.auto_restart && self.restart_count < self.config.max_restarts {
-                        info!("尝试自动重启 ({}/{})", self.restart_count + 1, self.config.max_restarts);
-                        
+                        info!(
+                            "尝试自动重启 ({}/{})",
+                            self.restart_count + 1,
+                            self.config.max_restarts
+                        );
+
                         if self.restart_delay() {
                             self.restart_count += 1;
                             if self.start().is_ok() {
@@ -392,15 +404,25 @@ impl LaunchAgentConfig {
             program_arguments: args,
             run_at_load: true,
             keep_alive: config.auto_restart,
-            standard_out_path: config.log_file.as_ref().map(|p| p.to_string_lossy().to_string()),
-            standard_error_path: config.log_file.as_ref().map(|p| p.to_string_lossy().to_string()),
-            working_directory: config.working_dir.as_ref().map(|p| p.to_string_lossy().to_string()),
+            standard_out_path: config
+                .log_file
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string()),
+            standard_error_path: config
+                .log_file
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string()),
+            working_directory: config
+                .working_dir
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string()),
         }
     }
 
     /// 生成 plist 文件内容
     pub fn to_plist(&self) -> Result<String> {
-        let mut plist = format!(r#"<?xml version="1.0" encoding="UTF-8"?>
+        let mut plist = format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -408,17 +430,21 @@ impl LaunchAgentConfig {
     <string>{}</string>
     <key>ProgramArguments</key>
     <array>
-"#, self.label);
+"#,
+            self.label
+        );
 
         for arg in &self.program_arguments {
             plist.push_str(&format!("        <string>{}</string>\n", arg));
         }
 
-        plist.push_str(r#"    </array>
+        plist.push_str(
+            r#"    </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-"#);
+"#,
+        );
 
         plist.push_str(&format!(
             "    <{}/>\n",
@@ -443,9 +469,11 @@ impl LaunchAgentConfig {
             ));
         }
 
-        plist.push_str(r#"</dict>
+        plist.push_str(
+            r#"</dict>
 </plist>
-"#);
+"#,
+        );
 
         Ok(plist)
     }
@@ -453,7 +481,10 @@ impl LaunchAgentConfig {
     /// 获取 LaunchAgent 文件路径
     pub fn get_plist_path(&self) -> PathBuf {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-        PathBuf::from(format!("{}/Library/LaunchAgents/{}.plist", home, self.label))
+        PathBuf::from(format!(
+            "{}/Library/LaunchAgents/{}.plist",
+            home, self.label
+        ))
     }
 
     /// 安装 LaunchAgent
@@ -463,8 +494,7 @@ impl LaunchAgentConfig {
 
         // 确保目录存在
         if let Some(parent) = plist_path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("创建目录失败: {:?}", parent))?;
+            fs::create_dir_all(parent).with_context(|| format!("创建目录失败: {:?}", parent))?;
         }
 
         // 写入 plist 文件
@@ -528,18 +558,21 @@ pub struct SystemdServiceConfig {
 impl SystemdServiceConfig {
     /// 从 Daemon 配置创建
     pub fn from_daemon_config(config: &DaemonConfig) -> Self {
-        let exec_start = format!(
-            "{} {}",
-            config.executable,
-            config.args.join(" ")
-        );
+        let exec_start = format!("{} {}", config.executable, config.args.join(" "));
 
         Self {
             unit_name: format!("{}.service", config.name),
             description: format!("OpenClaw {}", config.name),
             exec_start,
-            working_directory: config.working_dir.as_ref().map(|p| p.to_string_lossy().to_string()),
-            restart: if config.auto_restart { "always".to_string() } else { "no".to_string() },
+            working_directory: config
+                .working_dir
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string()),
+            restart: if config.auto_restart {
+                "always".to_string()
+            } else {
+                "no".to_string()
+            },
             user: None,
             after: vec!["network.target".to_string()],
         }
@@ -592,9 +625,7 @@ Restart={}
                 .with_context(|| format!("写入 service 文件失败: {:?}", service_path))?;
 
             // 重新加载 systemd
-            let _ = Command::new("systemctl")
-                .arg("daemon-reload")
-                .status();
+            let _ = Command::new("systemctl").arg("daemon-reload").status();
 
             // 启用服务
             let _ = Command::new("systemctl")
@@ -637,9 +668,7 @@ Restart={}
             }
 
             // 重新加载 systemd
-            let _ = Command::new("systemctl")
-                .arg("daemon-reload")
-                .status();
+            let _ = Command::new("systemctl").arg("daemon-reload").status();
 
             info!("Systemd 服务已卸载");
         }
@@ -681,7 +710,7 @@ pub async fn execute(cmd: DaemonCommand) -> Result<()> {
             let config = DaemonConfig::gateway(port, &host);
             let mut manager = DaemonManager::new(config);
             manager.start()?;
-            
+
             // 保持运行
             loop {
                 manager.check();
@@ -693,7 +722,7 @@ pub async fn execute(cmd: DaemonCommand) -> Result<()> {
             let pid_path = get_default_pid_path();
             if pid_path.exists() {
                 let pid: u32 = fs::read_to_string(&pid_path)?.trim().parse()?;
-                
+
                 #[cfg(unix)]
                 {
                     let _ = Command::new("kill")
@@ -701,7 +730,7 @@ pub async fn execute(cmd: DaemonCommand) -> Result<()> {
                         .arg(pid.to_string())
                         .status();
                 }
-                
+
                 println!("守护进程已停止");
             } else {
                 println!("守护进程未运行");

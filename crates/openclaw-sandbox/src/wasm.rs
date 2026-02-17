@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn, error};
+use tracing::{debug, error, info, warn};
 use wasmtime::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,7 +65,7 @@ impl WasmExecutionResult {
             execution_time_ms: 0,
         }
     }
-    
+
     pub fn error(msg: &str) -> Self {
         Self {
             success: false,
@@ -87,13 +87,17 @@ impl WasmToolRuntime {
         let mut engine_config = Config::new();
         engine_config.max_wasm_stack(config.compute_limit as usize);
 
-        let engine = Engine::new(&engine_config)
-            .map_err(|e| WasmError::InitFailed(e.to_string()))?;
+        let engine =
+            Engine::new(&engine_config).map_err(|e| WasmError::InitFailed(e.to_string()))?;
 
         Ok(Self { engine, config })
     }
 
-    pub async fn load_module(&self, wasm_bytes: &[u8], name: &str) -> Result<WasmToolModule, WasmError> {
+    pub async fn load_module(
+        &self,
+        wasm_bytes: &[u8],
+        name: &str,
+    ) -> Result<WasmToolModule, WasmError> {
         let module = Module::from_binary(&self.engine, wasm_bytes)
             .map_err(|e| WasmError::LoadFailed(e.to_string()))?;
 
@@ -132,7 +136,7 @@ impl WasmToolRuntime {
         if let Some(func) = instance.get_func(&mut store, function_name) {
             let params_json = input.params.to_string();
             let params_ptr = params_json.as_bytes();
-            
+
             if let Some(memory) = memory {
                 if let Some(alloc_func) = instance.get_func(&mut store, "alloc") {
                     let mut alloc_result = [wasmtime::Val::I64(0)];
@@ -144,17 +148,20 @@ impl WasmToolRuntime {
                         let mut memory_view = memory.data_mut(&mut store);
                         if ptr + params_ptr.len() <= memory_view.len() {
                             memory_view[ptr..ptr + params_ptr.len()].copy_from_slice(params_ptr);
-                            
+
                             let call_result = func.call(
                                 &mut store,
-                                &[wasmtime::Val::I32(ptr as i32), wasmtime::Val::I32(params_ptr.len() as i32)],
-                                &mut []
+                                &[
+                                    wasmtime::Val::I32(ptr as i32),
+                                    wasmtime::Val::I32(params_ptr.len() as i32),
+                                ],
+                                &mut [],
                             );
-                            
+
                             let exec_time = start.elapsed().as_millis() as u64;
                             let call_ok = call_result.is_ok();
                             let call_err = call_result.err();
-                            
+
                             return Ok(WasmExecutionResult {
                                 success: call_ok,
                                 output: if call_ok {
@@ -253,27 +260,32 @@ impl WasmToolRegistry {
         Ok(())
     }
 
-    pub async fn execute_tool(&self, name: &str, input: &WasmExecutionInput) -> Result<WasmExecutionResult, WasmError> {
+    pub async fn execute_tool(
+        &self,
+        name: &str,
+        input: &WasmExecutionInput,
+    ) -> Result<WasmExecutionResult, WasmError> {
         let module = {
             let modules = self.modules.read().await;
-            modules.get(name).cloned().ok_or_else(|| {
-                WasmError::ExecutionFailed(format!("Tool '{}' not found", name))
-            })?
+            modules
+                .get(name)
+                .cloned()
+                .ok_or_else(|| WasmError::ExecutionFailed(format!("Tool '{}' not found", name)))?
         };
-        
+
         let runtime = self.runtime.clone();
         let input = input.clone();
-        
-        tokio::task::spawn_blocking(move || {
-            runtime.execute(&module, &input)
-        }).await.map_err(|e| WasmError::ExecutionFailed(format!("Task join error: {:?}", e)))?
+
+        tokio::task::spawn_blocking(move || runtime.execute(&module, &input))
+            .await
+            .map_err(|e| WasmError::ExecutionFailed(format!("Task join error: {:?}", e)))?
     }
 
     pub async fn list_tools(&self) -> Vec<String> {
         let modules = self.modules.read().await;
         modules.keys().cloned().collect()
     }
-    
+
     pub async fn get_tool_info(&self, name: &str) -> Option<WasmToolMetadata> {
         let modules = self.modules.read().await;
         modules.get(name).map(|m| WasmToolMetadata {

@@ -3,10 +3,12 @@
 //! 提供 WASM 模块的加载和执行能力
 
 use crate::types::*;
-use openclaw_sandbox::wasm::{WasmExecutionInput, WasmExecutionResult, WasmToolConfig, WasmToolRegistry, WasmError};
+use openclaw_sandbox::wasm::{
+    WasmError, WasmExecutionInput, WasmExecutionResult, WasmToolConfig, WasmToolRegistry,
+};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error, debug};
+use tracing::{debug, error, info, warn};
 
 pub struct WasmToolExecutor {
     registry: Arc<WasmToolRegistry>,
@@ -41,8 +43,14 @@ impl WasmToolExecutor {
                         error: result.error,
                         metadata: {
                             let mut m = std::collections::HashMap::new();
-                            m.insert("memory_used".to_string(), format!("{} bytes", result.memory_used_bytes));
-                            m.insert("execution_time".to_string(), format!("{} ms", result.execution_time_ms));
+                            m.insert(
+                                "memory_used".to_string(),
+                                format!("{} bytes", result.memory_used_bytes),
+                            );
+                            m.insert(
+                                "execution_time".to_string(),
+                                format!("{} ms", result.execution_time_ms),
+                            );
                             m
                         },
                     }
@@ -80,18 +88,24 @@ impl WasmToolExecutor {
             parameters: ToolParameters {
                 properties: {
                     let mut props = std::collections::HashMap::new();
-                    props.insert("function".to_string(), ParameterProperty {
-                        param_type: "string".to_string(),
-                        description: "Function to execute".to_string(),
-                        enum_values: vec![],
-                        default: Some(serde_json::Value::String("run".to_string())),
-                    });
-                    props.insert("params".to_string(), ParameterProperty {
-                        param_type: "object".to_string(),
-                        description: "Function parameters".to_string(),
-                        enum_values: vec![],
-                        default: None,
-                    });
+                    props.insert(
+                        "function".to_string(),
+                        ParameterProperty {
+                            param_type: "string".to_string(),
+                            description: "Function to execute".to_string(),
+                            enum_values: vec![],
+                            default: Some(serde_json::Value::String("run".to_string())),
+                        },
+                    );
+                    props.insert(
+                        "params".to_string(),
+                        ParameterProperty {
+                            param_type: "object".to_string(),
+                            description: "Function parameters".to_string(),
+                            enum_values: vec![],
+                            default: None,
+                        },
+                    );
                     props
                 },
                 required: vec!["function".to_string()],

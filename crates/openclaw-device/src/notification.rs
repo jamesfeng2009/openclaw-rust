@@ -8,13 +8,18 @@ impl NotificationManager {
         Self
     }
 
-    pub async fn send_notification(&self, title: &str, body: &str, icon: Option<&str>) -> Result<NotificationResult, DeviceError> {
+    pub async fn send_notification(
+        &self,
+        title: &str,
+        body: &str,
+        icon: Option<&str>,
+    ) -> Result<NotificationResult, DeviceError> {
         let notification_id = uuid::Uuid::new_v4().to_string();
-        
+
         #[cfg(target_os = "macos")]
         {
             let icon_arg = icon.unwrap_or("SF Symbols:bell.fill");
-            
+
             let output = Command::new("osascript")
                 .args([
                     "-e",
@@ -68,7 +73,11 @@ impl NotificationManager {
         }
     }
 
-    pub async fn send_system_notification(&self, title: &str, message: &str) -> Result<NotificationResult, DeviceError> {
+    pub async fn send_system_notification(
+        &self,
+        title: &str,
+        message: &str,
+    ) -> Result<NotificationResult, DeviceError> {
         self.send_notification(title, message, None).await
     }
 }

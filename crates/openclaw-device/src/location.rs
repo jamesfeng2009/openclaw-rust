@@ -11,7 +11,7 @@ impl LocationManager {
 
     pub async fn get_location(&self) -> Result<LocationResult, DeviceError> {
         let timestamp = Utc::now().timestamp_millis();
-        
+
         #[cfg(target_os = "macos")]
         {
             let output = Command::new("coreutilelocation")
@@ -26,7 +26,9 @@ impl LocationManager {
             if let Ok(output) = output {
                 if output.status.success() {
                     let output_str = String::from_utf8_lossy(&output.stdout);
-                    if let (Some(lat), Some(lon)) = (self.parse_lat(&output_str), self.parse_lon(&output_str)) {
+                    if let (Some(lat), Some(lon)) =
+                        (self.parse_lat(&output_str), self.parse_lon(&output_str))
+                    {
                         return Ok(LocationResult {
                             success: true,
                             latitude: Some(lat),
@@ -69,26 +71,14 @@ impl LocationManager {
         output
             .lines()
             .find(|line| line.contains("latitude") || line.contains("lat"))
-            .and_then(|line| {
-                line.split(':')
-                    .nth(1)?
-                    .trim()
-                    .parse::<f64>()
-                    .ok()
-            })
+            .and_then(|line| line.split(':').nth(1)?.trim().parse::<f64>().ok())
     }
 
     fn parse_lon(&self, output: &str) -> Option<f64> {
         output
             .lines()
             .find(|line| line.contains("longitude") || line.contains("lon"))
-            .and_then(|line| {
-                line.split(':')
-                    .nth(1)?
-                    .trim()
-                    .parse::<f64>()
-                    .ok()
-            })
+            .and_then(|line| line.split(':').nth(1)?.trim().parse::<f64>().ok())
     }
 
     pub fn is_available(&self) -> bool {

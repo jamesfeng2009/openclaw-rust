@@ -91,20 +91,25 @@ end tell
         } else {
             let error_msg = String::from_utf8_lossy(&output.stderr).to_string();
             error!("iMessage 发送失败: {}", error_msg);
-            
+
             // 如果 iMessage 失败，尝试短信回退
             if self.config.enable_sms_fallback {
                 warn!("尝试短信回退...");
                 return self.send_sms_fallback(recipient, message);
             }
-            
-            Err(OpenClawError::Execution(format!("AppleScript 错误: {}", error_msg)))
+
+            Err(OpenClawError::Execution(format!(
+                "AppleScript 错误: {}",
+                error_msg
+            )))
         }
     }
 
     #[cfg(not(target_os = "macos"))]
     fn send_applescript(&self, _recipient: &str, _message: &str) -> Result<String> {
-        Err(OpenClawError::Platform("iMessage 仅支持 macOS 系统".to_string()))
+        Err(OpenClawError::Platform(
+            "iMessage 仅支持 macOS 系统".to_string(),
+        ))
     }
 
     /// 短信回退 (使用 macOS 短信服务)
@@ -239,10 +244,7 @@ tell application "System Events"
     return exists application process "Messages"
 end tell
 "#;
-            let output = Command::new("osascript")
-                .arg("-e")
-                .arg(script)
-                .output();
+            let output = Command::new("osascript").arg("-e").arg(script).output();
 
             match output {
                 Ok(o) if o.status.success() => {
@@ -300,10 +302,7 @@ tell application "System Events"
     return exists application process "Messages"
 end tell
 "#;
-            let output = Command::new("osascript")
-                .arg("-e")
-                .arg(script)
-                .output();
+            let output = Command::new("osascript").arg("-e").arg(script).output();
 
             match output {
                 Ok(o) => Ok(o.status.success()),
@@ -323,7 +322,12 @@ end tell
 impl IMessageChannel {
     /// 发送富文本消息 (带附件)
     #[cfg(target_os = "macos")]
-    pub async fn send_with_attachment(&self, recipient: &str, message: &str, attachment_path: &str) -> Result<ChannelMessage> {
+    pub async fn send_with_attachment(
+        &self,
+        recipient: &str,
+        message: &str,
+        attachment_path: &str,
+    ) -> Result<ChannelMessage> {
         let script = format!(
             r#"
 tell application "Messages"
@@ -365,7 +369,12 @@ end tell
     }
 
     #[cfg(not(target_os = "macos"))]
-    pub async fn send_with_attachment(&self, _recipient: &str, _message: &str, _attachment_path: &str) -> Result<ChannelMessage> {
+    pub async fn send_with_attachment(
+        &self,
+        _recipient: &str,
+        _message: &str,
+        _attachment_path: &str,
+    ) -> Result<ChannelMessage> {
         Err(OpenClawError::Platform("iMessage 仅支持 macOS".to_string()))
     }
 
@@ -426,7 +435,7 @@ mod tests {
     async fn test_non_macos() {
         let config = IMessageConfig::default();
         let mut channel = IMessageChannel::new(config);
-        
+
         // 在非 macOS 上应该返回错误
         let result = channel.start().await;
         assert!(result.is_err());

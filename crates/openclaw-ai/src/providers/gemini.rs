@@ -3,11 +3,14 @@
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use openclaw_core::{Message, OpenClawError, Result, Role};
-use reqwest::{header, Response};
+use reqwest::{Response, header};
 use std::pin::Pin;
 
-use crate::types::{ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason, StreamChunk, TokenUsage, StreamDelta};
 use crate::providers::{AIProvider, ProviderConfig};
+use crate::types::{
+    ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason, StreamChunk,
+    StreamDelta, TokenUsage,
+};
 
 /// Google Gemini 提供商
 pub struct GeminiProvider {
@@ -22,11 +25,15 @@ impl GeminiProvider {
     }
 
     fn get_base_url(&self) -> &str {
-        self.config.base_url.as_deref().unwrap_or("https://generativelanguage.googleapis.com/v1beta")
+        self.config
+            .base_url
+            .as_deref()
+            .unwrap_or("https://generativelanguage.googleapis.com/v1beta")
     }
 
     fn convert_messages(&self, messages: Vec<Message>) -> serde_json::Value {
-        let contents: Vec<serde_json::Value> = messages.into_iter()
+        let contents: Vec<serde_json::Value> = messages
+            .into_iter()
             .filter(|m| m.role != Role::System) // Gemini 单独处理 system
             .map(|m| {
                 let role = match m.role {
@@ -48,7 +55,8 @@ impl GeminiProvider {
     }
 
     fn get_system_instruction(&self, messages: &[Message]) -> Option<String> {
-        messages.iter()
+        messages
+            .iter()
             .find(|m| m.role == Role::System)
             .and_then(|m| m.text_content().map(|s| s.to_string()))
     }
@@ -85,7 +93,8 @@ impl AIProvider for GeminiProvider {
             });
         }
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header(header::CONTENT_TYPE, "application/json")
             .json(&body)
@@ -95,20 +104,29 @@ impl AIProvider for GeminiProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Gemini API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Gemini API 错误: {}",
+                error_text
+            )));
         }
 
-        let json: serde_json::Value = response.json().await
+        let json: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::AIProvider(format!("解析响应失败: {}", e)))?;
 
         let text = json["candidates"][0]["content"]["parts"][0]["text"]
             .as_str()
             .unwrap_or("")
             .to_string();
-        
+
         let usage = TokenUsage::new(
-            json["usageMetadata"]["promptTokenCount"].as_u64().unwrap_or(0) as usize,
-            json["usageMetadata"]["candidatesTokenCount"].as_u64().unwrap_or(0) as usize,
+            json["usageMetadata"]["promptTokenCount"]
+                .as_u64()
+                .unwrap_or(0) as usize,
+            json["usageMetadata"]["candidatesTokenCount"]
+                .as_u64()
+                .unwrap_or(0) as usize,
         );
 
         let message = Message::assistant(&text);
@@ -150,7 +168,8 @@ impl AIProvider for GeminiProvider {
             });
         }
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header(header::CONTENT_TYPE, "application/json")
             .json(&body)
@@ -160,7 +179,10 @@ impl AIProvider for GeminiProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Gemini Stream API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Gemini Stream API 错误: {}",
+                error_text
+            )));
         }
 
         // 创建 Gemini SSE 流
@@ -187,7 +209,8 @@ impl AIProvider for GeminiProvider {
             }
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header(header::CONTENT_TYPE, "application/json")
             .json(&body)
@@ -197,15 +220,25 @@ impl AIProvider for GeminiProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Gemini Embedding API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Gemini Embedding API 错误: {}",
+                error_text
+            )));
         }
 
-        let json: serde_json::Value = response.json().await
+        let json: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::AIProvider(format!("解析响应失败: {}", e)))?;
 
         let embedding: Vec<f32> = json["embedding"]["values"]
             .as_array()
-            .map(|arr| arr.iter().filter_map(|v| v.as_f64()).map(|v| v as f32).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_f64())
+                    .map(|v| v as f32)
+                    .collect()
+            })
             .unwrap_or_default();
 
         Ok(EmbeddingResponse {
@@ -231,11 +264,14 @@ impl AIProvider for GeminiProvider {
 
 impl GeminiProvider {
     /// 解析 Gemini SSE 流
-    fn parse_gemini_sse_stream(response: Response, model: String) -> impl Stream<Item = Result<StreamChunk>> + Send {
+    fn parse_gemini_sse_stream(
+        response: Response,
+        model: String,
+    ) -> impl Stream<Item = Result<StreamChunk>> + Send {
         async_stream::stream! {
             let mut byte_stream = response.bytes_stream();
             let mut buffer = String::new();
-            
+
             while let Some(bytes_result) = byte_stream.next().await {
                 match bytes_result {
                     Ok(bytes) => {
@@ -243,12 +279,12 @@ impl GeminiProvider {
                         if let Ok(text) = std::str::from_utf8(&bytes) {
                             buffer.push_str(text);
                         }
-                        
+
                         // 处理缓冲区中的完整事件
                         while let Some(event_end) = buffer.find("\n\n") {
                             let event = buffer[..event_end].to_string();
                             buffer = buffer[event_end + 2..].to_string();
-                            
+
                             // 解析 SSE 事件并 yield 结果
                             if let Some(result) = Self::parse_gemini_sse_event(&event, &model) {
                                 yield result;
@@ -288,7 +324,7 @@ impl GeminiProvider {
     fn parse_gemini_stream_chunk(json: &serde_json::Value, model: &str) -> Option<StreamChunk> {
         let candidate = &json["candidates"].get(0)?;
         let content = &candidate["content"];
-        
+
         // 提取文本内容
         let text = content["parts"]
             .as_array()
@@ -302,7 +338,7 @@ impl GeminiProvider {
         // 检查是否完成
         let finish_reason_str = candidate["finishReason"].as_str();
         let finished = finish_reason_str.is_some();
-        
+
         let finish_reason = finish_reason_str.map(|r| match r {
             "STOP" => FinishReason::Stop,
             "MAX_TOKENS" => FinishReason::Length,

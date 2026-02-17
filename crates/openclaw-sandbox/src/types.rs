@@ -161,9 +161,7 @@ impl Capabilities {
     pub fn minimal() -> Self {
         Self {
             add: vec![],
-            drop: vec![
-                "ALL".to_string(),
-            ],
+            drop: vec!["ALL".to_string()],
         }
     }
 

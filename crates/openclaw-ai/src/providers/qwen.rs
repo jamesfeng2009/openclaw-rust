@@ -15,16 +15,14 @@ pub struct QwenProvider(OpenAICompatibleProvider);
 impl QwenProvider {
     /// 创建新的 Qwen 提供商
     pub fn new(config: ProviderConfig) -> Self {
-        Self(OpenAICompatibleProvider::new(config, ProviderInfo {
-            name: "qwen",
-            default_base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-            default_models: &[
-                "qwen-max",
-                "qwen-plus",
-                "qwen-turbo",
-                "qwen-vl-max",
-            ],
-        }))
+        Self(OpenAICompatibleProvider::new(
+            config,
+            ProviderInfo {
+                name: "qwen",
+                default_base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                default_models: &["qwen-max", "qwen-plus", "qwen-turbo", "qwen-vl-max"],
+            },
+        ))
     }
 }
 
@@ -38,7 +36,10 @@ impl AIProvider for QwenProvider {
         self.0.chat(request).await
     }
 
-    async fn chat_stream(&self, request: ChatRequest) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
+    async fn chat_stream(
+        &self,
+        request: ChatRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
         self.0.chat_stream(request).await
     }
 

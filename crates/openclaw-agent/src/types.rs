@@ -84,31 +84,31 @@ pub enum Capability {
     QAndA,
     ContextAwareness,
     DecisionMaking,
-    
+
     // 任务处理
     TaskRouting,
     AgentCoordination,
-    
+
     // 信息处理
     WebSearch,
     InformationAnalysis,
     Summarization,
     Translation,
-    
+
     // 代码相关
     CodeGeneration,
     CodeReview,
     Debugging,
-    
+
     // 内容创作
     ContentGeneration,
     Editing,
-    
+
     // 数据处理
     DataAnalysis,
     Visualization,
     Reporting,
-    
+
     // 工具使用
     ToolExecution,
     FileOperations,
@@ -206,7 +206,9 @@ impl AgentConfig {
 
     pub fn get_system_prompt(&self) -> Option<String> {
         if let Some(aieos) = &self.aieos {
-            Some(crate::aieos::AIEOSPromptGenerator::generate_system_prompt(aieos))
+            Some(crate::aieos::AIEOSPromptGenerator::generate_system_prompt(
+                aieos,
+            ))
         } else {
             self.system_prompt.clone()
         }
@@ -238,7 +240,7 @@ impl AgentInfo {
     }
 
     pub fn is_available(&self) -> bool {
-        self.config.enabled 
+        self.config.enabled
             && self.status == AgentStatus::Idle
             && self.current_tasks < self.config.max_concurrent_tasks
     }

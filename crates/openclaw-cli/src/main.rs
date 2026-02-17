@@ -7,16 +7,16 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-mod commands;
+mod agent_cmd;
 mod api_key_cmd;
 mod channel_cmd;
+mod commands;
+mod daemon_cmd;
+mod doctor_cmd;
+mod message_cmd;
+mod skill_cmd;
 mod voice_cmd;
 mod wizard_cmd;
-mod doctor_cmd;
-mod daemon_cmd;
-mod message_cmd;
-mod agent_cmd;
-mod skill_cmd;
 
 #[derive(Parser)]
 #[command(name = "openclaw-rust")]
@@ -169,7 +169,15 @@ async fn main() -> Result<()> {
     openclaw_device::init_device().await?;
 
     match cli.command {
-        Commands::Gateway { port, host, verbose, agents, channels, voice, canvas } => {
+        Commands::Gateway {
+            port,
+            host,
+            verbose,
+            agents,
+            channels,
+            voice,
+            canvas,
+        } => {
             commands::gateway::run(port, host, verbose, agents, channels, voice, canvas).await?;
         }
         Commands::Agents { command } => {
@@ -202,7 +210,14 @@ async fn main() -> Result<()> {
         Commands::Message { command } => {
             command.execute().await?;
         }
-        Commands::Agent { agent, message, thinking, stream, continue_conv, system } => {
+        Commands::Agent {
+            agent,
+            message,
+            thinking,
+            stream,
+            continue_conv,
+            system,
+        } => {
             let cli = agent_cmd::AgentCli {
                 agent,
                 message,

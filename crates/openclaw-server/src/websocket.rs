@@ -1,11 +1,11 @@
 //! WebSocket 支持
 
 use axum::{
-    extract::ws::{WebSocket, WebSocketUpgrade, Message},
+    Router,
     extract::State,
+    extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::Response,
     routing::get,
-    Router,
 };
 use futures::{SinkExt, StreamExt};
 use std::sync::Arc;
@@ -39,23 +39,23 @@ async fn websocket_handler(
         let s = state.read().await;
         s.connections.clone()
     };
-    
+
     ws.on_upgrade(move |socket| handle_socket(socket, connections))
 }
 
 async fn handle_socket(socket: WebSocket, connections: Arc<RwLock<Vec<String>>>) {
     let (mut sender, mut receiver) = socket.split();
-    
+
     let conn_id = uuid::Uuid::new_v4().to_string();
     connections.write().await.push(conn_id.clone());
-    
+
     tracing::info!("WebSocket client connected: {}", conn_id);
-    
+
     while let Some(msg) = receiver.next().await {
         match msg {
             Ok(Message::Text(text)) => {
                 tracing::info!("Received: {}", text);
-                
+
                 let response = format!("Echo: {}", text);
                 if sender.send(Message::Text(response.into())).await.is_err() {
                     break;
@@ -78,7 +78,7 @@ async fn handle_socket(socket: WebSocket, connections: Arc<RwLock<Vec<String>>>)
             }
         }
     }
-    
+
     connections.write().await.retain(|id| *id != conn_id);
     tracing::info!("WebSocket client disconnected: {}", conn_id);
 }

@@ -2,8 +2,8 @@
 //!
 //! 串口 (UART/RS232/RS485) 通信接口
 
+use crate::hal::{HalConfig, HalModule, HalResult};
 use crate::platform::Platform;
-use crate::hal::{HalModule, HalConfig, HalResult};
 use serde::{Deserialize, Serialize};
 
 pub type SerialResult<T> = crate::hal::HalResult<T>;
@@ -139,16 +139,16 @@ impl Default for SerialConfig {
 
 pub trait SerialPort: Send + Sync {
     fn port_name(&self) -> &str;
-    
+
     fn config(&self) -> &SerialConfig;
-    
+
     fn write(&self, data: &[u8]) -> SerialResult<usize>;
-    
+
     fn read(&self, buffer: &mut [u8]) -> SerialResult<usize>;
-    
+
     fn flush(&self) -> SerialResult<()>;
-    
+
     fn is_connected(&self) -> bool;
-    
+
     fn set_config(&self, config: SerialConfig) -> SerialResult<()>;
 }

@@ -1,7 +1,7 @@
 //! 记忆压缩器
 
-use openclaw_core::{Message, OpenClawError, Result};
 use crate::types::{MemoryItem, ShortTermMemoryConfig};
+use openclaw_core::{Message, OpenClawError, Result};
 
 /// 记忆压缩器
 pub struct MemoryCompressor {
@@ -14,7 +14,7 @@ impl MemoryCompressor {
     }
 
     /// 压缩消息列表为摘要
-    /// 
+    ///
     /// 注意：实际的摘要生成需要调用 AI API
     /// 这里提供的是一个简单的占位符实现
     pub async fn compress(&self, items: Vec<MemoryItem>) -> Result<MemoryItem> {
@@ -50,7 +50,7 @@ impl MemoryCompressor {
     /// 生成简单摘要 (占位符实现)
     fn generate_simple_summary(&self, messages: &[&Message]) -> String {
         let mut parts = Vec::new();
-        
+
         for msg in messages {
             if let Some(text) = msg.text_content() {
                 let preview = if text.len() > 50 {
@@ -110,11 +110,15 @@ impl AICompressor {
         }
 
         let summary_text = ai_provider.generate_summary(&messages).await?;
-        
+
         let original_tokens: usize = items.iter().map(|i| i.token_count).sum();
         let summary_tokens = (original_tokens as f32 * 0.25) as usize;
 
-        Ok(MemoryItem::summary(summary_text, messages.len(), summary_tokens))
+        Ok(MemoryItem::summary(
+            summary_text,
+            messages.len(),
+            summary_tokens,
+        ))
     }
 }
 
@@ -139,8 +143,11 @@ mod tests {
         ];
 
         let summary = compressor.compress(messages).await.unwrap();
-        
-        assert!(matches!(summary.content, crate::types::MemoryContent::Summary { .. }));
+
+        assert!(matches!(
+            summary.content,
+            crate::types::MemoryContent::Summary { .. }
+        ));
         assert!(summary.token_count > 0);
     }
 }

@@ -1,10 +1,10 @@
 //! Talk Mode - 持续对话模式
 
 use std::sync::Arc;
-use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::sync::{RwLock, broadcast, mpsc};
 
-use openclaw_core::Result;
 use crate::types::TalkModeState;
+use openclaw_core::Result;
 
 /// Talk Mode 事件
 #[derive(Debug, Clone)]
@@ -126,7 +126,8 @@ impl TalkMode {
     /// 处理转录结果
     pub async fn on_transcription(&self, text: String) -> Result<()> {
         self.set_state(TalkModeState::Processing).await;
-        self.emit_event(TalkModeEvent::Transcription(text.clone())).await;
+        self.emit_event(TalkModeEvent::Transcription(text.clone()))
+            .await;
         Ok(())
     }
 
@@ -158,7 +159,8 @@ impl TalkMode {
         *state = new_state.clone();
         drop(state);
 
-        self.emit_event(TalkModeEvent::StateChanged(new_state)).await;
+        self.emit_event(TalkModeEvent::StateChanged(new_state))
+            .await;
         Ok(())
     }
 
@@ -213,13 +215,13 @@ mod tests {
     #[tokio::test]
     async fn test_talk_mode_lifecycle() {
         let talk_mode = TalkMode::new(TalkModeConfig::default());
-        
+
         assert!(!talk_mode.is_running().await);
-        
+
         talk_mode.start().await.unwrap();
         assert!(talk_mode.is_running().await);
         assert_eq!(talk_mode.state().await, TalkModeState::Listening);
-        
+
         talk_mode.stop().await.unwrap();
         assert!(!talk_mode.is_running().await);
         assert_eq!(talk_mode.state().await, TalkModeState::Idle);

@@ -15,22 +15,22 @@
 //! - 本地 Whisper (可选)
 //! - Vosk (本地唤醒)
 
-pub mod stt;
-pub mod tts;
-pub mod talk_mode;
 pub mod audio;
-pub mod types;
 pub mod config;
-pub mod wake;
-pub mod voice_agent;
 pub mod provider;
+pub mod stt;
+pub mod talk_mode;
+pub mod tts;
+pub mod types;
+pub mod voice_agent;
+pub mod wake;
 
-pub use stt::*;
-pub use tts::*;
-pub use talk_mode::*;
-pub use audio::{AudioUtils, AudioPlayer};
-pub use types::*;
+pub use audio::{AudioPlayer, AudioUtils};
 pub use config::*;
-pub use wake::*;
+pub use provider::{CustomProviderConfig, CustomSttConfig, CustomTtsConfig, ProviderRegistry};
+pub use stt::*;
+pub use talk_mode::*;
+pub use tts::*;
+pub use types::*;
 pub use voice_agent::*;
-pub use provider::{ProviderRegistry, CustomProviderConfig, CustomTtsConfig, CustomSttConfig};
+pub use wake::*;

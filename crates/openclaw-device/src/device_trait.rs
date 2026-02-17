@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use crate::capabilities::DeviceCapabilities;
 use crate::platform::{ComputeCategory, Platform};
@@ -30,7 +30,7 @@ pub trait Device: Send + Sync {
     fn platform(&self) -> Platform;
     fn category(&self) -> ComputeCategory;
     fn capabilities(&self) -> &DeviceCapabilities;
-    
+
     async fn init(&self, config: &DeviceConfig) -> DeviceResult<()>;
     async fn health_check(&self) -> DeviceResult<bool>;
     async fn execute(&self, command: &DeviceCommand) -> DeviceResult<DeviceResponse>;
@@ -42,25 +42,25 @@ pub type DeviceResult<T> = Result<T, DeviceError>;
 pub enum DeviceError {
     #[error("Device not found: {0}")]
     NotFound(String),
-    
+
     #[error("Device offline: {0}")]
     Offline(String),
-    
+
     #[error("Execution failed: {0}")]
     ExecutionFailed(String),
-    
+
     #[error("Timeout: {0}")]
     Timeout(String),
-    
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
-    
+
     #[error("Unsupported operation: {0}")]
     Unsupported(String),
-    
+
     #[error("Configuration error: {0}")]
     Config(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(#[from] anyhow::Error),
 }
@@ -98,31 +98,31 @@ impl DeviceBuilder {
             config: DeviceConfig::default(),
         }
     }
-    
+
     pub fn platform(mut self, platform: Platform) -> Self {
         self.platform = platform;
         self
     }
-    
+
     pub fn category(mut self, category: ComputeCategory) -> Self {
         self.category = category;
         self
     }
-    
+
     pub fn capabilities(mut self, capabilities: DeviceCapabilities) -> Self {
         self.capabilities = capabilities;
         self
     }
-    
+
     pub fn config(mut self, config: DeviceConfig) -> Self {
         self.config = config;
         self
     }
-    
+
     pub fn status(mut self, status: super::DeviceStatus) -> Self {
         self
     }
-    
+
     pub fn build(self) -> CustomDevice {
         CustomDevice {
             id: self.id,

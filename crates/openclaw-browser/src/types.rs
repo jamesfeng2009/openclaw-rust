@@ -404,12 +404,29 @@ pub struct PdfMargins {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum BrowserEvent {
-    PageCreated { page_id: PageId },
-    PageClosed { page_id: PageId },
-    PageNavigated { page_id: PageId, url: String },
-    PageCrashed { page_id: PageId },
-    ConsoleMessage { page_id: PageId, message: String, level: String },
-    DialogOpened { page_id: PageId, message: String, dialog_type: String },
+    PageCreated {
+        page_id: PageId,
+    },
+    PageClosed {
+        page_id: PageId,
+    },
+    PageNavigated {
+        page_id: PageId,
+        url: String,
+    },
+    PageCrashed {
+        page_id: PageId,
+    },
+    ConsoleMessage {
+        page_id: PageId,
+        message: String,
+        level: String,
+    },
+    DialogOpened {
+        page_id: PageId,
+        message: String,
+        dialog_type: String,
+    },
 }
 
 /// JS 执行结果

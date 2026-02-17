@@ -27,7 +27,11 @@ pub enum SkillError {
 
 /// 工具执行器类型
 pub type ToolExecutor = Box<
-    dyn Fn(&str, HashMap<String, serde_json::Value>, ToolContext) -> std::pin::Pin<Box<dyn std::future::Future<Output = ToolResult> + Send>>
+    dyn Fn(
+            &str,
+            HashMap<String, serde_json::Value>,
+            ToolContext,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ToolResult> + Send>>
         + Send
         + Sync,
 >;
@@ -80,7 +84,7 @@ impl SkillPlatform {
         };
 
         let id = skill.id.clone();
-        
+
         let mut skills = self.skills.write().await;
         skills.insert(id.clone(), skill);
 
@@ -89,9 +93,13 @@ impl SkillPlatform {
     }
 
     /// 更新技能
-    pub async fn update_skill(&self, skill_id: &SkillId, updates: SkillUpdates) -> Result<(), SkillError> {
+    pub async fn update_skill(
+        &self,
+        skill_id: &SkillId,
+        updates: SkillUpdates,
+    ) -> Result<(), SkillError> {
         let mut skills = self.skills.write().await;
-        
+
         let skill = skills
             .get_mut(skill_id)
             .ok_or_else(|| SkillError::SkillNotFound(skill_id.clone()))?;
@@ -120,7 +128,7 @@ impl SkillPlatform {
     /// 删除技能
     pub async fn delete_skill(&self, skill_id: &SkillId) -> Result<(), SkillError> {
         let mut skills = self.skills.write().await;
-        
+
         if skills.remove(skill_id).is_some() {
             info!("删除技能: {}", skill_id);
             Ok(())
@@ -144,7 +152,8 @@ impl SkillPlatform {
     /// 按分类列出技能
     pub async fn list_skills_by_category(&self, category: SkillCategory) -> Vec<Skill> {
         let skills = self.skills.read().await;
-        skills.values()
+        skills
+            .values()
             .filter(|s| s.category == category)
             .cloned()
             .collect()
@@ -159,7 +168,9 @@ impl SkillPlatform {
     ) -> Result<SkillExecution, SkillError> {
         let skill = {
             let skills = self.skills.read().await;
-            skills.get(skill_id).cloned()
+            skills
+                .get(skill_id)
+                .cloned()
                 .ok_or_else(|| SkillError::SkillNotFound(skill_id.clone()))?
         };
 
@@ -183,7 +194,7 @@ impl SkillPlatform {
             for (key, _value) in &context.variables {
                 if let Some(serde_json::Value::String(template)) = params.get(key) {
                     if template.starts_with("${") && template.ends_with("}") {
-                        let var_name = &template[2..template.len()-1];
+                        let var_name = &template[2..template.len() - 1];
                         if let Some(var_value) = context.variables.get(var_name) {
                             params.insert(key.to_string(), var_value.clone());
                         }
@@ -264,9 +275,10 @@ impl SkillPlatform {
     /// 获取执行历史
     pub async fn get_execution_history(&self, skill_id: Option<&SkillId>) -> Vec<SkillExecution> {
         let executions = self.executions.read().await;
-        
+
         match skill_id {
-            Some(id) => executions.iter()
+            Some(id) => executions
+                .iter()
                 .filter(|e| &e.skill_id == id)
                 .cloned()
                 .collect(),

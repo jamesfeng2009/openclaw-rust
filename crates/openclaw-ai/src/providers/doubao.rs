@@ -15,16 +15,19 @@ pub struct DoubaoProvider(OpenAICompatibleProvider);
 impl DoubaoProvider {
     /// 创建新的 Doubao 提供商
     pub fn new(config: ProviderConfig) -> Self {
-        Self(OpenAICompatibleProvider::new(config, ProviderInfo {
-            name: "doubao",
-            default_base_url: "https://ark.cn-beijing.volces.com/api/v3",
-            default_models: &[
-                "doubao-pro-32k",
-                "doubao-pro-4k",
-                "doubao-lite-32k",
-                "doubao-lite-4k",
-            ],
-        }))
+        Self(OpenAICompatibleProvider::new(
+            config,
+            ProviderInfo {
+                name: "doubao",
+                default_base_url: "https://ark.cn-beijing.volces.com/api/v3",
+                default_models: &[
+                    "doubao-pro-32k",
+                    "doubao-pro-4k",
+                    "doubao-lite-32k",
+                    "doubao-lite-4k",
+                ],
+            },
+        ))
     }
 }
 
@@ -38,7 +41,10 @@ impl AIProvider for DoubaoProvider {
         self.0.chat(request).await
     }
 
-    async fn chat_stream(&self, request: ChatRequest) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
+    async fn chat_stream(
+        &self,
+        request: ChatRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
         self.0.chat_stream(request).await
     }
 

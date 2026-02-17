@@ -2,8 +2,8 @@
 
 use anyhow::Result;
 use std::collections::HashMap;
-use std::process::Command;
 use std::path::PathBuf;
+use std::process::Command;
 
 /// 检查项结果
 #[derive(Debug, Clone)]
@@ -64,7 +64,10 @@ pub async fn run(fix: bool, verbose: bool) -> Result<()> {
 
     // 总结
     println!("\n{}", "─".repeat(50));
-    println!("检查完成: {} 通过, {} 警告, {} 错误\n", ok_count, warn_count, error_count);
+    println!(
+        "检查完成: {} 通过, {} 警告, {} 错误\n",
+        ok_count, warn_count, error_count
+    );
 
     // 自动修复
     if fix && (warn_count > 0 || error_count > 0) {
@@ -89,9 +92,7 @@ pub async fn run(fix: bool, verbose: bool) -> Result<()> {
 
 /// 检查 Rust 版本
 fn check_rust_version() -> CheckResult {
-    let output = Command::new("rustc")
-        .arg("--version")
-        .output();
+    let output = Command::new("rustc").arg("--version").output();
 
     match output {
         Ok(output) if output.status.success() => {
@@ -107,16 +108,17 @@ fn check_rust_version() -> CheckResult {
             name: "Rust 版本".to_string(),
             status: CheckStatus::Error,
             message: "未安装 Rust".to_string(),
-            fix_hint: Some("运行 `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh` 安装 Rust".to_string()),
+            fix_hint: Some(
+                "运行 `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh` 安装 Rust"
+                    .to_string(),
+            ),
         },
     }
 }
 
 /// 检查 Cargo
 fn check_cargo() -> CheckResult {
-    let output = Command::new("cargo")
-        .arg("--version")
-        .output();
+    let output = Command::new("cargo").arg("--version").output();
 
     match output {
         Ok(output) if output.status.success() => {
@@ -139,26 +141,24 @@ fn check_cargo() -> CheckResult {
 
 /// 检查配置文件
 fn check_config_file() -> CheckResult {
-    let config_path = dirs::home_dir()
-        .map(|h| h.join(".openclaw-rust").join("openclaw.json"));
+    let config_path = dirs::home_dir().map(|h| h.join(".openclaw-rust").join("openclaw.json"));
 
     match config_path {
-        Some(path) if path.exists() => {
-            CheckResult {
-                name: "配置文件".to_string(),
-                status: CheckStatus::Ok,
-                message: format!("存在于 {}", path.display()),
-                fix_hint: None,
-            }
-        }
-        Some(path) => {
-            CheckResult {
-                name: "配置文件".to_string(),
-                status: CheckStatus::Warning,
-                message: "配置文件不存在".to_string(),
-                fix_hint: Some(format!("运行 `openclaw-rust wizard` 创建配置，或创建 {}", path.display())),
-            }
-        }
+        Some(path) if path.exists() => CheckResult {
+            name: "配置文件".to_string(),
+            status: CheckStatus::Ok,
+            message: format!("存在于 {}", path.display()),
+            fix_hint: None,
+        },
+        Some(path) => CheckResult {
+            name: "配置文件".to_string(),
+            status: CheckStatus::Warning,
+            message: "配置文件不存在".to_string(),
+            fix_hint: Some(format!(
+                "运行 `openclaw-rust wizard` 创建配置，或创建 {}",
+                path.display()
+            )),
+        },
         None => CheckResult {
             name: "配置文件".to_string(),
             status: CheckStatus::Error,
@@ -172,7 +172,7 @@ fn check_config_file() -> CheckResult {
 fn check_api_keys() -> CheckResult {
     let mut missing_keys = Vec::new();
     let required_vars = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"];
-    
+
     for var in required_vars {
         if std::env::var(var).is_err() {
             missing_keys.push(var);
@@ -191,7 +191,9 @@ fn check_api_keys() -> CheckResult {
             name: "API 密钥".to_string(),
             status: CheckStatus::Warning,
             message: format!("缺少: {}", missing_keys.join(", ")),
-            fix_hint: Some("在 ~/.openclaw-rust/openclaw.json 中设置 API 密钥，或设置环境变量".to_string()),
+            fix_hint: Some(
+                "在 ~/.openclaw-rust/openclaw.json 中设置 API 密钥，或设置环境变量".to_string(),
+            ),
         }
     }
 }
@@ -199,7 +201,7 @@ fn check_api_keys() -> CheckResult {
 /// 检查项目依赖
 fn check_dependencies() -> CheckResult {
     let cargo_lock = PathBuf::from("Cargo.lock");
-    
+
     if cargo_lock.exists() {
         CheckResult {
             name: "项目依赖".to_string(),
@@ -219,14 +221,12 @@ fn check_dependencies() -> CheckResult {
 
 /// 检查 Docker
 fn check_docker() -> CheckResult {
-    let output = Command::new("docker")
-        .arg("--version")
-        .output();
+    let output = Command::new("docker").arg("--version").output();
 
     match output {
         Ok(output) if output.status.success() => {
             let version = String::from_utf8_lossy(&output.stdout);
-            
+
             // 检查 Docker 是否运行
             let running = Command::new("docker")
                 .args(["info"])
@@ -319,8 +319,8 @@ fn check_ports() -> CheckResult {
 
 /// 检查端口是否被占用
 fn is_port_in_use(port: u16) -> bool {
-    use std::net::{TcpListener, Ipv4Addr, SocketAddr, IpAddr};
-    
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener};
+
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     TcpListener::bind(addr).is_err()
 }
@@ -337,28 +337,29 @@ fn run_fixes(results: &[CheckResult]) -> Result<()> {
                         let config_dir = home.join(".openclaw-rust");
                         std::fs::create_dir_all(&config_dir)?;
                         let config_path = config_dir.join("openclaw.json");
-                        
+
                         let default_config = serde_json::json!({
                             "user_name": "User",
                             "default_provider": "openai",
                             "default_model": "gpt-4o",
                         });
-                        
-                        std::fs::write(&config_path, serde_json::to_string_pretty(&default_config)?)?;
+
+                        std::fs::write(
+                            &config_path,
+                            serde_json::to_string_pretty(&default_config)?,
+                        )?;
                         println!("✅ 已创建默认配置文件: {}", config_path.display());
                     }
                 }
                 "项目依赖" => {
                     println!("📦 正在安装依赖...");
-                    let _ = Command::new("cargo")
-                        .args(["build"])
-                        .status();
+                    let _ = Command::new("cargo").args(["build"]).status();
                 }
                 _ => {}
             }
         }
     }
-    
+
     println!();
     Ok(())
 }

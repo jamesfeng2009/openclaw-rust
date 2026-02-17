@@ -15,15 +15,14 @@ pub struct KimiProvider(OpenAICompatibleProvider);
 impl KimiProvider {
     /// 创建新的 Kimi 提供商
     pub fn new(config: ProviderConfig) -> Self {
-        Self(OpenAICompatibleProvider::new(config, ProviderInfo {
-            name: "kimi",
-            default_base_url: "https://api.moonshot.cn/v1",
-            default_models: &[
-                "moonshot-v1-128k",
-                "moonshot-v1-32k",
-                "moonshot-v1-8k",
-            ],
-        }))
+        Self(OpenAICompatibleProvider::new(
+            config,
+            ProviderInfo {
+                name: "kimi",
+                default_base_url: "https://api.moonshot.cn/v1",
+                default_models: &["moonshot-v1-128k", "moonshot-v1-32k", "moonshot-v1-8k"],
+            },
+        ))
     }
 }
 
@@ -37,7 +36,10 @@ impl AIProvider for KimiProvider {
         self.0.chat(request).await
     }
 
-    async fn chat_stream(&self, request: ChatRequest) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
+    async fn chat_stream(
+        &self,
+        request: ChatRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
         self.0.chat_stream(request).await
     }
 

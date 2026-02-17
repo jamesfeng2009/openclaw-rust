@@ -1,8 +1,8 @@
 //! 混合搜索管理器 - 结合向量搜索和 FTS5 全文搜索
 
-use std::sync::Arc;
 use openclaw_core::Result;
-use openclaw_vector::{VectorStore, VectorItem, SearchQuery, SearchResult};
+use openclaw_vector::{SearchQuery, SearchResult, VectorItem, VectorStore};
+use std::sync::Arc;
 
 pub struct HybridSearchManager {
     vector_store: Arc<dyn VectorStore>,
@@ -70,7 +70,7 @@ impl HybridSearchManager {
 
     async fn fts_search(&self, query: &str, limit: usize) -> Result<Vec<SearchResult>> {
         let all_items = self.get_all_items().await?;
-        
+
         let mut results = Vec::new();
         for item in all_items {
             if let Some(content) = item.payload.get("content").and_then(|v| v.as_str()) {
@@ -91,23 +91,27 @@ impl HybridSearchManager {
     async fn get_all_items(&self) -> Result<Vec<VectorItem>> {
         let stats = self.vector_store.stats().await?;
         let limit = stats.total_vectors.min(1000);
-        
+
         let dummy_vector = vec![0.0; 128];
         let query = SearchQuery::new(dummy_vector).with_limit(limit);
-        
+
         let results = self.vector_store.search(query).await?;
-        
+
         let mut items = Vec::new();
         for result in results {
             if let Some(item) = self.vector_store.get(&result.id).await? {
                 items.push(item);
             }
         }
-        
+
         Ok(items)
     }
 
-    fn merge_results(&self, results: Vec<SearchResult>, config: &HybridSearchConfig) -> Vec<SearchResult> {
+    fn merge_results(
+        &self,
+        results: Vec<SearchResult>,
+        config: &HybridSearchConfig,
+    ) -> Vec<SearchResult> {
         use std::collections::HashMap;
 
         let mut combined: HashMap<String, SearchResult> = HashMap::new();
@@ -128,9 +132,13 @@ impl HybridSearchManager {
         }
 
         let mut sorted: Vec<SearchResult> = combined.into_values().collect();
-        sorted.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        sorted.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         sorted.truncate(config.limit);
-        
+
         if let Some(min_score) = config.min_score {
             sorted.retain(|r| r.score >= min_score);
         }
@@ -138,7 +146,13 @@ impl HybridSearchManager {
         sorted
     }
 
-    pub async fn add_memory(&self, id: String, content: String, vector: Vec<f32>, metadata: serde_json::Value) -> Result<()> {
+    pub async fn add_memory(
+        &self,
+        id: String,
+        content: String,
+        vector: Vec<f32>,
+        metadata: serde_json::Value,
+    ) -> Result<()> {
         let mut payload = metadata;
         payload["content"] = serde_json::json!(content);
 

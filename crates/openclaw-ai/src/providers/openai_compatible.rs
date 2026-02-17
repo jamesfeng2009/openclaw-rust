@@ -1,5 +1,5 @@
 //! OpenAI 兼容提供商通用实现
-//! 
+//!
 //! 支持所有兼容 OpenAI API 格式的提供商：
 //! - GLM (智谱)
 //! - Kimi (月之暗面)
@@ -11,11 +11,14 @@
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use openclaw_core::{Message, OpenClawError, Result, Role};
-use reqwest::{header, Response};
+use reqwest::{Response, header};
 use std::pin::Pin;
 
-use crate::types::{ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason, StreamChunk, TokenUsage, StreamDelta, ToolCallDelta, FunctionDelta};
 use crate::providers::{AIProvider, ProviderConfig};
+use crate::types::{
+    ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason, FunctionDelta,
+    StreamChunk, StreamDelta, TokenUsage, ToolCallDelta,
+};
 
 /// OpenAI 兼容提供商配置
 pub struct ProviderInfo {
@@ -35,7 +38,11 @@ impl OpenAICompatibleProvider {
     /// 创建新的 OpenAI 兼容提供商
     pub fn new(config: ProviderConfig, provider_info: ProviderInfo) -> Self {
         let client = reqwest::Client::new();
-        Self { config, client, provider_info }
+        Self {
+            config,
+            client,
+            provider_info,
+        }
     }
 
     /// 获取配置克隆
@@ -45,26 +52,32 @@ impl OpenAICompatibleProvider {
 
     /// 获取基础 URL
     fn get_base_url(&self) -> &str {
-        self.config.base_url.as_deref().unwrap_or(self.provider_info.default_base_url)
+        self.config
+            .base_url
+            .as_deref()
+            .unwrap_or(self.provider_info.default_base_url)
     }
 
     /// 转换消息格式
     fn convert_messages(&self, messages: Vec<Message>) -> Vec<serde_json::Value> {
-        messages.into_iter().map(|m| {
-            let role = match m.role {
-                Role::System => "system",
-                Role::User => "user",
-                Role::Assistant => "assistant",
-                Role::Tool => "tool",
-            };
+        messages
+            .into_iter()
+            .map(|m| {
+                let role = match m.role {
+                    Role::System => "system",
+                    Role::User => "user",
+                    Role::Assistant => "assistant",
+                    Role::Tool => "tool",
+                };
 
-            let content = m.text_content().unwrap_or("").to_string();
+                let content = m.text_content().unwrap_or("").to_string();
 
-            serde_json::json!({
-                "role": role,
-                "content": content
+                serde_json::json!({
+                    "role": role,
+                    "content": content
+                })
             })
-        }).collect()
+            .collect()
     }
 
     /// 解析 SSE 流
@@ -72,7 +85,7 @@ impl OpenAICompatibleProvider {
         async_stream::stream! {
             let mut byte_stream = response.bytes_stream();
             let mut buffer = String::new();
-            
+
             while let Some(bytes_result) = byte_stream.next().await {
                 match bytes_result {
                     Ok(bytes) => {
@@ -80,12 +93,12 @@ impl OpenAICompatibleProvider {
                         if let Ok(text) = std::str::from_utf8(&bytes) {
                             buffer.push_str(text);
                         }
-                        
+
                         // 处理缓冲区中的完整事件
                         while let Some(event_end) = buffer.find("\n\n") {
                             let event = buffer[..event_end].to_string();
                             buffer = buffer[event_end + 2..].to_string();
-                            
+
                             // 解析 SSE 事件并 yield 结果
                             if let Some(result) = Self::parse_sse_event(&event) {
                                 yield result;
@@ -109,7 +122,7 @@ impl OpenAICompatibleProvider {
                 if data == "[DONE]" {
                     return None;
                 }
-                
+
                 // 解析 JSON
                 match serde_json::from_str::<serde_json::Value>(data) {
                     Ok(json) => {
@@ -130,7 +143,7 @@ impl OpenAICompatibleProvider {
     fn parse_stream_chunk(json: &serde_json::Value) -> Option<StreamChunk> {
         let id = json["id"].as_str().unwrap_or("").to_string();
         let model = json["model"].as_str().unwrap_or("").to_string();
-        
+
         let choice = &json["choices"].get(0)?;
         let delta = &choice["delta"];
 
@@ -141,23 +154,32 @@ impl OpenAICompatibleProvider {
         let tool_calls: Vec<ToolCallDelta> = delta["tool_calls"]
             .as_array()
             .map(|arr| {
-                arr.iter().enumerate().filter_map(|(i, tc)| {
-                    Some(ToolCallDelta {
-                        index: i,
-                        id: tc["id"].as_str().map(|s| s.to_string()),
-                        call_type: tc["type"].as_str().unwrap_or("function").to_string(),
-                        function: tc["function"].as_object().map(|f| FunctionDelta {
-                            name: f.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                            arguments: f.get("arguments").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                        }),
+                arr.iter()
+                    .enumerate()
+                    .filter_map(|(i, tc)| {
+                        Some(ToolCallDelta {
+                            index: i,
+                            id: tc["id"].as_str().map(|s| s.to_string()),
+                            call_type: tc["type"].as_str().unwrap_or("function").to_string(),
+                            function: tc["function"].as_object().map(|f| FunctionDelta {
+                                name: f
+                                    .get("name")
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.to_string()),
+                                arguments: f
+                                    .get("arguments")
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.to_string()),
+                            }),
+                        })
                     })
-                }).collect()
+                    .collect()
             })
             .unwrap_or_default();
 
         let finish_reason = choice["finish_reason"].as_str();
         let finished = finish_reason.is_some();
-        
+
         let finish_reason_enum = finish_reason.map(|r| match r {
             "stop" => FinishReason::Stop,
             "length" => FinishReason::Length,
@@ -196,27 +218,41 @@ impl AIProvider for OpenAICompatibleProvider {
             "max_tokens": request.max_tokens,
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")),
+            )
             .header(header::CONTENT_TYPE, "application/json")
             .json(&body)
             .send()
             .await
-            .map_err(|e| OpenClawError::Http(format!("{} API 请求失败: {}", self.provider_info.name, e)))?;
+            .map_err(|e| {
+                OpenClawError::Http(format!("{} API 请求失败: {}", self.provider_info.name, e))
+            })?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("{} API 错误: {}", self.provider_info.name, error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "{} API 错误: {}",
+                self.provider_info.name, error_text
+            )));
         }
 
-        let json: serde_json::Value = response.json().await
+        let json: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::AIProvider(format!("解析响应失败: {}", e)))?;
 
         // 解析响应
         let choice = &json["choices"][0];
-        let message_content = choice["message"]["content"].as_str().unwrap_or("").to_string();
-        
+        let message_content = choice["message"]["content"]
+            .as_str()
+            .unwrap_or("")
+            .to_string();
+
         let usage = TokenUsage::new(
             json["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as usize,
             json["usage"]["completion_tokens"].as_u64().unwrap_or(0) as usize,
@@ -247,18 +283,30 @@ impl AIProvider for OpenAICompatibleProvider {
             "stream": true
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")),
+            )
             .header(header::ACCEPT, "text/event-stream")
             .json(&body)
             .send()
             .await
-            .map_err(|e| OpenClawError::Http(format!("{} Stream API 请求失败: {}", self.provider_info.name, e)))?;
+            .map_err(|e| {
+                OpenClawError::Http(format!(
+                    "{} Stream API 请求失败: {}",
+                    self.provider_info.name, e
+                ))
+            })?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("{} Stream API 错误: {}", self.provider_info.name, error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "{} Stream API 错误: {}",
+                self.provider_info.name, error_text
+            )));
         }
 
         // 创建 SSE 流
@@ -275,20 +323,34 @@ impl AIProvider for OpenAICompatibleProvider {
             "input": request.input
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.config.api_key.as_deref().unwrap_or("")),
+            )
             .json(&body)
             .send()
             .await
-            .map_err(|e| OpenClawError::Http(format!("{} Embedding API 请求失败: {}", self.provider_info.name, e)))?;
+            .map_err(|e| {
+                OpenClawError::Http(format!(
+                    "{} Embedding API 请求失败: {}",
+                    self.provider_info.name, e
+                ))
+            })?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("{} Embedding API 错误: {}", self.provider_info.name, error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "{} Embedding API 错误: {}",
+                self.provider_info.name, error_text
+            )));
         }
 
-        let json: serde_json::Value = response.json().await
+        let json: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::AIProvider(format!("解析响应失败: {}", e)))?;
 
         let embeddings: Vec<Vec<f32>> = json["data"]
@@ -296,7 +358,12 @@ impl AIProvider for OpenAICompatibleProvider {
             .map(|arr| {
                 arr.iter()
                     .filter_map(|item| item["embedding"].as_array())
-                    .map(|emb| emb.iter().filter_map(|v| v.as_f64()).map(|v| v as f32).collect())
+                    .map(|emb| {
+                        emb.iter()
+                            .filter_map(|v| v.as_f64())
+                            .map(|v| v as f32)
+                            .collect()
+                    })
                     .collect()
             })
             .unwrap_or_default();
@@ -314,7 +381,12 @@ impl AIProvider for OpenAICompatibleProvider {
     }
 
     async fn models(&self) -> Result<Vec<String>> {
-        Ok(self.provider_info.default_models.iter().map(|s| s.to_string()).collect())
+        Ok(self
+            .provider_info
+            .default_models
+            .iter()
+            .map(|s| s.to_string())
+            .collect())
     }
 
     async fn health_check(&self) -> Result<bool> {

@@ -109,11 +109,14 @@ pub mod ai {
         async fn chat(&self, _messages: Vec<MockChatMessage>) -> MockChatResponse {
             *self.provider.call_count.lock().unwrap() += 1;
             let responses = self.provider.responses.lock().unwrap();
-            responses.first().cloned().unwrap_or_else(|| MockChatResponse {
-                id: "mock-default".to_string(),
-                choices: vec![],
-                usage: MockUsage::default(),
-            })
+            responses
+                .first()
+                .cloned()
+                .unwrap_or_else(|| MockChatResponse {
+                    id: "mock-default".to_string(),
+                    choices: vec![],
+                    usage: MockUsage::default(),
+                })
         }
 
         fn name(&self) -> &str {
@@ -124,9 +127,9 @@ pub mod ai {
 
 #[cfg(test)]
 pub mod device {
-    use openclaw_device::{DeviceCapabilities, Platform, DeviceStatus};
     use openclaw_device::DeviceHandle;
     use openclaw_device::DeviceRegistry;
+    use openclaw_device::{DeviceCapabilities, DeviceStatus, Platform};
 
     pub fn mock_device_handle() -> DeviceHandle {
         DeviceHandle {
@@ -149,8 +152,8 @@ pub mod device {
 
 #[cfg(test)]
 pub mod config {
-    use openclaw_core::config::{Config, ServerConfig, AiConfig, DevicesConfig, AgentsConfig};
-    
+    use openclaw_core::config::{AgentsConfig, AiConfig, Config, DevicesConfig, ServerConfig};
+
     pub fn mock_config() -> Config {
         Config {
             server: ServerConfig::default(),
@@ -171,7 +174,7 @@ pub mod config {
 #[cfg(test)]
 pub mod channel {
     use serde::{Deserialize, Serialize};
-    
+
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct MockMessage {
         pub id: String,
@@ -197,7 +200,7 @@ pub mod channel {
 #[cfg(test)]
 pub mod agent {
     use openclaw_agent::{AgentConfig, AgentType, types::Capability};
-    
+
     pub fn mock_agent_config() -> AgentConfig {
         AgentConfig {
             id: "mock-agent".to_string(),

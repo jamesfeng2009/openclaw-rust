@@ -1,11 +1,11 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use openclaw_core::Result;
 use crate::stt::SpeechToText;
-use crate::tts::TextToSpeech;
 use crate::talk_mode::{TalkMode, TalkModeConfig, TalkModeEvent};
+use crate::tts::TextToSpeech;
 use crate::types::TalkModeState;
+use openclaw_core::Result;
 
 pub struct VoiceAgent {
     stt: Arc<dyn SpeechToText>,

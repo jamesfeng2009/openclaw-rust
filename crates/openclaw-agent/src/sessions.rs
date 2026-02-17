@@ -73,11 +73,7 @@ impl Default for SessionState {
 }
 
 impl Session {
-    pub fn new(
-        name: impl Into<String>,
-        agent_id: AgentId,
-        scope: SessionScope,
-    ) -> Self {
+    pub fn new(name: impl Into<String>, agent_id: AgentId, scope: SessionScope) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
@@ -165,13 +161,27 @@ impl Session {
         match self.scope {
             SessionScope::Main => "main".to_string(),
             SessionScope::PerPeer => {
-                format!("{}:{}", self.channel_type.as_deref().unwrap_or("unknown"), self.peer_id.as_deref().unwrap_or("unknown"))
+                format!(
+                    "{}:{}",
+                    self.channel_type.as_deref().unwrap_or("unknown"),
+                    self.peer_id.as_deref().unwrap_or("unknown")
+                )
             }
             SessionScope::PerChannelPeer => {
-                format!("{}:{}:{}", self.channel_type.as_deref().unwrap_or("unknown"), self.account_id.as_deref().unwrap_or("unknown"), self.peer_id.as_deref().unwrap_or("unknown"))
+                format!(
+                    "{}:{}:{}",
+                    self.channel_type.as_deref().unwrap_or("unknown"),
+                    self.account_id.as_deref().unwrap_or("unknown"),
+                    self.peer_id.as_deref().unwrap_or("unknown")
+                )
             }
             SessionScope::PerAccountChannelPeer => {
-                format!("{}:{}:{}", self.channel_type.as_deref().unwrap_or("unknown"), self.account_id.as_deref().unwrap_or("unknown"), self.peer_id.as_deref().unwrap_or("unknown"))
+                format!(
+                    "{}:{}:{}",
+                    self.channel_type.as_deref().unwrap_or("unknown"),
+                    self.account_id.as_deref().unwrap_or("unknown"),
+                    self.peer_id.as_deref().unwrap_or("unknown")
+                )
             }
         }
     }
@@ -183,7 +193,11 @@ pub trait SessionStorage: Send + Sync {
     async fn save(&self, session: &Session) -> crate::Result<()>;
     async fn load(&self, id: &Uuid) -> crate::Result<Option<Session>>;
     async fn delete(&self, id: &Uuid) -> crate::Result<()>;
-    async fn list(&self, agent_id: Option<&AgentId>, state: Option<SessionState>) -> crate::Result<Vec<Session>>;
+    async fn list(
+        &self,
+        agent_id: Option<&AgentId>,
+        state: Option<SessionState>,
+    ) -> crate::Result<Vec<Session>>;
     async fn find_by_key(&self, key: &str, agent_id: &AgentId) -> crate::Result<Option<Session>>;
 }
 
@@ -228,7 +242,7 @@ impl SessionStorage for MemorySessionStorage {
 
     async fn delete(&self, id: &Uuid) -> crate::Result<()> {
         let mut sessions = self.sessions.write().await;
-        
+
         if let Some(session) = sessions.remove(id) {
             let key = session.key();
             let mut key_index = self.key_index.write().await;
@@ -238,7 +252,11 @@ impl SessionStorage for MemorySessionStorage {
         Ok(())
     }
 
-    async fn list(&self, agent_id: Option<&AgentId>, state: Option<SessionState>) -> crate::Result<Vec<Session>> {
+    async fn list(
+        &self,
+        agent_id: Option<&AgentId>,
+        state: Option<SessionState>,
+    ) -> crate::Result<Vec<Session>> {
         let sessions = self.sessions.read().await;
         let mut result: Vec<Session> = sessions.values().cloned().collect();
 
@@ -257,13 +275,13 @@ impl SessionStorage for MemorySessionStorage {
     async fn find_by_key(&self, key: &str, agent_id: &AgentId) -> crate::Result<Option<Session>> {
         let key_index = self.key_index.read().await;
         let lookup_key = format!("{}:{}", agent_id, key);
-        
+
         if let Some(id) = key_index.get(&lookup_key) {
             let id = *id;
             drop(key_index);
             return self.load(&id).await;
         }
-        
+
         Ok(None)
     }
 }
@@ -337,7 +355,7 @@ impl SessionManager {
         session.peer_id = peer_id;
 
         let key = session.key();
-        
+
         if let Some(existing) = self.storage.find_by_key(&key, &agent_id).await? {
             if existing.is_active() {
                 return Ok(existing);
@@ -390,7 +408,8 @@ impl SessionManager {
             }
         }
 
-        self.create_session(name, agent_id, scope, channel_type, peer_id).await
+        self.create_session(name, agent_id, scope, channel_type, peer_id)
+            .await
     }
 
     /// 更新会话
@@ -406,7 +425,9 @@ impl SessionManager {
 
     /// 关闭会话
     pub async fn close_session(&self, id: &Uuid) -> crate::Result<()> {
-        let mut session = self.get_session(id).await?
+        let mut session = self
+            .get_session(id)
+            .await?
             .ok_or_else(|| crate::OpenClawError::Session(format!("Session {} not found", id)))?;
 
         session.close();
@@ -428,8 +449,13 @@ impl SessionManager {
     }
 
     /// 获取活跃会话
-    pub async fn get_active_sessions(&self, agent_id: Option<&AgentId>) -> crate::Result<Vec<Session>> {
-        self.storage.list(agent_id, Some(SessionState::Active)).await
+    pub async fn get_active_sessions(
+        &self,
+        agent_id: Option<&AgentId>,
+    ) -> crate::Result<Vec<Session>> {
+        self.storage
+            .list(agent_id, Some(SessionState::Active))
+            .await
     }
 
     /// 清理空闲会话
@@ -439,7 +465,7 @@ impl SessionManager {
         let mut cleaned = 0;
 
         let sessions = self.list_sessions(None, Some(SessionState::Idle)).await?;
-        
+
         for mut session in sessions {
             if now.signed_duration_since(session.last_active_at) > idle_timeout {
                 session.close();
@@ -454,12 +480,21 @@ impl SessionManager {
     /// 统计会话
     pub async fn get_stats(&self) -> SessionStats {
         let sessions = self.storage.list(None, None).await.unwrap_or_default();
-        
+
         let total = sessions.len();
-        let active = sessions.iter().filter(|s| s.state == SessionState::Active).count();
-        let idle = sessions.iter().filter(|s| s.state == SessionState::Idle).count();
-        let closed = sessions.iter().filter(|s| s.state == SessionState::Closed).count();
-        
+        let active = sessions
+            .iter()
+            .filter(|s| s.state == SessionState::Active)
+            .count();
+        let idle = sessions
+            .iter()
+            .filter(|s| s.state == SessionState::Idle)
+            .count();
+        let closed = sessions
+            .iter()
+            .filter(|s| s.state == SessionState::Closed)
+            .count();
+
         let total_messages: usize = sessions.iter().map(|s| s.message_count).sum();
         let total_tokens: u64 = sessions.iter().map(|s| s.token_count).sum();
 
@@ -504,13 +539,16 @@ mod tests {
         let storage = Arc::new(MemorySessionStorage::new());
         let manager = SessionManager::new(storage);
 
-        let session = manager.create_session(
-            "test-session",
-            "agent-1".to_string(),
-            SessionScope::PerPeer,
-            Some("telegram".to_string()),
-            Some("user-1".to_string()),
-        ).await.unwrap();
+        let session = manager
+            .create_session(
+                "test-session",
+                "agent-1".to_string(),
+                SessionScope::PerPeer,
+                Some("telegram".to_string()),
+                Some("user-1".to_string()),
+            )
+            .await
+            .unwrap();
 
         assert_eq!(session.name, "test-session");
         assert_eq!(session.agent_id, "agent-1");
@@ -521,21 +559,27 @@ mod tests {
         let storage = Arc::new(MemorySessionStorage::new());
         let manager = SessionManager::new(storage);
 
-        let session1 = manager.get_or_create_session(
-            "test",
-            "agent-1".to_string(),
-            SessionScope::PerPeer,
-            Some("telegram".to_string()),
-            Some("user-1".to_string()),
-        ).await.unwrap();
+        let session1 = manager
+            .get_or_create_session(
+                "test",
+                "agent-1".to_string(),
+                SessionScope::PerPeer,
+                Some("telegram".to_string()),
+                Some("user-1".to_string()),
+            )
+            .await
+            .unwrap();
 
-        let session2 = manager.get_or_create_session(
-            "test",
-            "agent-1".to_string(),
-            SessionScope::PerPeer,
-            Some("telegram".to_string()),
-            Some("user-1".to_string()),
-        ).await.unwrap();
+        let session2 = manager
+            .get_or_create_session(
+                "test",
+                "agent-1".to_string(),
+                SessionScope::PerPeer,
+                Some("telegram".to_string()),
+                Some("user-1".to_string()),
+            )
+            .await
+            .unwrap();
 
         assert_eq!(session1.id, session2.id);
     }
@@ -545,13 +589,16 @@ mod tests {
         let storage = Arc::new(MemorySessionStorage::new());
         let manager = SessionManager::new(storage);
 
-        let session = manager.create_session(
-            "test",
-            "agent-1".to_string(),
-            SessionScope::Main,
-            None,
-            None,
-        ).await.unwrap();
+        let session = manager
+            .create_session(
+                "test",
+                "agent-1".to_string(),
+                SessionScope::Main,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
 
         manager.close_session(&session.id).await.unwrap();
 

@@ -49,7 +49,9 @@ impl InMemoryStore {
 
 #[async_trait]
 impl MemoryStore for InMemoryStore {
-    fn name(&self) -> &str { "in_memory" }
+    fn name(&self) -> &str {
+        "in_memory"
+    }
 
     async fn initialize(&self, _config: &MemoryConfig) -> Result<()> {
         Ok(())
@@ -74,7 +76,7 @@ impl MemoryStore for InMemoryStore {
     async fn search(&self, query: MemorySearchQuery) -> Result<MemoryRetrieval> {
         let mut retrieval = MemoryRetrieval::new();
         let working = self.working.read().await;
-        
+
         for item in working.iter().rev() {
             if query.level.is_some() && query.level != Some(item.level) {
                 continue;
@@ -104,9 +106,18 @@ impl MemoryStore for InMemoryStore {
     }
 
     async fn delete(&self, id: &str) -> Result<()> {
-        self.working.write().await.retain(|i| i.id.to_string() != id);
-        self.short_term.write().await.retain(|i| i.id.to_string() != id);
-        self.long_term.write().await.retain(|i| i.id.to_string() != id);
+        self.working
+            .write()
+            .await
+            .retain(|i| i.id.to_string() != id);
+        self.short_term
+            .write()
+            .await
+            .retain(|i| i.id.to_string() != id);
+        self.long_term
+            .write()
+            .await
+            .retain(|i| i.id.to_string() != id);
         Ok(())
     }
 
@@ -121,12 +132,13 @@ impl MemoryStore for InMemoryStore {
         let working = self.working.read().await;
         let short_term = self.short_term.read().await;
         let long_term = self.long_term.read().await;
-        
+
         Ok(MemoryStats {
             working_count: working.len(),
             short_term_count: short_term.len(),
             long_term_count: long_term.len(),
-            total_tokens: working.iter()
+            total_tokens: working
+                .iter()
                 .chain(short_term.iter())
                 .chain(long_term.iter())
                 .map(|i| i.token_count)

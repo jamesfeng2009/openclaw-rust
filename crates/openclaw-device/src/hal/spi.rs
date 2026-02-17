@@ -2,8 +2,8 @@
 //!
 //! SPI (Serial Peripheral Interface) 总线接口
 
+use crate::hal::{HalConfig, HalModule, HalResult};
 use crate::platform::Platform;
-use crate::hal::{HalModule, HalConfig, HalResult};
 use serde::{Deserialize, Serialize};
 
 pub type SpiResult<T> = crate::hal::HalResult<T>;
@@ -63,20 +63,20 @@ impl Default for SpiConfig {
 
 pub trait SpiDevice: Send + Sync {
     fn device_id(&self) -> &str;
-    
+
     fn config(&self) -> &SpiConfig;
-    
+
     fn transfer(&self, data: &[u8]) -> SpiResult<Vec<u8>>;
-    
+
     fn write(&self, data: &[u8]) -> SpiResult<usize>;
-    
+
     fn read(&self, buffer: &mut [u8]) -> SpiResult<usize>;
 }
 
 pub trait SpiBus: HalModule {
     fn bus_id(&self) -> &str;
-    
+
     fn available_devices(&self) -> Vec<u8>;
-    
+
     fn get_device(&self, chip_select: u8, config: SpiConfig) -> SpiResult<Box<dyn SpiDevice>>;
 }

@@ -1,7 +1,7 @@
 //! 沙箱管理器
 
 use crate::docker::{DockerClient, DockerError};
-use crate::permission::{PermissionManager, PermissionError, Permission, ResourceType};
+use crate::permission::{Permission, PermissionError, PermissionManager, ResourceType};
 use crate::types::*;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -52,10 +52,10 @@ impl SandboxManager {
     pub async fn new() -> Result<Self, SandboxManagerError> {
         let docker = DockerClient::new().await?;
         let permissions = PermissionManager::new();
-        
+
         // 初始化默认角色
         permissions.init_default_roles().await;
-        
+
         Ok(Self {
             docker: Arc::new(docker),
             permissions: Arc::new(permissions),
@@ -64,10 +64,7 @@ impl SandboxManager {
     }
 
     /// 使用现有组件创建
-    pub fn with_components(
-        docker: Arc<DockerClient>,
-        permissions: Arc<PermissionManager>,
-    ) -> Self {
+    pub fn with_components(docker: Arc<DockerClient>, permissions: Arc<PermissionManager>) -> Self {
         Self {
             docker,
             permissions,
@@ -82,15 +79,16 @@ impl SandboxManager {
         config: SandboxConfig,
     ) -> Result<SandboxId, SandboxManagerError> {
         let user_id = user_id.to_string();
-        
+
         // 检查权限
-        let has_perm = self.permissions
+        let has_perm = self
+            .permissions
             .check_permission(&user_id, &Permission::SandboxCreate, None)
             .await?;
-        
+
         if !has_perm {
             return Err(SandboxManagerError::Permission(
-                PermissionError::PermissionDenied("创建沙箱".to_string())
+                PermissionError::PermissionDenied("创建沙箱".to_string()),
             ));
         }
 
@@ -130,15 +128,16 @@ impl SandboxManager {
         sandbox_id: &SandboxId,
     ) -> Result<(), SandboxManagerError> {
         let user_id = user_id.to_string();
-        
+
         // 检查权限
-        let has_perm = self.permissions
+        let has_perm = self
+            .permissions
             .check_permission(&user_id, &Permission::SandboxExecute, Some(sandbox_id))
             .await?;
-        
+
         if !has_perm {
             return Err(SandboxManagerError::Permission(
-                PermissionError::PermissionDenied("启动沙箱".to_string())
+                PermissionError::PermissionDenied("启动沙箱".to_string()),
             ));
         }
 
@@ -154,37 +153,36 @@ impl SandboxManager {
         config: SandboxConfig,
     ) -> Result<ExecutionResult, SandboxManagerError> {
         let user_id = user_id.to_string();
-        
+
         // 检查权限
-        let has_perm = self.permissions
+        let has_perm = self
+            .permissions
             .check_permission(&user_id, &Permission::SandboxExecute, None)
             .await?;
-        
+
         if !has_perm {
             return Err(SandboxManagerError::Permission(
-                PermissionError::PermissionDenied("执行沙箱".to_string())
+                PermissionError::PermissionDenied("执行沙箱".to_string()),
             ));
         }
 
         let start_time = std::time::Instant::now();
-        
+
         // 创建并启动沙箱
         let sandbox_id = self.docker.create_sandbox(config.clone()).await?;
-        
+
         // 设置超时
         let timeout_duration = Duration::from_secs(config.timeout_secs);
-        
+
         // 启动
         self.docker.start_sandbox(&sandbox_id).await?;
-        
+
         // 等待完成或超时
-        let exit_code = tokio::time::timeout(
-            timeout_duration,
-            self.docker.wait_sandbox(&sandbox_id),
-        )
-        .await
-        .map_err(|_| SandboxManagerError::Timeout)?
-        .map_err(|e| SandboxManagerError::Docker(e))?;
+        let exit_code =
+            tokio::time::timeout(timeout_duration, self.docker.wait_sandbox(&sandbox_id))
+                .await
+                .map_err(|_| SandboxManagerError::Timeout)?
+                .map_err(|e| SandboxManagerError::Docker(e))?;
 
         // 获取日志
         let (stdout, stderr) = self.docker.get_logs(&sandbox_id).await?;
@@ -213,15 +211,16 @@ impl SandboxManager {
         sandbox_id: &SandboxId,
     ) -> Result<(), SandboxManagerError> {
         let user_id = user_id.to_string();
-        
+
         // 检查权限
-        let has_perm = self.permissions
+        let has_perm = self
+            .permissions
             .check_permission(&user_id, &Permission::SandboxManage, Some(sandbox_id))
             .await?;
-        
+
         if !has_perm {
             return Err(SandboxManagerError::Permission(
-                PermissionError::PermissionDenied("停止沙箱".to_string())
+                PermissionError::PermissionDenied("停止沙箱".to_string()),
             ));
         }
 
@@ -237,15 +236,16 @@ impl SandboxManager {
         sandbox_id: &SandboxId,
     ) -> Result<(), SandboxManagerError> {
         let user_id = user_id.to_string();
-        
+
         // 检查权限
-        let has_perm = self.permissions
+        let has_perm = self
+            .permissions
             .check_permission(&user_id, &Permission::SandboxDelete, Some(sandbox_id))
             .await?;
-        
+
         if !has_perm {
             return Err(SandboxManagerError::Permission(
-                PermissionError::PermissionDenied("删除沙箱".to_string())
+                PermissionError::PermissionDenied("删除沙箱".to_string()),
             ));
         }
 
@@ -268,15 +268,16 @@ impl SandboxManager {
         sandbox_id: &SandboxId,
     ) -> Result<SandboxStatus, SandboxManagerError> {
         let user_id = user_id.to_string();
-        
+
         // 检查权限
-        let has_perm = self.permissions
+        let has_perm = self
+            .permissions
             .check_permission(&user_id, &Permission::SandboxView, Some(sandbox_id))
             .await?;
-        
+
         if !has_perm {
             return Err(SandboxManagerError::Permission(
-                PermissionError::PermissionDenied("查看沙箱".to_string())
+                PermissionError::PermissionDenied("查看沙箱".to_string()),
             ));
         }
 
@@ -288,7 +289,7 @@ impl SandboxManager {
     pub async fn list_user_sandboxes(&self, user_id: &str) -> Vec<SandboxStatus> {
         let sandboxes = self.sandboxes.read().await;
         let mut result = vec![];
-        
+
         for (id, record) in sandboxes.iter() {
             if record.owner_id == user_id {
                 if let Ok(status) = self.docker.get_status(id).await {
@@ -296,7 +297,7 @@ impl SandboxManager {
                 }
             }
         }
-        
+
         result
     }
 

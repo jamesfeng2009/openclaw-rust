@@ -5,8 +5,8 @@ use futures::Stream;
 use openclaw_core::{OpenClawError, Result};
 use std::pin::Pin;
 
-use crate::types::{ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, StreamChunk};
 use crate::providers::{AIProvider, ProviderConfig};
+use crate::types::{ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, StreamChunk};
 
 /// 基础提供商 (用于测试和回退)
 pub struct BaseProvider {
@@ -28,7 +28,7 @@ impl AIProvider for BaseProvider {
     async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse> {
         // 占位符实现
         Err(OpenClawError::AIProvider(
-            "Base provider does not support chat. Please configure a real provider.".to_string()
+            "Base provider does not support chat. Please configure a real provider.".to_string(),
         ))
     }
 
@@ -37,13 +37,15 @@ impl AIProvider for BaseProvider {
         _request: ChatRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
         Err(OpenClawError::AIProvider(
-            "Base provider does not support streaming. Please configure a real provider.".to_string()
+            "Base provider does not support streaming. Please configure a real provider."
+                .to_string(),
         ))
     }
 
     async fn embed(&self, _request: EmbeddingRequest) -> Result<EmbeddingResponse> {
         Err(OpenClawError::AIProvider(
-            "Base provider does not support embeddings. Please configure a real provider.".to_string()
+            "Base provider does not support embeddings. Please configure a real provider."
+                .to_string(),
         ))
     }
 

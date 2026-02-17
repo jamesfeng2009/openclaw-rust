@@ -75,7 +75,7 @@ impl Default for PermissionManager {
 impl PermissionManager {
     pub fn new() -> Self {
         let mut tool_perms = HashMap::new();
-        
+
         tool_perms.insert(
             "browser_tools".to_string(),
             ToolPermission {
@@ -108,7 +108,7 @@ impl PermissionManager {
                 rate_limit_per_minute: Some(60),
             },
         );
-        
+
         tool_perms.insert(
             "file_tools".to_string(),
             ToolPermission {
@@ -120,10 +120,7 @@ impl PermissionManager {
                         description: "读取指定文件内容".to_string(),
                         scope: PermissionScope::Read,
                         resource: ResourceType::File,
-                        allowed_paths: vec![
-                            "./workspace/*".to_string(),
-                            "./data/*".to_string(),
-                        ],
+                        allowed_paths: vec!["./workspace/*".to_string(), "./data/*".to_string()],
                         denied_paths: vec![
                             "/etc/*".to_string(),
                             "~/.ssh/*".to_string(),
@@ -140,10 +137,7 @@ impl PermissionManager {
                         description: "写入内容到文件".to_string(),
                         scope: PermissionScope::Write,
                         resource: ResourceType::File,
-                        allowed_paths: vec![
-                            "./workspace/*".to_string(),
-                            "./data/*".to_string(),
-                        ],
+                        allowed_paths: vec!["./workspace/*".to_string(), "./data/*".to_string()],
                         denied_paths: vec![
                             "/etc/*".to_string(),
                             "/usr/*".to_string(),
@@ -158,66 +152,62 @@ impl PermissionManager {
                 rate_limit_per_minute: Some(30),
             },
         );
-        
+
         tool_perms.insert(
             "http_tools".to_string(),
             ToolPermission {
                 tool_id: "http_tools".to_string(),
-                permissions: vec![
-                    Permission {
-                        id: "http_request".to_string(),
-                        name: "HTTP 请求".to_string(),
-                        description: "发送 HTTP 请求".to_string(),
-                        scope: PermissionScope::Execute,
-                        resource: ResourceType::Network,
-                        allowed_paths: vec![
-                            "https://api.*".to_string(),
-                            "https://*.openai.com".to_string(),
-                            "https://*.anthropic.com".to_string(),
-                            "https://*.deepseek.com".to_string(),
-                        ],
-                        denied_paths: vec![
-                            "http://localhost*".to_string(),
-                            "http://127.0.0.1*".to_string(),
-                            "http://0.0.0.0*".to_string(),
-                        ],
-                        max_size_bytes: Some(5 * 1024 * 1024),
-                        timeout_seconds: Some(30),
-                    },
-                ],
+                permissions: vec![Permission {
+                    id: "http_request".to_string(),
+                    name: "HTTP 请求".to_string(),
+                    description: "发送 HTTP 请求".to_string(),
+                    scope: PermissionScope::Execute,
+                    resource: ResourceType::Network,
+                    allowed_paths: vec![
+                        "https://api.*".to_string(),
+                        "https://*.openai.com".to_string(),
+                        "https://*.anthropic.com".to_string(),
+                        "https://*.deepseek.com".to_string(),
+                    ],
+                    denied_paths: vec![
+                        "http://localhost*".to_string(),
+                        "http://127.0.0.1*".to_string(),
+                        "http://0.0.0.0*".to_string(),
+                    ],
+                    max_size_bytes: Some(5 * 1024 * 1024),
+                    timeout_seconds: Some(30),
+                }],
                 enabled: true,
                 rate_limit_per_minute: Some(100),
             },
         );
-        
+
         tool_perms.insert(
             "system_tools".to_string(),
             ToolPermission {
                 tool_id: "system_tools".to_string(),
-                permissions: vec![
-                    Permission {
-                        id: "system_exec".to_string(),
-                        name: "系统命令".to_string(),
-                        description: "执行系统命令".to_string(),
-                        scope: PermissionScope::Execute,
-                        resource: ResourceType::Process,
-                        allowed_paths: vec![
-                            "echo".to_string(),
-                            "date".to_string(),
-                            "whoami".to_string(),
-                            "pwd".to_string(),
-                            "ls".to_string(),
-                        ],
-                        denied_paths: vec![
-                            "rm -rf".to_string(),
-                            "mkfs".to_string(),
-                            "dd".to_string(),
-                            "> /dev/sda".to_string(),
-                        ],
-                        max_size_bytes: None,
-                        timeout_seconds: Some(30),
-                    },
-                ],
+                permissions: vec![Permission {
+                    id: "system_exec".to_string(),
+                    name: "系统命令".to_string(),
+                    description: "执行系统命令".to_string(),
+                    scope: PermissionScope::Execute,
+                    resource: ResourceType::Process,
+                    allowed_paths: vec![
+                        "echo".to_string(),
+                        "date".to_string(),
+                        "whoami".to_string(),
+                        "pwd".to_string(),
+                        "ls".to_string(),
+                    ],
+                    denied_paths: vec![
+                        "rm -rf".to_string(),
+                        "mkfs".to_string(),
+                        "dd".to_string(),
+                        "> /dev/sda".to_string(),
+                    ],
+                    max_size_bytes: None,
+                    timeout_seconds: Some(30),
+                }],
                 enabled: true,
                 rate_limit_per_minute: Some(10),
             },
@@ -233,12 +223,12 @@ impl PermissionManager {
 
     pub async fn check_permission(&self, tool_id: &str, action: &str, target: &str) -> GrantResult {
         let perms = self.tool_permissions.read().await;
-        
+
         if let Some(tool_perm) = perms.get(tool_id) {
             if !tool_perm.enabled {
                 return GrantResult::Denied;
             }
-            
+
             for perm in &tool_perm.permissions {
                 if perm.id == action || perm.name == action {
                     if self.is_path_allowed(target, &perm.allowed_paths, &perm.denied_paths) {
@@ -249,7 +239,7 @@ impl PermissionManager {
                 }
             }
         }
-        
+
         GrantResult::Denied
     }
 
@@ -259,24 +249,24 @@ impl PermissionManager {
                 return false;
             }
         }
-        
+
         if allowed.is_empty() {
             return false;
         }
-        
+
         for pattern in allowed {
             if self.match_pattern(target, pattern) {
                 return true;
             }
         }
-        
+
         false
     }
 
     fn match_pattern(&self, target: &str, pattern: &str) -> bool {
         let pattern = pattern.replace(".", "\\.");
         let pattern = pattern.replace("*", ".*");
-        
+
         if let Ok(regex) = regex::Regex::new(&format!("^{}$", pattern)) {
             regex.is_match(target)
         } else {
@@ -364,14 +354,14 @@ mod tests {
     #[tokio::test]
     async fn test_enable_disable_tool() {
         let manager = PermissionManager::new();
-        
+
         let result = manager.disable_tool("browser_tools").await;
         assert!(result.is_ok());
-        
+
         let perms = manager.get_tool_permissions("browser_tools").await;
         assert!(perms.is_some());
         assert!(!perms.unwrap().enabled);
-        
+
         let result = manager.enable_tool("browser_tools").await;
         assert!(result.is_ok());
     }
@@ -379,7 +369,9 @@ mod tests {
     #[tokio::test]
     async fn test_check_permission() {
         let manager = PermissionManager::new();
-        let result = manager.check_permission("browser_tools", "browser_navigate", "https://example.com").await;
+        let result = manager
+            .check_permission("browser_tools", "browser_navigate", "https://example.com")
+            .await;
         match result {
             GrantResult::Granted => (),
             GrantResult::Denied => (),

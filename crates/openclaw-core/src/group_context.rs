@@ -195,11 +195,7 @@ impl GroupContextInjector {
     }
 
     /// 注入群聊上下文到消息
-    pub fn inject_context(
-        &self,
-        message: Message,
-        context: &GroupContext,
-    ) -> Result<Message> {
+    pub fn inject_context(&self, message: Message, context: &GroupContext) -> Result<Message> {
         if !self.config.enabled {
             return Ok(message);
         }
@@ -208,17 +204,29 @@ impl GroupContextInjector {
 
         let injected_content = match self.config.injection_mode {
             ContextInjectionMode::Prepend => {
-                format!("{}\n\n{}", context_text, message.text_content().unwrap_or_default())
+                format!(
+                    "{}\n\n{}",
+                    context_text,
+                    message.text_content().unwrap_or_default()
+                )
             }
             ContextInjectionMode::Append => {
-                format!("{}\n\n{}", message.text_content().unwrap_or_default(), context_text)
+                format!(
+                    "{}\n\n{}",
+                    message.text_content().unwrap_or_default(),
+                    context_text
+                )
             }
             ContextInjectionMode::SystemMessage => {
                 // 返回原消息，系统消息需要单独处理
                 return Ok(message);
             }
             ContextInjectionMode::Inline => {
-                format!("[群聊上下文] {}\n{}", context_text, message.text_content().unwrap_or_default())
+                format!(
+                    "[群聊上下文] {}\n{}",
+                    context_text,
+                    message.text_content().unwrap_or_default()
+                )
             }
         };
 
@@ -232,8 +240,7 @@ impl GroupContextInjector {
         // 群组信息
         parts.push(format!(
             "【群组】{} ({} 名成员)",
-            context.group_info.name,
-            context.group_info.member_count
+            context.group_info.name, context.group_info.member_count
         ));
 
         // 群聊摘要
@@ -266,15 +273,15 @@ impl GroupContextInjector {
 
     /// 生成系统消息
     pub fn generate_system_message(&self, context: &GroupContext) -> Option<Message> {
-        if !self.config.enabled || self.config.injection_mode != ContextInjectionMode::SystemMessage {
+        if !self.config.enabled || self.config.injection_mode != ContextInjectionMode::SystemMessage
+        {
             return None;
         }
 
         let context_text = self.build_context_text(context);
         Some(Message::system(&format!(
             "你正在群聊「{}」中回复消息。以下是群聊上下文：\n\n{}",
-            context.group_info.name,
-            context_text
+            context.group_info.name, context_text
         )))
     }
 
@@ -291,10 +298,7 @@ impl GroupContextInjector {
             .collect();
 
         if !active_members.is_empty() {
-            let names: Vec<_> = active_members
-                .iter()
-                .map(|m| m.name.as_str())
-                .collect();
+            let names: Vec<_> = active_members.iter().map(|m| m.name.as_str()).collect();
             summary_parts.push(format!("活跃成员: {}", names.join(", ")));
         }
 
@@ -337,8 +341,13 @@ impl GroupContextManager {
     }
 
     /// 获取或创建群聊上下文
-    pub fn get_or_create(&mut self, group_id: &str, group_info: Option<GroupInfo>) -> &mut GroupContext {
-        self.contexts.entry(group_id.to_string())
+    pub fn get_or_create(
+        &mut self,
+        group_id: &str,
+        group_info: Option<GroupInfo>,
+    ) -> &mut GroupContext {
+        self.contexts
+            .entry(group_id.to_string())
             .or_insert_with(|| {
                 let info = group_info.unwrap_or_else(|| GroupInfo {
                     id: group_id.to_string(),
@@ -420,7 +429,11 @@ impl GroupContextManager {
     pub fn get_stats(&self) -> GroupContextStats {
         GroupContextStats {
             total_groups: self.contexts.len(),
-            total_messages: self.contexts.values().map(|c| c.recent_messages.len()).sum(),
+            total_messages: self
+                .contexts
+                .values()
+                .map(|c| c.recent_messages.len())
+                .sum(),
             total_members: self.contexts.values().map(|c| c.members.len()).sum(),
         }
     }

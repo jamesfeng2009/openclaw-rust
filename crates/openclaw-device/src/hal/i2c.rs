@@ -2,8 +2,8 @@
 //!
 //! I2C (Inter-Integrated Circuit) 总线接口
 
+use crate::hal::{HalConfig, HalModule, HalResult};
 use crate::platform::Platform;
-use crate::hal::{HalModule, HalConfig, HalResult};
 use serde::{Deserialize, Serialize};
 
 pub type I2cResult<T> = crate::hal::HalResult<T>;
@@ -41,22 +41,22 @@ pub struct I2cDeviceAddress {
 
 pub trait I2cDevice: Send + Sync {
     fn address(&self) -> u8;
-    
+
     fn write(&self, data: &[u8]) -> I2cResult<usize>;
-    
+
     fn read(&self, buffer: &mut [u8]) -> I2cResult<usize>;
-    
+
     fn write_read(&self, write_data: &[u8], read_buffer: &mut [u8]) -> I2cResult<usize>;
 }
 
 pub trait I2cBus: HalModule {
     fn bus_id(&self) -> &str;
-    
+
     fn speed(&self) -> I2cSpeed;
-    
+
     fn scan(&self) -> Vec<I2cDeviceAddress>;
-    
+
     fn get_device(&self, address: u8) -> I2cResult<Box<dyn I2cDevice>>;
-    
+
     fn is_busy(&self) -> bool;
 }

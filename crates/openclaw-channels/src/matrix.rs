@@ -107,10 +107,7 @@ impl MatrixClient {
         let mut request = self.client.request(method, &url);
 
         if let Some(token) = &self.config.access_token {
-            request = request.header(
-                "Authorization",
-                format!("Bearer {}", token),
-            );
+            request = request.header("Authorization", format!("Bearer {}", token));
         }
 
         if let Some(body) = body {
@@ -216,19 +213,14 @@ impl MatrixClient {
 
     /// 获取房间成员
     pub async fn get_room_members(&self, room_id: &str) -> Result<Vec<MatrixRoomMember>> {
-        let endpoint = format!(
-            "/_matrix/client/r0/rooms/{}/members",
-            room_id
-        );
+        let endpoint = format!("/_matrix/client/r0/rooms/{}/members", room_id);
 
         #[derive(Deserialize)]
         struct MembersResponse {
             members: Vec<MatrixRoomMember>,
         }
 
-        let response: MembersResponse = self
-            .request(reqwest::Method::GET, &endpoint, None)
-            .await?;
+        let response: MembersResponse = self.request(reqwest::Method::GET, &endpoint, None).await?;
 
         Ok(response.members)
     }
@@ -246,9 +238,8 @@ impl MatrixClient {
 
         let endpoint = format!("/_matrix/client/r0/sync?{}", query);
 
-        let response: MatrixSyncResponse = self
-            .request(reqwest::Method::GET, &endpoint, None)
-            .await?;
+        let response: MatrixSyncResponse =
+            self.request(reqwest::Method::GET, &endpoint, None).await?;
 
         if let Some(next_batch) = response.next_batch.clone() {
             *self.next_batch.write().unwrap() = Some(next_batch);
@@ -264,8 +255,12 @@ impl MatrixClient {
             urlencoding::encode(room_id_or_alias)
         );
 
-        self.request(reqwest::Method::POST, &endpoint, Some(serde_json::json!({})))
-            .await
+        self.request(
+            reqwest::Method::POST,
+            &endpoint,
+            Some(serde_json::json!({})),
+        )
+        .await
     }
 
     /// 创建房间
@@ -358,7 +353,10 @@ impl Channel for MatrixClient {
         }
 
         *self.running.write().unwrap() = true;
-        tracing::info!("Matrix 客户端已启动，Homeserver: {}", self.config.homeserver);
+        tracing::info!(
+            "Matrix 客户端已启动，Homeserver: {}",
+            self.config.homeserver
+        );
         Ok(())
     }
 

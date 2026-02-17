@@ -4,10 +4,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
-use tracing::{info, warn, debug};
+use tracing::{debug, info, warn};
 
-use openclaw_core::{Message, OpenClawError, Result};
 use openclaw_ai::AIProvider;
+use openclaw_core::{Message, OpenClawError, Result};
 use openclaw_memory::MemoryManager;
 
 use crate::agent::Agent;
@@ -89,7 +89,10 @@ impl Orchestrator {
 
     /// 处理任务
     pub async fn process(&self, request: TaskRequest) -> Result<TaskResult> {
-        info!("Processing task {} of type {:?}", request.id, request.task_type);
+        info!(
+            "Processing task {} of type {:?}",
+            request.id, request.task_type
+        );
 
         // 添加到活跃任务
         {
@@ -111,10 +114,9 @@ impl Orchestrator {
         // 3. 分配任务给 Agent
         let mut results = Vec::new();
         for task in sub_tasks {
-            let agent_id = self.team.select_agent(
-                &task.required_capabilities,
-                task.preferred_agent.as_deref(),
-            );
+            let agent_id = self
+                .team
+                .select_agent(&task.required_capabilities, task.preferred_agent.as_deref());
 
             match agent_id {
                 Some(agent_id) => {
@@ -170,7 +172,8 @@ impl Orchestrator {
             Some(TaskOutput::Code { code, .. }) => Ok(Message::assistant(code)),
             Some(TaskOutput::Data { data }) => Ok(Message::assistant(data.to_string())),
             Some(TaskOutput::SearchResult { results }) => {
-                let content = results.iter()
+                let content = results
+                    .iter()
                     .map(|r| format!("**{}**\n{}\n{}", r.title, r.snippet, r.url))
                     .collect::<Vec<_>>()
                     .join("\n\n");
@@ -179,10 +182,13 @@ impl Orchestrator {
             Some(TaskOutput::ToolResult { result }) => Ok(Message::assistant(result.to_string())),
             Some(TaskOutput::Multiple { outputs }) => {
                 // 合并多个输出
-                let content: String = outputs.iter()
+                let content: String = outputs
+                    .iter()
                     .filter_map(|o| match o {
                         TaskOutput::Text { content } => Some(content.clone()),
-                        TaskOutput::Message { message } => message.text_content().map(|s| s.to_string()),
+                        TaskOutput::Message { message } => {
+                            message.text_content().map(|s| s.to_string())
+                        }
                         TaskOutput::Code { code, .. } => Some(code.clone()),
                         TaskOutput::Data { data } => Some(data.to_string()),
                         _ => None,
@@ -191,9 +197,7 @@ impl Orchestrator {
                     .join("\n\n");
                 Ok(Message::assistant(content))
             }
-            None => {
-                Err(OpenClawError::Unknown("No output from agent".to_string()))
-            }
+            None => Err(OpenClawError::Unknown("No output from agent".to_string())),
         }
     }
 
@@ -235,7 +239,11 @@ impl Orchestrator {
         // 推荐适合的 Agent
         for agent_id in self.team.agent_ids() {
             if let Some(agent) = self.team.get_agent(&agent_id) {
-                if request.required_capabilities.iter().all(|c| agent.has_capability(c)) {
+                if request
+                    .required_capabilities
+                    .iter()
+                    .all(|c| agent.has_capability(c))
+                {
                     analysis.suggested_agents.push(agent.id().to_string());
                 }
             }
@@ -245,7 +253,11 @@ impl Orchestrator {
     }
 
     /// 分解任务
-    async fn decompose_task(&self, request: &TaskRequest, _analysis: &TaskAnalysis) -> Result<Vec<TaskRequest>> {
+    async fn decompose_task(
+        &self,
+        request: &TaskRequest,
+        _analysis: &TaskAnalysis,
+    ) -> Result<Vec<TaskRequest>> {
         // 简单的任务分解逻辑
         match &request.task_type {
             TaskType::Documentation => {
@@ -284,8 +296,15 @@ impl Orchestrator {
     }
 
     /// 聚合多个结果
-    async fn aggregate_results(&self, task_id: uuid::Uuid, results: Vec<TaskResult>) -> Result<TaskResult> {
-        let successful: Vec<_> = results.iter().filter(|r| r.status == TaskStatus::Completed).collect();
+    async fn aggregate_results(
+        &self,
+        task_id: uuid::Uuid,
+        results: Vec<TaskResult>,
+    ) -> Result<TaskResult> {
+        let successful: Vec<_> = results
+            .iter()
+            .filter(|r| r.status == TaskStatus::Completed)
+            .collect();
 
         if successful.is_empty() {
             return Ok(TaskResult::failure(
@@ -296,9 +315,7 @@ impl Orchestrator {
         }
 
         // 收集所有输出
-        let outputs: Vec<TaskOutput> = successful.iter()
-            .filter_map(|r| r.output.clone())
-            .collect();
+        let outputs: Vec<TaskOutput> = successful.iter().filter_map(|r| r.output.clone()).collect();
 
         Ok(TaskResult {
             task_id,
@@ -355,7 +372,9 @@ mod tests {
 
         let task = TaskRequest::new(
             TaskType::Conversation,
-            TaskInput::Text { content: "Hello".to_string() },
+            TaskInput::Text {
+                content: "Hello".to_string(),
+            },
         );
 
         let result = orchestrator.process(task).await.unwrap();
@@ -370,15 +389,16 @@ mod tests {
         // 测试任务路由选择
         let task = TaskRequest::new(
             TaskType::Conversation,
-            TaskInput::Text { content: "Hello".to_string() },
+            TaskInput::Text {
+                content: "Hello".to_string(),
+            },
         );
 
         // 测试 agent 选择
-        let agent_id = orchestrator.team().select_agent(
-            &task.required_capabilities,
-            None,
-        );
-        
+        let agent_id = orchestrator
+            .team()
+            .select_agent(&task.required_capabilities, None);
+
         // 应该选择一个可用的 agent
         assert!(agent_id.is_some());
     }

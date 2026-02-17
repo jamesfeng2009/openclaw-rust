@@ -2,9 +2,9 @@
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use openclaw_core::{OpenClawError, Result};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// 音频格式信息
 #[derive(Debug, Clone)]
@@ -42,58 +42,50 @@ impl AudioRecorder {
 
         let sample_rate = config.sample_rate().0;
         let channels = config.channels();
-        
+
         let is_recording = Arc::new(AtomicBool::new(true));
         let recorded_data: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
-        
+
         let is_recording_clone = is_recording.clone();
         let recorded_data_clone = recorded_data.clone();
 
         let err_fn = |err| eprintln!("音频录制错误: {}", err);
 
         let stream_config: cpal::StreamConfig = config.clone().into();
-        
+
         let stream = match config.sample_format() {
-            cpal::SampleFormat::I16 => {
-                device.build_input_stream(
-                    &stream_config,
-                    move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                        if is_recording_clone.load(Ordering::SeqCst) {
-                            let bytes: Vec<u8> = data
-                                .iter()
-                                .flat_map(|&sample| sample.to_le_bytes())
-                                .collect();
-                            recorded_data_clone.lock().unwrap().extend(bytes);
-                        }
-                    },
-                    err_fn,
-                    None,
-                )
-            }
-            cpal::SampleFormat::F32 => {
-                device.build_input_stream(
-                    &stream_config,
-                    move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                        if is_recording_clone.load(Ordering::SeqCst) {
-                            let samples_i16: Vec<i16> = data
-                                .iter()
-                                .map(|&s| (s * i16::MAX as f32) as i16)
-                                .collect();
-                            let bytes: Vec<u8> = samples_i16
-                                .iter()
-                                .flat_map(|&sample| sample.to_le_bytes())
-                                .collect();
-                            recorded_data_clone.lock().unwrap().extend(bytes);
-                        }
-                    },
-                    err_fn,
-                    None,
-                )
-            }
+            cpal::SampleFormat::I16 => device.build_input_stream(
+                &stream_config,
+                move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                    if is_recording_clone.load(Ordering::SeqCst) {
+                        let bytes: Vec<u8> = data
+                            .iter()
+                            .flat_map(|&sample| sample.to_le_bytes())
+                            .collect();
+                        recorded_data_clone.lock().unwrap().extend(bytes);
+                    }
+                },
+                err_fn,
+                None,
+            ),
+            cpal::SampleFormat::F32 => device.build_input_stream(
+                &stream_config,
+                move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                    if is_recording_clone.load(Ordering::SeqCst) {
+                        let samples_i16: Vec<i16> =
+                            data.iter().map(|&s| (s * i16::MAX as f32) as i16).collect();
+                        let bytes: Vec<u8> = samples_i16
+                            .iter()
+                            .flat_map(|&sample| sample.to_le_bytes())
+                            .collect();
+                        recorded_data_clone.lock().unwrap().extend(bytes);
+                    }
+                },
+                err_fn,
+                None,
+            ),
             _ => {
-                return Err(OpenClawError::Config(
-                    "不支持的音频格式".to_string(),
-                ));
+                return Err(OpenClawError::Config("不支持的音频格式".to_string()));
             }
         }
         .map_err(|e| OpenClawError::Config(format!("创建录音流失败: {}", e)))?;
@@ -125,11 +117,11 @@ impl AudioRecording {
     /// 停止录音并获取数据
     pub fn stop(self) -> Result<Vec<u8>> {
         self.is_recording.store(false, Ordering::SeqCst);
-        
+
         if let Some(stream) = self.stream {
             drop(stream);
         }
-        
+
         let data = self.recorded_data.lock().unwrap().clone();
         Ok(data)
     }
@@ -174,7 +166,8 @@ impl AudioPlayer {
         let stream_config: cpal::StreamConfig = config.clone().into();
         let channels = config.channels() as usize;
 
-        let duration_secs = (audio_len as f64 / (self.channels as f64 * 2.0)) / self.sample_rate as f64;
+        let duration_secs =
+            (audio_len as f64 / (self.channels as f64 * 2.0)) / self.sample_rate as f64;
 
         let stream = device
             .build_output_stream(
@@ -182,13 +175,14 @@ impl AudioPlayer {
                 move |data: &mut [u8], _: &cpal::OutputCallbackInfo| {
                     let bytes_per_sample = 2;
                     let bytes_per_frame = channels * bytes_per_sample;
-                    
+
                     for (i, chunk) in data.chunks_mut(bytes_per_frame).enumerate() {
                         let sample_idx = i * bytes_per_frame;
                         if sample_idx < audio_len {
                             let remaining = audio_len - sample_idx;
                             let copy_len = std::cmp::min(chunk.len(), remaining);
-                            chunk[..copy_len].copy_from_slice(&audio_buffer[sample_idx..sample_idx + copy_len]);
+                            chunk[..copy_len]
+                                .copy_from_slice(&audio_buffer[sample_idx..sample_idx + copy_len]);
                         } else {
                             for byte in chunk {
                                 *byte = 0;

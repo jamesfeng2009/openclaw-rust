@@ -12,15 +12,17 @@ use futures::Stream;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use crate::types::{ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, Provider, StreamChunk};
 use crate::providers::AIProvider;
+use crate::types::{
+    ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, Provider, StreamChunk,
+};
 
 /// 故障转移错误
 #[derive(Debug, Error)]
@@ -305,19 +307,23 @@ impl FailoverManager {
     /// 选择提供商
     async fn select_provider<'a>(
         &self,
-        available: &'a [(&'a String, &'a (FailoverProviderConfig, Arc<dyn AIProvider>))],
-    ) -> Result<(&'a String, &'a (FailoverProviderConfig, Arc<dyn AIProvider>)), FailoverError> {
+        available: &'a [(
+            &'a String,
+            &'a (FailoverProviderConfig, Arc<dyn AIProvider>),
+        )],
+    ) -> Result<
+        (
+            &'a String,
+            &'a (FailoverProviderConfig, Arc<dyn AIProvider>),
+        ),
+        FailoverError,
+    > {
         let statuses = self.statuses.read().await;
 
         // 过滤可用的提供商
         let healthy: Vec<_> = available
             .iter()
-            .filter(|(name, _)| {
-                statuses
-                    .get(*name)
-                    .map(|s| s.should_try())
-                    .unwrap_or(true)
-            })
+            .filter(|(name, _)| statuses.get(*name).map(|s| s.should_try()).unwrap_or(true))
             .collect();
 
         if healthy.is_empty() {
@@ -398,7 +404,9 @@ impl FailoverManager {
                     if self.config.verbose_logging {
                         debug!(
                             "提供商 {} 请求成功 (延迟: {}ms, 尝试: {})",
-                            name, latency, attempt + 1
+                            name,
+                            latency,
+                            attempt + 1
                         );
                     }
 
@@ -406,13 +414,22 @@ impl FailoverManager {
                 }
                 Err(e) => {
                     let error_msg = e.to_string();
-                    warn!("提供商 {} 请求失败: {} (尝试 {}/{})", name, error_msg, attempt + 1, max_retries + 1);
+                    warn!(
+                        "提供商 {} 请求失败: {} (尝试 {}/{})",
+                        name,
+                        error_msg,
+                        attempt + 1,
+                        max_retries + 1
+                    );
 
                     // 记录失败
                     {
                         let mut statuses = self.statuses.write().await;
                         if let Some(status) = statuses.get_mut(&name) {
-                            status.record_failure(error_msg.clone(), self.config.circuit_breaker_threshold);
+                            status.record_failure(
+                                error_msg.clone(),
+                                self.config.circuit_breaker_threshold,
+                            );
                         }
                     }
 
@@ -441,11 +458,7 @@ impl FailoverManager {
         let available: Vec<_> = providers
             .iter()
             .filter(|(name, (config, _))| {
-                config.enabled
-                    && statuses
-                        .get(*name)
-                        .map(|s| s.should_try())
-                        .unwrap_or(true)
+                config.enabled && statuses.get(*name).map(|s| s.should_try()).unwrap_or(true)
             })
             .collect();
 
@@ -544,7 +557,8 @@ impl AIProvider for FailoverManager {
     async fn chat_stream(
         &self,
         request: ChatRequest,
-    ) -> openclaw_core::Result<Pin<Box<dyn Stream<Item = openclaw_core::Result<StreamChunk>> + Send>>> {
+    ) -> openclaw_core::Result<Pin<Box<dyn Stream<Item = openclaw_core::Result<StreamChunk>> + Send>>>
+    {
         // 尝试使用第一个可用提供商进行流式聊天
         let providers = self.providers.read().await;
         for (_, (config, provider)) in providers.iter() {

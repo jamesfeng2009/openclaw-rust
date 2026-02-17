@@ -9,7 +9,6 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
-
 /// Presence 状态
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -83,8 +82,8 @@ pub struct PresenceConfig {
 impl Default for PresenceConfig {
     fn default() -> Self {
         Self {
-            online_timeout: 300,      // 5 分钟
-            away_timeout: 1800,       // 30 分钟
+            online_timeout: 300, // 5 分钟
+            away_timeout: 1800,  // 30 分钟
             auto_update: true,
             broadcast: true,
         }
@@ -137,7 +136,7 @@ impl PresenceManager {
     ) {
         let id = id.into();
         let now = chrono::Utc::now();
-        
+
         let presence = Presence {
             id: id.clone(),
             entity_type,
@@ -159,13 +158,13 @@ impl PresenceManager {
     pub async fn update_online(&self, id: impl Into<String>, entity_type: PresenceEntityType) {
         let id = id.into();
         let _now = chrono::Utc::now();
-        
+
         let config = self.get_config().await;
         let updates = self.last_updates.read().await;
-        
+
         if let Some(last_update) = updates.get(&id) {
             let elapsed = last_update.elapsed().as_secs();
-            
+
             let status = if elapsed < config.online_timeout {
                 PresenceStatus::Online
             } else if elapsed < config.away_timeout {
@@ -175,11 +174,12 @@ impl PresenceManager {
             };
 
             drop(updates);
-            
+
             self.set_status(id, entity_type, status, None).await;
         } else {
             drop(updates);
-            self.set_status(id, entity_type, PresenceStatus::Online, None).await;
+            self.set_status(id, entity_type, PresenceStatus::Online, None)
+                .await;
         }
     }
 
@@ -207,7 +207,8 @@ impl PresenceManager {
 
     /// 获取在线的 Agents
     pub async fn get_online_agents(&self) -> Vec<Presence> {
-        self.get_by_type(PresenceEntityType::Agent).await
+        self.get_by_type(PresenceEntityType::Agent)
+            .await
             .into_iter()
             .filter(|p| p.status == PresenceStatus::Online)
             .collect()
@@ -215,7 +216,8 @@ impl PresenceManager {
 
     /// 获取在线的 Channels
     pub async fn get_online_channels(&self) -> Vec<Presence> {
-        self.get_by_type(PresenceEntityType::Channel).await
+        self.get_by_type(PresenceEntityType::Channel)
+            .await
             .into_iter()
             .filter(|p| p.status == PresenceStatus::Online)
             .collect()
@@ -235,16 +237,16 @@ impl PresenceManager {
         let config = self.get_config().await;
         let updates = self.last_updates.write().await;
         let mut presences = self.presences.write().await;
-        
+
         let now = Instant::now();
         let offline_timeout = Duration::from_secs(config.away_timeout);
-        
+
         let offline_ids: Vec<String> = updates
             .iter()
             .filter(|(_, last_update)| now.duration_since(**last_update) > offline_timeout)
             .map(|(id, _)| id.clone())
             .collect();
-        
+
         for id in offline_ids {
             if let Some(presence) = presences.get_mut(&id) {
                 presence.status = PresenceStatus::Offline;
@@ -299,9 +301,7 @@ pub enum PresenceEvent {
         entity_type: PresenceEntityType,
     },
     /// 心跳
-    Heartbeat {
-        id: String,
-    },
+    Heartbeat { id: String },
 }
 
 /// Presence 事件发布者
@@ -346,14 +346,16 @@ mod tests {
     #[tokio::test]
     async fn test_set_and_get_status() {
         let manager = PresenceManager::new();
-        
-        manager.set_status(
-            "agent-1",
-            PresenceEntityType::Agent,
-            PresenceStatus::Online,
-            Some("Ready".to_string()),
-        ).await;
-        
+
+        manager
+            .set_status(
+                "agent-1",
+                PresenceEntityType::Agent,
+                PresenceStatus::Online,
+                Some("Ready".to_string()),
+            )
+            .await;
+
         let presence = manager.get_status("agent-1").await;
         assert!(presence.is_some());
         assert_eq!(presence.unwrap().status, PresenceStatus::Online);
@@ -362,16 +364,18 @@ mod tests {
     #[tokio::test]
     async fn test_heartbeat() {
         let manager = PresenceManager::new();
-        
-        manager.set_status(
-            "agent-1",
-            PresenceEntityType::Agent,
-            PresenceStatus::Online,
-            None,
-        ).await;
-        
+
+        manager
+            .set_status(
+                "agent-1",
+                PresenceEntityType::Agent,
+                PresenceStatus::Online,
+                None,
+            )
+            .await;
+
         manager.heartbeat("agent-1").await;
-        
+
         let presence = manager.get_status("agent-1").await;
         assert_eq!(presence.unwrap().status, PresenceStatus::Online);
     }
@@ -379,11 +383,32 @@ mod tests {
     #[tokio::test]
     async fn test_get_online_agents() {
         let manager = PresenceManager::new();
-        
-        manager.set_status("agent-1", PresenceEntityType::Agent, PresenceStatus::Online, None).await;
-        manager.set_status("agent-2", PresenceEntityType::Agent, PresenceStatus::Away, None).await;
-        manager.set_status("channel-1", PresenceEntityType::Channel, PresenceStatus::Online, None).await;
-        
+
+        manager
+            .set_status(
+                "agent-1",
+                PresenceEntityType::Agent,
+                PresenceStatus::Online,
+                None,
+            )
+            .await;
+        manager
+            .set_status(
+                "agent-2",
+                PresenceEntityType::Agent,
+                PresenceStatus::Away,
+                None,
+            )
+            .await;
+        manager
+            .set_status(
+                "channel-1",
+                PresenceEntityType::Channel,
+                PresenceStatus::Online,
+                None,
+            )
+            .await;
+
         let online_agents = manager.get_online_agents().await;
         assert_eq!(online_agents.len(), 1);
     }

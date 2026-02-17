@@ -99,10 +99,8 @@ impl SmsClient {
         });
 
         let credentials = format!("{}:{}", account_sid, auth_token);
-        let encoded_credentials = base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD,
-            credentials,
-        );
+        let encoded_credentials =
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, credentials);
 
         let response = self
             .client
@@ -255,14 +253,12 @@ impl Channel for SmsClient {
         }
 
         Ok(ChannelMessage {
-            id: response.sid.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+            id: response
+                .sid
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
             channel_type: ChannelType::SMS,
             chat_id: message.chat_id,
-            user_id: self
-                .config
-                .from_number
-                .clone()
-                .unwrap_or_default(),
+            user_id: self.config.from_number.clone().unwrap_or_default(),
             content: message.content,
             timestamp: chrono::Utc::now(),
             metadata: None,

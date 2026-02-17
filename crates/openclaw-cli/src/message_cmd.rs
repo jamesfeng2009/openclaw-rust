@@ -32,7 +32,8 @@ impl MessageCommand {
                 message,
                 message_type,
             } => {
-                self.send_message(channel, to, message, message_type).await?;
+                self.send_message(channel, to, message, message_type)
+                    .await?;
             }
         }
         Ok(())

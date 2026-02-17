@@ -58,13 +58,34 @@ impl LocalWhisperStt {
         let models_dir = Self::get_models_dir()?;
 
         let (filename, url) = match model_type {
-            WhisperModelType::Tiny => ("ggml-tiny.bin", "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin"),
-            WhisperModelType::TinyEn => ("ggml-tiny.en.bin", "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin"),
-            WhisperModelType::Base => ("ggml-base.bin", "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"),
-            WhisperModelType::BaseEn => ("ggml-base.en.bin", "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"),
-            WhisperModelType::Small => ("ggml-small.bin", "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"),
-            WhisperModelType::Medium => ("ggml-medium.bin", "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin"),
-            WhisperModelType::Large => ("ggml-large-v3.bin", "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin"),
+            WhisperModelType::Tiny => (
+                "ggml-tiny.bin",
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
+            ),
+            WhisperModelType::TinyEn => (
+                "ggml-tiny.en.bin",
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin",
+            ),
+            WhisperModelType::Base => (
+                "ggml-base.bin",
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
+            ),
+            WhisperModelType::BaseEn => (
+                "ggml-base.en.bin",
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+            ),
+            WhisperModelType::Small => (
+                "ggml-small.bin",
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
+            ),
+            WhisperModelType::Medium => (
+                "ggml-medium.bin",
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
+            ),
+            WhisperModelType::Large => (
+                "ggml-large-v3.bin",
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin",
+            ),
         };
 
         let model_path = models_dir.join(filename);
@@ -82,7 +103,8 @@ impl LocalWhisperStt {
             .map_err(|e| OpenClawError::Config(format!("创建模型目录失败: {}", e)))?;
 
         // 下载
-        let response = reqwest::get(url).await
+        let response = reqwest::get(url)
+            .await
             .map_err(|e| OpenClawError::Http(format!("下载模型失败: {}", e)))?;
 
         if !response.status().is_success() {
@@ -92,7 +114,9 @@ impl LocalWhisperStt {
             )));
         }
 
-        let bytes = response.bytes().await
+        let bytes = response
+            .bytes()
+            .await
             .map_err(|e| OpenClawError::Http(format!("读取模型数据失败: {}", e)))?;
 
         std::fs::write(&model_path, &bytes)
@@ -108,7 +132,9 @@ impl LocalWhisperStt {
         let home = std::env::var("HOME")
             .or_else(|_| std::env::var("USERPROFILE"))
             .unwrap_or_else(|_| ".".to_string());
-        Ok(std::path::PathBuf::from(home).join(".openclaw").join("models"))
+        Ok(std::path::PathBuf::from(home)
+            .join(".openclaw")
+            .join("models"))
     }
 
     /// 列出可用模型
@@ -185,7 +211,8 @@ impl super::SpeechToText for LocalWhisperStt {
         // 这里提供框架实现，实际使用时需要添加依赖
 
         Err(OpenClawError::Config(
-            "本地 Whisper 需要安装 whisper-rs 依赖。请使用 OpenAI Whisper API 或安装本地依赖".to_string(),
+            "本地 Whisper 需要安装 whisper-rs 依赖。请使用 OpenAI Whisper API 或安装本地依赖"
+                .to_string(),
         ))
     }
 

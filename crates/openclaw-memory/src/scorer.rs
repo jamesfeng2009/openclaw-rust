@@ -27,10 +27,27 @@ impl ImportanceScorer {
         ];
 
         let important_keywords: Vec<String> = vec![
-            "重要", "关键", "必须", "确认", "决定", "任务",
-            "important", "critical", "must", "confirm", "decision", "task",
-            "密码", "账号", "账户", "password", "account",
-        ].iter().map(|s| s.to_string()).collect();
+            "重要",
+            "关键",
+            "必须",
+            "确认",
+            "决定",
+            "任务",
+            "important",
+            "critical",
+            "must",
+            "confirm",
+            "decision",
+            "task",
+            "密码",
+            "账号",
+            "账户",
+            "password",
+            "account",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
 
         Self {
             entity_patterns,
@@ -84,12 +101,18 @@ impl ImportanceScorer {
     }
 
     fn count_entities(&self, text: &str) -> usize {
-        self.entity_patterns.iter().map(|r: &Regex| r.find_iter(text).count()).sum()
+        self.entity_patterns
+            .iter()
+            .map(|r: &Regex| r.find_iter(text).count())
+            .sum()
     }
 
     fn count_keywords(&self, text: &str) -> usize {
         let lower = text.to_lowercase();
-        self.important_keywords.iter().filter(|kw| lower.contains(&kw.to_lowercase())).count()
+        self.important_keywords
+            .iter()
+            .filter(|kw| lower.contains(&kw.to_lowercase()))
+            .count()
     }
 }
 

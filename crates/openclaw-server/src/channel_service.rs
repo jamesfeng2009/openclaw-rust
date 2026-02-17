@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use openclaw_channels::{Channel, ChannelManager, ChannelMessage, SendMessage, ChannelType};
+use openclaw_channels::{Channel, ChannelManager, ChannelMessage, ChannelType, SendMessage};
 
 pub struct ChannelService {
     manager: Arc<RwLock<ChannelManager>>,
@@ -44,12 +44,19 @@ impl ChannelService {
         manager.stop_all().await
     }
 
-    pub async fn send_message(&self, channel_name: &str, message: SendMessage) -> openclaw_core::Result<ChannelMessage> {
+    pub async fn send_message(
+        &self,
+        channel_name: &str,
+        message: SendMessage,
+    ) -> openclaw_core::Result<ChannelMessage> {
         let manager = self.manager.read().await;
         manager.send_to_channel(channel_name, message).await
     }
 
-    pub async fn broadcast(&self, message: SendMessage) -> openclaw_core::Result<Vec<ChannelMessage>> {
+    pub async fn broadcast(
+        &self,
+        message: SendMessage,
+    ) -> openclaw_core::Result<Vec<ChannelMessage>> {
         let manager = self.manager.read().await;
         manager.broadcast(message).await
     }

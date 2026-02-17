@@ -69,7 +69,7 @@ impl PromptClassifier {
 
     pub async fn classify(&self, input: &str, context: Option<&str>) -> LlmClassification {
         let config = self.config.read().await;
-        
+
         if !config.enabled {
             return LlmClassification {
                 category: PromptCategory::Safe,
@@ -81,9 +81,9 @@ impl PromptClassifier {
         }
 
         let prompt = Self::build_classification_prompt(input, context);
-        
+
         let classification = self.perform_classification(&prompt).await;
-        
+
         self.record_category(&classification.category).await;
 
         debug!(
@@ -95,8 +95,10 @@ impl PromptClassifier {
     }
 
     fn build_classification_prompt(input: &str, context: Option<&str>) -> String {
-        let context_str = context.map(|c| format!("\n\n上下文信息:\n{}", c)).unwrap_or_default();
-        
+        let context_str = context
+            .map(|c| format!("\n\n上下文信息:\n{}", c))
+            .unwrap_or_default();
+
         format!(
             r#"请分析以下用户输入是否存在安全风险。只需输出 JSON 格式的分类结果。
 

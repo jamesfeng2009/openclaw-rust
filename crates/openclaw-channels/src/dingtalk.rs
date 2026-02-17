@@ -134,12 +134,16 @@ impl DingTalkChannel {
             // 使用加签
             let timestamp = chrono::Utc::now().timestamp_millis();
             let sign = self.sign(secret, timestamp)?;
-            format!("{}&timestamp={}&sign={}", self.config.webhook, timestamp, sign)
+            format!(
+                "{}&timestamp={}&sign={}",
+                self.config.webhook, timestamp, sign
+            )
         } else {
             self.config.webhook.clone()
         };
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(body)
@@ -149,16 +153,22 @@ impl DingTalkChannel {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("钉钉 API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "钉钉 API 错误: {}",
+                error_text
+            )));
         }
 
-        let result: DingTalkResponse = response.json().await
+        let result: DingTalkResponse = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::Http(format!("解析响应失败: {}", e)))?;
 
         if result.errcode != 0 {
-            return Err(OpenClawError::AIProvider(
-                format!("钉钉 API 返回错误: {} - {}", result.errcode, result.errmsg)
-            ));
+            return Err(OpenClawError::AIProvider(format!(
+                "钉钉 API 返回错误: {} - {}",
+                result.errcode, result.errmsg
+            )));
         }
 
         Ok(())
@@ -166,18 +176,18 @@ impl DingTalkChannel {
 
     /// 生成签名
     fn sign(&self, secret: &str, timestamp: i64) -> Result<String> {
+        use base64::{Engine as _, engine::general_purpose};
         use hmac::{Hmac, Mac};
         use sha2::Sha256;
-        use base64::{Engine as _, engine::general_purpose};
 
         let string_to_sign = format!("{}\n{}", timestamp, secret);
-        
+
         let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
             .map_err(|e| OpenClawError::Config(format!("HMAC 初始化失败: {}", e)))?;
-        
+
         mac.update(string_to_sign.as_bytes());
         let result = mac.finalize();
-        
+
         let signature = general_purpose::STANDARD.encode(result.into_bytes());
         Ok(urlencoding::encode(&signature).to_string())
     }
@@ -218,9 +228,10 @@ impl Channel for DingTalkChannel {
             }
             "link" => {
                 let title = message.title.as_deref().unwrap_or("链接");
-                let url = message.url.as_deref().ok_or_else(|| {
-                    OpenClawError::Config("链接消息需要 url 字段".to_string())
-                })?;
+                let url = message
+                    .url
+                    .as_deref()
+                    .ok_or_else(|| OpenClawError::Config("链接消息需要 url 字段".to_string()))?;
                 self.send_link(title, &message.content, url, None).await?;
             }
             _ => {

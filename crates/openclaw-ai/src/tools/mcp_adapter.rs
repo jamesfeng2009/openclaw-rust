@@ -1,6 +1,6 @@
-use openclaw_core::Result;
-use crate::tools::{ToolExecutor, ToolDefinition, FunctionDefinition, ToolRegistry};
+use crate::tools::{FunctionDefinition, ToolDefinition, ToolExecutor, ToolRegistry};
 use async_trait::async_trait;
+use openclaw_core::Result;
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -9,7 +9,11 @@ pub struct McpToolAdapter {
     name: String,
     description: String,
     input_schema: Value,
-    executor: Arc<dyn Fn(Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>> + Send + Sync>,
+    executor: Arc<
+        dyn Fn(Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>>
+            + Send
+            + Sync,
+    >,
 }
 
 impl McpToolAdapter {
@@ -17,7 +21,13 @@ impl McpToolAdapter {
         name: String,
         description: String,
         input_schema: Value,
-        executor: impl Fn(Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>> + Send + Sync + 'static,
+        executor: impl Fn(
+            Value,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>>
+        + Send
+        + Sync
+        + 'static,
     ) -> Self {
         Self {
             name,
@@ -31,11 +41,9 @@ impl McpToolAdapter {
         let name = tool.name.clone();
         let description = tool.description.clone();
         let schema = tool.input_schema.clone();
-        
+
         Self::new(name, description, schema, |_| {
-            Box::pin(async move {
-                Ok("MCP tool execution not implemented".to_string())
-            })
+            Box::pin(async move { Ok("MCP tool execution not implemented".to_string()) })
         })
     }
 }
@@ -95,18 +103,21 @@ impl McpToolRegistry {
 
     pub async fn list(&self) -> Vec<ToolDefinition> {
         let tools = self.tools.read().await;
-        tools.iter().map(|t| ToolDefinition::new(t.name(), t.description()).with_parameters(t.parameters())).collect()
+        tools
+            .iter()
+            .map(|t| ToolDefinition::new(t.name(), t.description()).with_parameters(t.parameters()))
+            .collect()
     }
 
     pub async fn to_ai_registry(&self) -> ToolRegistry {
         let mut registry = ToolRegistry::new();
         let tools = self.tools.read().await;
-        
+
         for tool in tools.iter() {
             let adapter = tool.clone();
             registry.register(Box::new(adapter));
         }
-        
+
         registry
     }
 }

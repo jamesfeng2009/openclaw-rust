@@ -136,9 +136,7 @@ pub enum ProviderType {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AuthConfig {
     /// API 密钥认证
-    ApiKey {
-        key: String,
-    },
+    ApiKey { key: String },
     /// OAuth 认证
     OAuth {
         client_id: String,
@@ -727,10 +725,10 @@ impl Config {
     pub fn from_file(path: &std::path::Path) -> crate::Result<Self> {
         let content = std::fs::read_to_string(path)
             .map_err(|e| crate::OpenClawError::Config(format!("读取配置文件失败: {}", e)))?;
-        
+
         let config: Config = serde_json::from_str(&content)
             .map_err(|e| crate::OpenClawError::Config(format!("解析配置文件失败: {}", e)))?;
-        
+
         Ok(config)
     }
 
@@ -738,10 +736,10 @@ impl Config {
     pub fn save(&self, path: &std::path::Path) -> crate::Result<()> {
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| crate::OpenClawError::Config(format!("序列化配置失败: {}", e)))?;
-        
+
         std::fs::write(path, content)
             .map_err(|e| crate::OpenClawError::Config(format!("写入配置文件失败: {}", e)))?;
-        
+
         Ok(())
     }
 }
@@ -772,10 +770,10 @@ mod tests {
         let mut config = Config::default();
         config.server.port = 9999;
         let json = serde_json::to_string_pretty(&config).unwrap();
-        
+
         let mut file = NamedTempFile::new().unwrap();
         writeln!(file, "{}", json).unwrap();
-        
+
         let loaded = Config::from_file(file.path()).unwrap();
         assert_eq!(loaded.server.port, 9999);
     }
@@ -784,10 +782,10 @@ mod tests {
     fn test_config_save() {
         let mut config = Config::default();
         config.server.port = 12345;
-        
+
         let file = NamedTempFile::new().unwrap();
         config.save(file.path()).unwrap();
-        
+
         let loaded = Config::from_file(file.path()).unwrap();
         assert_eq!(loaded.server.port, 12345);
     }
@@ -817,7 +815,7 @@ mod tests {
             ]
         }
         "#;
-        
+
         let embedded: EmbeddedDeviceConfig = serde_json::from_str(config).unwrap();
         assert_eq!(embedded.id, "test-esp32");
         assert_eq!(embedded.device_type, "esp32");

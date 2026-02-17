@@ -1,7 +1,7 @@
 //! 浏览器实例管理
 
-use crate::types::*;
 use crate::page::Page;
+use crate::types::*;
 use chromiumoxide::browser::{Browser as ChromiumBrowser, BrowserConfig as ChromiumConfig};
 use chromiumoxide_cdp::cdp::browser_protocol::page::CaptureScreenshotFormat;
 use std::collections::HashMap;
@@ -49,8 +49,7 @@ impl Browser {
     pub async fn launch(config: BrowserConfig) -> Result<Self, BrowserError> {
         info!("启动浏览器实例...");
 
-        let mut chrome_config = ChromiumConfig::builder()
-            .window_size(config.width, config.height);
+        let mut chrome_config = ChromiumConfig::builder().window_size(config.width, config.height);
 
         if config.headless {
             chrome_config = chrome_config.no_sandbox();
@@ -64,9 +63,9 @@ impl Browser {
             chrome_config = chrome_config.arg(arg);
         }
 
-        let chrome_config = chrome_config.build().map_err(|e| {
-            BrowserError::LaunchFailed(format!("配置错误: {}", e))
-        })?;
+        let chrome_config = chrome_config
+            .build()
+            .map_err(|e| BrowserError::LaunchFailed(format!("配置错误: {}", e)))?;
 
         let (browser, mut handler) = ChromiumBrowser::launch(chrome_config)
             .await
@@ -91,9 +90,11 @@ impl Browser {
 
     /// 创建新页面
     pub async fn new_page(&self) -> Result<Arc<Page>, BrowserError> {
-        let page = self.inner.new_page("about:blank").await.map_err(|e| {
-            BrowserError::ExecutionFailed(format!("创建页面失败: {}", e))
-        })?;
+        let page = self
+            .inner
+            .new_page("about:blank")
+            .await
+            .map_err(|e| BrowserError::ExecutionFailed(format!("创建页面失败: {}", e)))?;
 
         let page_id = Uuid::new_v4().to_string();
         let page_wrapper = Arc::new(Page::new(page_id.clone(), page));
@@ -192,7 +193,10 @@ impl BrowserPool {
     }
 
     /// 创建浏览器实例
-    pub async fn create_browser(&self, config: Option<BrowserConfig>) -> Result<BrowserId, BrowserError> {
+    pub async fn create_browser(
+        &self,
+        config: Option<BrowserConfig>,
+    ) -> Result<BrowserId, BrowserError> {
         let config = config.unwrap_or_else(|| self.default_config.clone());
         let browser = Browser::launch(config).await?;
         let id = browser.id.clone();

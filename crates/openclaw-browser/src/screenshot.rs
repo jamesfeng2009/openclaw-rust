@@ -83,12 +83,7 @@ impl PdfUtils {
     }
 
     /// 带边距的 PDF
-    pub fn with_margins(
-        top: &str,
-        bottom: &str,
-        left: &str,
-        right: &str,
-    ) -> PdfOptions {
+    pub fn with_margins(top: &str, bottom: &str, left: &str, right: &str) -> PdfOptions {
         PdfOptions {
             margin: Some(PdfMargins {
                 top: Some(top.to_string()),

@@ -146,11 +146,7 @@ impl DrawTool {
             let mut max_idx = start;
 
             for i in (start + 1)..end {
-                let dist = Self::point_to_line_distance(
-                    &points[i],
-                    &points[start],
-                    &points[end],
-                );
+                let dist = Self::point_to_line_distance(&points[i], &points[start], &points[end]);
                 if dist > max_dist {
                     max_dist = dist;
                     max_idx = i;
@@ -264,7 +260,14 @@ impl DrawTool {
         mime_type: String,
         user_id: Option<UserId>,
     ) -> Element {
-        Element::new(Shape::Image { rect, data, mime_type }, user_id)
+        Element::new(
+            Shape::Image {
+                rect,
+                data,
+                mime_type,
+            },
+            user_id,
+        )
     }
 }
 
@@ -284,7 +287,7 @@ impl Selector {
             .filter(|(_, e)| e.visible)
             .filter(|(_, e)| layer_filter.map_or(true, |l| e.layer == l))
             .collect();
-        
+
         candidates.sort_by_key(|(_, e)| std::cmp::Reverse(e.layer));
 
         for (id, element) in candidates {
@@ -325,7 +328,10 @@ impl Selector {
                 r.contains(&p)
             }
             Shape::Ellipse {
-                center, radius_x, radius_y, ..
+                center,
+                radius_x,
+                radius_y,
+                ..
             } => {
                 let rx = radius_x * element.transform.scale_x;
                 let ry = radius_y * element.transform.scale_y;

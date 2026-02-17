@@ -1,9 +1,9 @@
 //! 记忆类型定义
 
 use chrono::{DateTime, Utc};
+use openclaw_core::Message;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use openclaw_core::Message;
 
 /// 记忆层级
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]

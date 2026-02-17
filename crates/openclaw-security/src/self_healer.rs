@@ -55,8 +55,7 @@ impl Operation {
     }
 
     pub fn is_stuck(&self, timeout: Duration) -> bool {
-        self.state == OperationState::Running && 
-        self.last_progress_at.elapsed() > timeout
+        self.state == OperationState::Running && self.last_progress_at.elapsed() > timeout
     }
 
     pub fn mark_progress(&mut self) {
@@ -156,10 +155,10 @@ impl SelfHealer {
     pub async fn start_operation(&self, tool_id: &str, action: &str) -> String {
         let operation = Operation::new(tool_id, action);
         let id = operation.id.clone();
-        
+
         let mut ops = self.operations.write().await;
         ops.insert(id.clone(), operation);
-        
+
         info!("Started operation {} for {}/{}", id, tool_id, action);
         id
     }
@@ -169,7 +168,10 @@ impl SelfHealer {
         if let Some(op) = ops.get_mut(operation_id) {
             let state_clone = state.clone();
             op.state = state;
-            debug!("Operation {} state updated to {:?}", operation_id, state_clone);
+            debug!(
+                "Operation {} state updated to {:?}",
+                operation_id, state_clone
+            );
             true
         } else {
             warn!("Operation {} not found", operation_id);
@@ -181,7 +183,10 @@ impl SelfHealer {
         let mut ops = self.operations.write().await;
         if let Some(op) = ops.get_mut(operation_id) {
             op.mark_progress();
-            debug!("Operation {} progress recorded: {}", operation_id, op.progress_count);
+            debug!(
+                "Operation {} progress recorded: {}",
+                operation_id, op.progress_count
+            );
             true
         } else {
             false
@@ -189,11 +194,13 @@ impl SelfHealer {
     }
 
     pub async fn complete_operation(&self, operation_id: &str) -> bool {
-        self.update_state(operation_id, OperationState::Completed).await
+        self.update_state(operation_id, OperationState::Completed)
+            .await
     }
 
     pub async fn fail_operation(&self, operation_id: &str) -> bool {
-        self.update_state(operation_id, OperationState::Failed).await
+        self.update_state(operation_id, OperationState::Failed)
+            .await
     }
 
     pub async fn check_for_stuck_operations(&self) -> Vec<StuckDetection> {
@@ -222,36 +229,52 @@ impl SelfHealer {
     fn generate_recovery_suggestion(&self, operation: &Operation) -> String {
         match operation.recovery_strategy.as_ref() {
             Some(RecoveryStrategy::Restart) => {
-                format!("Operation {}/{} appears stuck. Suggestion: Restart the operation from beginning.", 
-                    operation.tool_id, operation.action)
+                format!(
+                    "Operation {}/{} appears stuck. Suggestion: Restart the operation from beginning.",
+                    operation.tool_id, operation.action
+                )
             }
             Some(RecoveryStrategy::SkipStep) => {
-                format!("Operation {}/{} appears stuck. Suggestion: Skip current step and proceed.", 
-                    operation.tool_id, operation.action)
+                format!(
+                    "Operation {}/{} appears stuck. Suggestion: Skip current step and proceed.",
+                    operation.tool_id, operation.action
+                )
             }
             Some(RecoveryStrategy::FallbackAlternative) => {
-                format!("Operation {}/{} appears stuck. Suggestion: Use alternative approach.", 
-                    operation.tool_id, operation.action)
+                format!(
+                    "Operation {}/{} appears stuck. Suggestion: Use alternative approach.",
+                    operation.tool_id, operation.action
+                )
             }
             Some(RecoveryStrategy::SimplifyRequest) => {
-                format!("Operation {}/{} appears stuck. Suggestion: Simplify the request.", 
-                    operation.tool_id, operation.action)
+                format!(
+                    "Operation {}/{} appears stuck. Suggestion: Simplify the request.",
+                    operation.tool_id, operation.action
+                )
             }
             Some(RecoveryStrategy::ReduceParameters) => {
-                format!("Operation {}/{} appears stuck. Suggestion: Reduce number of parameters.", 
-                    operation.tool_id, operation.action)
+                format!(
+                    "Operation {}/{} appears stuck. Suggestion: Reduce number of parameters.",
+                    operation.tool_id, operation.action
+                )
             }
             Some(RecoveryStrategy::TimeoutFallback) => {
-                format!("Operation {}/{} timed out. Suggestion: Use faster timeout fallback.", 
-                    operation.tool_id, operation.action)
+                format!(
+                    "Operation {}/{} timed out. Suggestion: Use faster timeout fallback.",
+                    operation.tool_id, operation.action
+                )
             }
             Some(RecoveryStrategy::Custom(name)) => {
-                format!("Operation {}/{} appears stuck. Custom strategy: {}", 
-                    operation.tool_id, operation.action, name)
+                format!(
+                    "Operation {}/{} appears stuck. Custom strategy: {}",
+                    operation.tool_id, operation.action, name
+                )
             }
             None => {
-                format!("Operation {}/{} appears stuck. No recovery strategy set.", 
-                    operation.tool_id, operation.action)
+                format!(
+                    "Operation {}/{} appears stuck. No recovery strategy set.",
+                    operation.tool_id, operation.action
+                )
             }
         }
     }
@@ -259,43 +282,65 @@ impl SelfHealer {
     pub async fn attempt_recovery(&self, operation_id: &str, strategy: RecoveryStrategy) -> bool {
         let active = self.active_recoveries.read().await;
         if active.len() >= self.max_concurrent_recoveries {
-            warn!("Max concurrent recoveries reached, cannot start new recovery for {}", operation_id);
+            warn!(
+                "Max concurrent recoveries reached, cannot start new recovery for {}",
+                operation_id
+            );
             return false;
         }
         drop(active);
 
         let mut recoveries = self.active_recoveries.write().await;
-        recoveries.insert(operation_id.to_string(), RecoveryTask {
-            operation_id: operation_id.to_string(),
-            strategy: strategy.clone(),
-            started_at: Instant::now(),
-            status: RecoveryStatus::InProgress,
-        });
+        recoveries.insert(
+            operation_id.to_string(),
+            RecoveryTask {
+                operation_id: operation_id.to_string(),
+                strategy: strategy.clone(),
+                started_at: Instant::now(),
+                status: RecoveryStatus::InProgress,
+            },
+        );
         drop(recoveries);
 
         let mut ops = self.operations.write().await;
         if let Some(op) = ops.get_mut(operation_id) {
             op.state = OperationState::Running;
-            
+
             match strategy {
                 RecoveryStrategy::Restart => {
                     op.reset_for_retry();
                     op.increment_retry();
-                    info!("Recovery strategy 'Restart' applied to operation {}", operation_id);
+                    info!(
+                        "Recovery strategy 'Restart' applied to operation {}",
+                        operation_id
+                    );
                 }
                 RecoveryStrategy::SkipStep => {
                     op.mark_progress();
-                    info!("Recovery strategy 'SkipStep' applied to operation {}", operation_id);
+                    info!(
+                        "Recovery strategy 'SkipStep' applied to operation {}",
+                        operation_id
+                    );
                 }
-                RecoveryStrategy::FallbackAlternative | RecoveryStrategy::SimplifyRequest | RecoveryStrategy::ReduceParameters => {
-                    op.metadata.insert("fallback".to_string(), "true".to_string());
+                RecoveryStrategy::FallbackAlternative
+                | RecoveryStrategy::SimplifyRequest
+                | RecoveryStrategy::ReduceParameters => {
+                    op.metadata
+                        .insert("fallback".to_string(), "true".to_string());
                     op.mark_progress();
-                    info!("Recovery strategy '{:?}' applied to operation {}", strategy, operation_id);
+                    info!(
+                        "Recovery strategy '{:?}' applied to operation {}",
+                        strategy, operation_id
+                    );
                 }
                 RecoveryStrategy::TimeoutFallback => {
-                    op.metadata.insert("timeout_reduced".to_string(), "true".to_string());
+                    op.metadata
+                        .insert("timeout_reduced".to_string(), "true".to_string());
                     op.mark_progress();
-                    info!("Recovery strategy 'TimeoutFallback' applied to operation {}", operation_id);
+                    info!(
+                        "Recovery strategy 'TimeoutFallback' applied to operation {}",
+                        operation_id
+                    );
                 }
                 RecoveryStrategy::Custom(name) => {
                     op.metadata.insert("custom_recovery".to_string(), name);
@@ -338,14 +383,16 @@ impl SelfHealer {
     pub async fn get_active_operations(&self) -> Vec<Operation> {
         let ops = self.operations.read().await;
         ops.values()
-            .filter(|op| op.state == OperationState::Running || op.state == OperationState::WaitingForInput)
+            .filter(|op| {
+                op.state == OperationState::Running || op.state == OperationState::WaitingForInput
+            })
             .cloned()
             .collect()
     }
 
     pub async fn get_recovery_stats(&self) -> HashMap<String, u32> {
         let mut stats = HashMap::new();
-        
+
         let ops = self.operations.read().await;
         for op in ops.values() {
             *stats.entry(format!("{:?}", op.state)).or_insert(0) += 1;
@@ -360,35 +407,41 @@ impl SelfHealer {
     pub async fn cleanup_completed(&self, older_than: Duration) -> usize {
         let mut ops = self.operations.write().await;
         let before = ops.len();
-        
+
         ops.retain(|_, op| {
-            op.state == OperationState::Running || 
-            op.state == OperationState::Pending ||
-            op.state == OperationState::WaitingForInput ||
-            op.started_at.elapsed() < older_than
+            op.state == OperationState::Running
+                || op.state == OperationState::Pending
+                || op.state == OperationState::WaitingForInput
+                || op.started_at.elapsed() < older_than
         });
 
         before - ops.len()
     }
 
-    pub async fn start_auto_recovery_loop(&self, shutdown_signal: Option<tokio::sync::oneshot::Receiver<()>>) {
-        info!("Starting auto-recovery loop with check interval {:?}", self.check_interval);
-        
+    pub async fn start_auto_recovery_loop(
+        &self,
+        shutdown_signal: Option<tokio::sync::oneshot::Receiver<()>>,
+    ) {
+        info!(
+            "Starting auto-recovery loop with check interval {:?}",
+            self.check_interval
+        );
+
         let mut shutdown_rx = shutdown_signal;
-        
+
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(self.check_interval) => {
                     let stuck = self.check_for_stuck_operations().await;
-                    
+
                     for detection in stuck {
                         info!("Auto-recovery: detected stuck operation {}", detection.operation_id);
-                        
+
                         let ops = self.operations.read().await;
                         if let Some(op) = ops.get(&detection.operation_id) {
                             let strategy = self.determine_recovery_strategy(op);
                             drop(ops);
-                            
+
                             let success = self.attempt_recovery(&detection.operation_id, strategy).await;
                             if success {
                                 info!("Auto-recovery: successfully recovered operation {}", detection.operation_id);

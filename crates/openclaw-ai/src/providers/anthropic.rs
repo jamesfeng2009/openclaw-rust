@@ -3,11 +3,14 @@
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use openclaw_core::{Message, OpenClawError, Result, Role};
-use reqwest::{header, Response};
+use reqwest::{Response, header};
 use std::pin::Pin;
 
-use crate::types::{ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason, StreamChunk, TokenUsage, StreamDelta};
 use crate::providers::{AIProvider, ProviderConfig};
+use crate::types::{
+    ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason, StreamChunk,
+    StreamDelta, TokenUsage,
+};
 
 /// Anthropic 提供商
 pub struct AnthropicProvider {
@@ -22,25 +25,31 @@ impl AnthropicProvider {
     }
 
     fn get_base_url(&self) -> &str {
-        self.config.base_url.as_deref().unwrap_or("https://api.anthropic.com/v1")
+        self.config
+            .base_url
+            .as_deref()
+            .unwrap_or("https://api.anthropic.com/v1")
     }
 
     fn convert_messages(&self, messages: Vec<Message>) -> Vec<serde_json::Value> {
-        messages.into_iter().map(|m| {
-            let role = match m.role {
-                Role::System => "system",  // Anthropic 使用 system
-                Role::User => "user",
-                Role::Assistant => "assistant",
-                Role::Tool => "user", // Anthropic 没有 tool role
-            };
+        messages
+            .into_iter()
+            .map(|m| {
+                let role = match m.role {
+                    Role::System => "system", // Anthropic 使用 system
+                    Role::User => "user",
+                    Role::Assistant => "assistant",
+                    Role::Tool => "user", // Anthropic 没有 tool role
+                };
 
-            let content = m.text_content().unwrap_or("").to_string();
+                let content = m.text_content().unwrap_or("").to_string();
 
-            serde_json::json!({
-                "role": role,
-                "content": content
+                serde_json::json!({
+                    "role": role,
+                    "content": content
+                })
             })
-        }).collect()
+            .collect()
     }
 }
 
@@ -54,11 +63,15 @@ impl AIProvider for AnthropicProvider {
         let url = format!("{}/messages", self.get_base_url());
 
         // 分离系统消息和用户消息
-        let system_message: Option<String> = request.messages.iter()
+        let system_message: Option<String> = request
+            .messages
+            .iter()
             .find(|m| m.role == Role::System)
             .and_then(|m| m.text_content().map(|s| s.to_string()));
 
-        let other_messages: Vec<Message> = request.messages.into_iter()
+        let other_messages: Vec<Message> = request
+            .messages
+            .into_iter()
             .filter(|m| m.role != Role::System)
             .collect();
 
@@ -78,7 +91,8 @@ impl AIProvider for AnthropicProvider {
 
         let api_key = self.config.api_key.as_deref().unwrap_or("");
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("x-api-key", api_key)
             .header("anthropic-version", "2023-06-01")
@@ -90,14 +104,20 @@ impl AIProvider for AnthropicProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Anthropic API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Anthropic API 错误: {}",
+                error_text
+            )));
         }
 
-        let json: serde_json::Value = response.json().await
+        let json: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| OpenClawError::AIProvider(format!("解析响应失败: {}", e)))?;
 
         // 解析 Anthropic 响应格式
-        let content = json["content"].as_array()
+        let content = json["content"]
+            .as_array()
             .and_then(|arr| arr.first())
             .and_then(|c| c["text"].as_str())
             .unwrap_or("")
@@ -126,11 +146,15 @@ impl AIProvider for AnthropicProvider {
         let url = format!("{}/messages", self.get_base_url());
 
         // 分离系统消息和用户消息
-        let system_message: Option<String> = request.messages.iter()
+        let system_message: Option<String> = request
+            .messages
+            .iter()
             .find(|m| m.role == Role::System)
             .and_then(|m| m.text_content().map(|s| s.to_string()));
 
-        let other_messages: Vec<Message> = request.messages.into_iter()
+        let other_messages: Vec<Message> = request
+            .messages
+            .into_iter()
             .filter(|m| m.role != Role::System)
             .collect();
 
@@ -151,7 +175,8 @@ impl AIProvider for AnthropicProvider {
 
         let api_key = self.config.api_key.as_deref().unwrap_or("");
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("x-api-key", api_key)
             .header("anthropic-version", "2023-06-01")
@@ -164,7 +189,10 @@ impl AIProvider for AnthropicProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(OpenClawError::AIProvider(format!("Anthropic Stream API 错误: {}", error_text)));
+            return Err(OpenClawError::AIProvider(format!(
+                "Anthropic Stream API 错误: {}",
+                error_text
+            )));
         }
 
         // 创建 Anthropic SSE 流
@@ -176,7 +204,7 @@ impl AIProvider for AnthropicProvider {
     async fn embed(&self, _request: EmbeddingRequest) -> Result<EmbeddingResponse> {
         // Anthropic 目前不提供 embedding API
         Err(OpenClawError::AIProvider(
-            "Anthropic does not provide embedding API".to_string()
+            "Anthropic does not provide embedding API".to_string(),
         ))
     }
 
@@ -202,13 +230,15 @@ impl AIProvider for AnthropicProvider {
 
 impl AnthropicProvider {
     /// 解析 Anthropic SSE 流
-    fn parse_anthropic_sse_stream(response: Response) -> impl Stream<Item = Result<StreamChunk>> + Send {
+    fn parse_anthropic_sse_stream(
+        response: Response,
+    ) -> impl Stream<Item = Result<StreamChunk>> + Send {
         async_stream::stream! {
             let mut byte_stream = response.bytes_stream();
             let mut buffer = String::new();
             let mut message_id = String::new();
             let mut model = String::new();
-            
+
             while let Some(bytes_result) = byte_stream.next().await {
                 match bytes_result {
                     Ok(bytes) => {
@@ -216,12 +246,12 @@ impl AnthropicProvider {
                         if let Ok(text) = std::str::from_utf8(&bytes) {
                             buffer.push_str(text);
                         }
-                        
+
                         // 处理缓冲区中的完整事件
                         while let Some(event_end) = buffer.find("\n\n") {
                             let event = buffer[..event_end].to_string();
                             buffer = buffer[event_end + 2..].to_string();
-                            
+
                             // 解析 SSE 事件并 yield 结果
                             if let Some(result) = Self::parse_anthropic_sse_event(&event, &mut message_id, &mut model) {
                                 yield result;
@@ -300,7 +330,7 @@ impl AnthropicProvider {
                 // 消息结束事件
                 let stop_reason = json["delta"]["stop_reason"].as_str();
                 let finished = stop_reason.is_some();
-                
+
                 let finish_reason = stop_reason.map(|r| match r {
                     "end_turn" => FinishReason::Stop,
                     "max_tokens" => FinishReason::Length,
@@ -331,7 +361,10 @@ impl AnthropicProvider {
             "error" => {
                 // 错误事件
                 let error_msg = json["error"]["message"].as_str().unwrap_or("Unknown error");
-                Some(Err(OpenClawError::AIProvider(format!("Anthropic API 错误: {}", error_msg))))
+                Some(Err(OpenClawError::AIProvider(format!(
+                    "Anthropic API 错误: {}",
+                    error_msg
+                ))))
             }
             _ => None,
         }

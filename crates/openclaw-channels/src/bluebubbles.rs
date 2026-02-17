@@ -330,11 +330,7 @@ impl Channel for BlueBubblesClient {
             id: msg_result.guid.unwrap_or_else(|| message.chat_id.clone()),
             channel_type: ChannelType::IMessage,
             chat_id: message.chat_id,
-            user_id: self
-                .config
-                .default_sender
-                .clone()
-                .unwrap_or_default(),
+            user_id: self.config.default_sender.clone().unwrap_or_default(),
             content: message.content,
             timestamp: chrono::Utc::now(),
             metadata: None,

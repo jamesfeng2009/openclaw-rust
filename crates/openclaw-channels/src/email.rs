@@ -56,11 +56,7 @@ impl EmailClient {
 
     /// 发送邮件
     pub async fn send(&self, email: EmailMessage) -> Result<ChannelMessage> {
-        tracing::info!(
-            "发送邮件到 {:?}, 主题: {}",
-            email.to,
-            email.subject
-        );
+        tracing::info!("发送邮件到 {:?}, 主题: {}", email.to, email.subject);
 
         Ok(ChannelMessage {
             id: uuid::Uuid::new_v4().to_string(),
@@ -109,7 +105,10 @@ impl Channel for EmailClient {
             to: vec![message.chat_id.clone()],
             cc: None,
             bcc: None,
-            subject: message.title.clone().unwrap_or_else(|| "OpenClaw Message".to_string()),
+            subject: message
+                .title
+                .clone()
+                .unwrap_or_else(|| "OpenClaw Message".to_string()),
             body: message.content.clone(),
             is_html: message.message_type == "html",
         };

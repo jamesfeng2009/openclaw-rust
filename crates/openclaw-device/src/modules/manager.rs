@@ -4,20 +4,20 @@
 //! 根据设备能力自动发现和初始化可用模块
 
 use crate::capabilities::{DeviceCapabilities, PeripheralType};
-use crate::platform::Platform;
-use crate::hal::{HalModule, HalConfig, HalResult};
-use crate::framework::{FrameworkModule, FrameworkConfig, FrameworkResult};
+use crate::framework::can::CanBus;
+use crate::framework::mqtt::MqttClient;
+use crate::framework::ros2::Ros2Client;
+use crate::framework::{FrameworkConfig, FrameworkModule, FrameworkResult};
 use crate::hal::gpio::GpioBus;
 use crate::hal::i2c::I2cBus;
-use crate::hal::spi::SpiBus;
 use crate::hal::serial::SerialPort;
-use crate::framework::ros2::Ros2Client;
-use crate::framework::mqtt::MqttClient;
-use crate::framework::can::CanBus;
+use crate::hal::spi::SpiBus;
+use crate::hal::{HalConfig, HalModule, HalResult};
+use crate::platform::Platform;
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub enum ModuleType {
@@ -81,7 +81,7 @@ impl ModuleRegistry {
             initialized: RwLock::new(HashMap::new()),
         }
     }
-    
+
     pub fn register_hal(&mut self, module: Arc<dyn HalModule>) {
         let name = module.name().to_string();
         let hal_type = match name.as_str() {
@@ -93,7 +93,7 @@ impl ModuleRegistry {
         };
         self.hal_modules.insert(hal_type, module);
     }
-    
+
     pub fn register_framework(&mut self, module: Arc<dyn FrameworkModule>) {
         let name = module.name().to_string();
         let fw_type = match name.as_str() {
@@ -104,31 +104,37 @@ impl ModuleRegistry {
         };
         self.framework_modules.insert(fw_type, module);
     }
-    
+
     pub async fn init_hal(&self, hal_type: HalModuleType, config: &HalConfig) -> HalResult<()> {
         if let Some(module) = self.hal_modules.get(&hal_type) {
             module.as_ref().init(config).await
         } else {
-            Err(crate::hal::HalError::PlatformNotSupported(
-                format!("HAL module not registered: {:?}", hal_type)
-            ))
+            Err(crate::hal::HalError::PlatformNotSupported(format!(
+                "HAL module not registered: {:?}",
+                hal_type
+            )))
         }
     }
-    
-    pub async fn init_framework(&self, fw_type: FrameworkModuleType, config: &FrameworkConfig) -> FrameworkResult<()> {
+
+    pub async fn init_framework(
+        &self,
+        fw_type: FrameworkModuleType,
+        config: &FrameworkConfig,
+    ) -> FrameworkResult<()> {
         if let Some(module) = self.framework_modules.get(&fw_type) {
             module.as_ref().connect(config).await
         } else {
-            Err(crate::framework::FrameworkError::ConnectionFailed(
-                format!("Framework module not registered: {:?}", fw_type)
-            ))
+            Err(crate::framework::FrameworkError::ConnectionFailed(format!(
+                "Framework module not registered: {:?}",
+                fw_type
+            )))
         }
     }
-    
+
     pub fn get_hal(&self, hal_type: HalModuleType) -> Option<Arc<dyn HalModule>> {
         self.hal_modules.get(&hal_type).cloned()
     }
-    
+
     pub fn get_framework(&self, fw_type: FrameworkModuleType) -> Option<Arc<dyn FrameworkModule>> {
         self.framework_modules.get(&fw_type).cloned()
     }
@@ -154,32 +160,36 @@ impl ModuleManager {
             capabilities,
         }
     }
-    
+
     pub fn with_registry(mut self, registry: ModuleRegistry) -> Self {
         self.registry = registry;
         self
     }
-    
+
     pub fn platform(&self) -> Platform {
         self.platform
     }
-    
+
     pub fn capabilities(&self) -> &DeviceCapabilities {
         &self.capabilities
     }
-    
+
     pub fn registry(&self) -> &ModuleRegistry {
         &self.registry
     }
-    
+
     pub fn registry_mut(&mut self) -> &mut ModuleRegistry {
         &mut self.registry
     }
-    
+
     pub fn detect_available_modules(&self) -> Vec<ModuleInfo> {
         let mut modules = Vec::new();
-        
-        if self.capabilities.peripherals.contains(&PeripheralType::Gpio) {
+
+        if self
+            .capabilities
+            .peripherals
+            .contains(&PeripheralType::Gpio)
+        {
             modules.push(ModuleInfo {
                 name: "gpio".to_string(),
                 module_type: ModuleType::Hal(HalModuleType::Gpio),
@@ -188,7 +198,7 @@ impl ModuleManager {
                 is_available: true,
             });
         }
-        
+
         if self.capabilities.peripherals.contains(&PeripheralType::I2c) {
             modules.push(ModuleInfo {
                 name: "i2c".to_string(),
@@ -198,7 +208,7 @@ impl ModuleManager {
                 is_available: true,
             });
         }
-        
+
         if self.capabilities.peripherals.contains(&PeripheralType::Spi) {
             modules.push(ModuleInfo {
                 name: "spi".to_string(),
@@ -208,8 +218,12 @@ impl ModuleManager {
                 is_available: true,
             });
         }
-        
-        if self.capabilities.peripherals.contains(&PeripheralType::Uart) {
+
+        if self
+            .capabilities
+            .peripherals
+            .contains(&PeripheralType::Uart)
+        {
             modules.push(ModuleInfo {
                 name: "serial".to_string(),
                 module_type: ModuleType::Hal(HalModuleType::Serial),
@@ -218,7 +232,7 @@ impl ModuleManager {
                 is_available: true,
             });
         }
-        
+
         if self.capabilities.peripherals.contains(&PeripheralType::Can) {
             modules.push(ModuleInfo {
                 name: "can".to_string(),
@@ -228,32 +242,32 @@ impl ModuleManager {
                 is_available: true,
             });
         }
-        
+
         modules
     }
-    
+
     pub fn can_run_ros2(&self) -> bool {
         matches!(
             self.platform,
-            Platform::NvidiaJetsonNano 
-            | Platform::NvidiaJetsonXavier 
-            | Platform::NvidiaJetsonOrin 
-            | Platform::NvidiaJetsonOrinNano
-            | Platform::RaspberryPi3
-            | Platform::RaspberryPi4
-            | Platform::RaspberryPi5
-            | Platform::RockchipRk3588
-            | Platform::LinuxServer
+            Platform::NvidiaJetsonNano
+                | Platform::NvidiaJetsonXavier
+                | Platform::NvidiaJetsonOrin
+                | Platform::NvidiaJetsonOrinNano
+                | Platform::RaspberryPi3
+                | Platform::RaspberryPi4
+                | Platform::RaspberryPi5
+                | Platform::RockchipRk3588
+                | Platform::LinuxServer
         ) && self.capabilities.memory.total_bytes >= 2 * 1024 * 1024 * 1024
     }
-    
+
     pub fn can_run_mqtt(&self) -> bool {
         self.capabilities.network.has_ethernet || self.capabilities.network.has_wifi
     }
-    
+
     pub async fn auto_init(&mut self, config: &ModuleConfig) -> Result<(), ModuleError> {
         let available = self.detect_available_modules();
-        
+
         for module in available {
             if config.is_enabled(&module.name) {
                 match module.module_type {
@@ -280,7 +294,7 @@ impl ModuleManager {
                 }
             }
         }
-        
+
         Ok(())
     }
 }
@@ -302,28 +316,32 @@ impl ModuleConfig {
             modules: HashMap::new(),
         }
     }
-    
+
     pub fn enable_module(mut self, name: &str) -> Self {
-        self.modules.insert(name.to_string(), ModuleModuleConfig {
-            enabled: true,
-            config: HashMap::new(),
-        });
+        self.modules.insert(
+            name.to_string(),
+            ModuleModuleConfig {
+                enabled: true,
+                config: HashMap::new(),
+            },
+        );
         self
     }
-    
+
     pub fn with_config(mut self, name: &str, key: &str, value: &str) -> Self {
         if let Some(module) = self.modules.get_mut(name) {
             module.config.insert(key.to_string(), value.to_string());
         }
         self
     }
-    
+
     pub fn is_enabled(&self, name: &str) -> bool {
         self.modules.get(name).map(|m| m.enabled).unwrap_or(false)
     }
-    
+
     pub fn get_module_config(&self, name: &str) -> std::collections::HashMap<String, String> {
-        self.modules.get(name)
+        self.modules
+            .get(name)
             .map(|m| m.config.clone())
             .unwrap_or_default()
     }
@@ -339,13 +357,13 @@ impl Default for ModuleConfig {
 pub enum ModuleError {
     #[error("Module not found: {0}")]
     NotFound(String),
-    
+
     #[error("Module already initialized: {0}")]
     AlreadyInitialized(String),
-    
+
     #[error("Initialization failed: {0}")]
     InitFailed(String),
-    
+
     #[error("Platform not supported: {0}")]
     PlatformNotSupported(String),
 }

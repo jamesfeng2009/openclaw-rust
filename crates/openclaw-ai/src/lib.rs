@@ -14,22 +14,22 @@
 //! - Minimax (ABAB 6.5)
 //! - Kimi 月之暗面 (Moonshot v1)
 
+pub mod error;
+pub mod failover;
 pub mod models;
+pub mod oauth;
 pub mod providers;
 pub mod stream;
-pub mod tools;
 pub mod tokenizer;
+pub mod tools;
 pub mod types;
-pub mod failover;
-pub mod oauth;
-pub mod error;
 
+pub use error::*;
+pub use failover::*;
 pub use models::*;
+pub use oauth::*;
 pub use providers::*;
 pub use stream::*;
-pub use tools::*;
 pub use tokenizer::*;
+pub use tools::*;
 pub use types::*;
-pub use oauth::*;
-pub use failover::*;
-pub use error::*;

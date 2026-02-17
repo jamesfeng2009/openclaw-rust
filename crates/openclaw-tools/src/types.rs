@@ -132,10 +132,7 @@ pub enum ScheduleType {
 #[serde(tag = "type")]
 pub enum TaskAction {
     /// 发送消息到通道
-    SendMessage {
-        channel: String,
-        message: String,
-    },
+    SendMessage { channel: String, message: String },
     /// 执行工具
     ExecuteTool {
         tool_id: ToolId,
@@ -149,10 +146,7 @@ pub enum TaskAction {
         body: Option<String>,
     },
     /// 执行脚本
-    Script {
-        language: String,
-        code: String,
-    },
+    Script { language: String, code: String },
     /// 触发 Webhook
     TriggerWebhook {
         webhook_id: WebhookId,
@@ -197,7 +191,9 @@ pub enum WebhookEvent {
     SystemStarted,
     SystemStopped,
     /// 自定义事件
-    Custom { name: String },
+    Custom {
+        name: String,
+    },
 }
 
 /// Webhook 触发记录

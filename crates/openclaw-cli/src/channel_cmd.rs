@@ -44,8 +44,7 @@ impl ChannelConfigManager {
         if path.exists() {
             let content = std::fs::read_to_string(&path)
                 .map_err(|e| OpenClawError::Config(format!("读取通道配置失败: {}", e)))?;
-            serde_json::from_str(&content)
-                .map_err(|e| OpenClawError::Serialization(e))
+            serde_json::from_str(&content).map_err(|e| OpenClawError::Serialization(e))
         } else {
             Ok(Self::default())
         }
@@ -58,8 +57,8 @@ impl ChannelConfigManager {
             std::fs::create_dir_all(parent)
                 .map_err(|e| OpenClawError::Config(format!("创建配置目录失败: {}", e)))?;
         }
-        let content = serde_json::to_string_pretty(self)
-            .map_err(|e| OpenClawError::Serialization(e))?;
+        let content =
+            serde_json::to_string_pretty(self).map_err(|e| OpenClawError::Serialization(e))?;
         std::fs::write(&path, content)
             .map_err(|e| OpenClawError::Config(format!("保存通道配置失败: {}", e)))?;
         Ok(())
@@ -184,7 +183,7 @@ impl ChannelCommand {
                 println!();
                 println!("\x1b[36m\x1b[1m📱 Available Chat Channels\x1b[0m");
                 println!();
-                
+
                 let channels = vec![
                     ("telegram", "Telegram", "Bot Token"),
                     ("discord", "Discord", "Bot Token"),
@@ -230,7 +229,9 @@ impl ChannelCommand {
                             println!();
                             println!("  1. Search @BotFather in Telegram");
                             println!("  2. Send /newbot to create bot");
-                            println!("  3. Run: \x1b[36mopenclaw-rust channel set telegram --config bot_token=YOUR_TOKEN --enable\x1b[0m");
+                            println!(
+                                "  3. Run: \x1b[36mopenclaw-rust channel set telegram --config bot_token=YOUR_TOKEN --enable\x1b[0m"
+                            );
                         }
                         "discord" => {
                             println!();
@@ -238,7 +239,9 @@ impl ChannelCommand {
                             println!();
                             println!("  1. Go to Discord Developer Portal");
                             println!("  2. Create app and add bot");
-                            println!("  3. Run: \x1b[36mopenclaw-rust channel set discord --config bot_token=YOUR_TOKEN --enable\x1b[0m");
+                            println!(
+                                "  3. Run: \x1b[36mopenclaw-rust channel set discord --config bot_token=YOUR_TOKEN --enable\x1b[0m"
+                            );
                         }
                         _ => {
                             println!("\x1b[31mUnknown channel: {}\x1b[0m", channel);
@@ -266,16 +269,24 @@ impl ChannelCommand {
                 for (name, display) in channels {
                     let config = manager.get_channel(name);
                     let enabled = config.map(|c| c.enabled).unwrap_or(false);
-                    let status = if enabled { "\x1b[32m✓ Enabled\x1b[0m" } else { "\x1b[90m○ Disabled\x1b[0m" };
+                    let status = if enabled {
+                        "\x1b[32m✓ Enabled\x1b[0m"
+                    } else {
+                        "\x1b[90m○ Disabled\x1b[0m"
+                    };
                     println!("  \x1b[33m{}\x1b[0m  {}", display, status);
                 }
 
                 Ok(())
             }
 
-            ChannelCommand::Set { channel_type, configs, enable } => {
+            ChannelCommand::Set {
+                channel_type,
+                configs,
+                enable,
+            } => {
                 let channel_type_lower = channel_type.to_lowercase();
-                
+
                 if !CHANNEL_TYPES.iter().any(|(t, _)| *t == channel_type_lower) {
                     println!("❌ 不支持的通道类型: {}", channel_type);
                     println!("\n支持的通道类型:");
@@ -288,7 +299,7 @@ impl ChannelCommand {
                 let mut config_map = HashMap::new();
                 for (key, value) in configs {
                     let json_value = if value.starts_with('"') && value.ends_with('"') {
-                        serde_json::Value::String(value[1..value.len()-1].to_string())
+                        serde_json::Value::String(value[1..value.len() - 1].to_string())
                     } else if value == "true" || value == "false" {
                         serde_json::Value::Bool(value == "true")
                     } else if let Ok(n) = value.parse::<i64>() {
@@ -312,14 +323,24 @@ impl ChannelCommand {
                 if *enable {
                     println!("   状态: 已启用");
                 }
-                println!("\n使用 'openclaw-rust channel test {}' 测试连接", channel_type);
+                println!(
+                    "\n使用 'openclaw-rust channel test {}' 测试连接",
+                    channel_type
+                );
                 Ok(())
             }
 
             ChannelCommand::Get { channel_type } => {
                 if let Some(config) = manager.get_channel(channel_type) {
                     println!("通道: {} ({})", channel_type, config.channel_type);
-                    println!("状态: {}", if config.enabled { "已启用" } else { "已禁用" });
+                    println!(
+                        "状态: {}",
+                        if config.enabled {
+                            "已启用"
+                        } else {
+                            "已禁用"
+                        }
+                    );
                     println!("\n配置:");
                     for (key, value) in &config.config {
                         if key.contains("token") || key.contains("secret") || key.contains("key") {
@@ -331,7 +352,10 @@ impl ChannelCommand {
                     }
                 } else {
                     println!("❌ 未找到通道配置: {}", channel_type);
-                    println!("\n使用 'openclaw-rust channel set {}' 创建配置", channel_type);
+                    println!(
+                        "\n使用 'openclaw-rust channel set {}' 创建配置",
+                        channel_type
+                    );
                 }
                 Ok(())
             }
@@ -379,9 +403,13 @@ impl ChannelCommand {
                 Ok(())
             }
 
-            ChannelCommand::Test { channel_type, message, target } => {
+            ChannelCommand::Test {
+                channel_type,
+                message,
+                target,
+            } => {
                 println!("🔍 测试 {} 通道...", channel_type);
-                
+
                 if let Some(_config) = manager.get_channel(channel_type) {
                     println!("   消息: {}", message);
                     if let Some(t) = target {
@@ -403,7 +431,7 @@ fn mask_sensitive_value(value: &serde_json::Value) -> String {
         return "*".repeat(s.len());
     }
     let start = &s[..4];
-    let end = &s[s.len()-4..];
+    let end = &s[s.len() - 4..];
     format!("{}****{}", start, end)
 }
 

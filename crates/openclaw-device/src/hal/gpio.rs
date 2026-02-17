@@ -2,8 +2,8 @@
 //!
 //! 通用 GPIO (通用输入输出) 接口
 
+use crate::hal::{HalConfig, HalModule, HalResult};
 use crate::platform::Platform;
-use crate::hal::{HalModule, HalConfig, HalResult};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -52,13 +52,13 @@ pub enum GpioError {
 #[async_trait]
 pub trait GpioPin: Send + Sync {
     fn pin_number(&self) -> u32;
-    
+
     fn mode(&self) -> GpioMode;
-    
+
     fn read(&self) -> GpioResult<GpioState>;
-    
+
     fn write(&self, state: GpioState) -> GpioResult<()>;
-    
+
     async fn toggle(&self) -> GpioResult<()> {
         let current = self.read()?;
         let new_state = match current {
@@ -72,20 +72,20 @@ pub trait GpioPin: Send + Sync {
 #[async_trait]
 pub trait GpioBus: Send + Sync {
     async fn init(&self, config: &HalConfig) -> HalResult<()>;
-    
+
     async fn health_check(&self) -> HalResult<bool>;
-    
+
     fn name(&self) -> &str;
-    
+
     fn supported_platforms(&self) -> &[Platform];
-    
+
     fn is_available(&self) -> bool;
-    
+
     fn pin_count(&self) -> usize;
-    
+
     fn get_pin(&self, number: u32) -> GpioResult<Box<dyn GpioPin>>;
-    
+
     fn list_pins(&self) -> Vec<GpioPinInfo>;
-    
+
     fn supports_interrupt(&self) -> bool;
 }

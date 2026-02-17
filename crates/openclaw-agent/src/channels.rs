@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use openclaw_core::Result;
 use openclaw_channels::{Channel, ChannelMessage, SendMessage};
+use openclaw_core::Result;
 
 pub struct AgentChannels {
     manager: Arc<ChannelManager>,
@@ -58,40 +58,44 @@ impl ChannelManager {
         Ok(())
     }
 
-    pub async fn send_to_channel(&self, channel_name: &str, message: SendMessage) -> Result<ChannelMessage> {
+    pub async fn send_to_channel(
+        &self,
+        channel_name: &str,
+        message: SendMessage,
+    ) -> Result<ChannelMessage> {
         let channel = {
             let channels = self.channels.read().await;
-            channels.get(channel_name)
-                .cloned()
-                .ok_or_else(|| openclaw_core::OpenClawError::Config(format!("Channel not found: {}", channel_name)))?
+            channels.get(channel_name).cloned().ok_or_else(|| {
+                openclaw_core::OpenClawError::Config(format!("Channel not found: {}", channel_name))
+            })?
         };
-        
+
         channel.write().await.send(message).await
     }
 
     pub async fn broadcast(&self, message: SendMessage) -> Result<Vec<ChannelMessage>> {
         let channels = self.channels.read().await;
         let mut results = Vec::new();
-        
+
         for (name, channel) in channels.iter() {
             match channel.write().await.send(message.clone()).await {
                 Ok(msg) => results.push(msg),
                 Err(e) => tracing::warn!("Failed to send to channel {}: {}", name, e),
             }
         }
-        
+
         Ok(results)
     }
 
     pub async fn health_check_all(&self) -> std::collections::HashMap<String, bool> {
         let channels = self.channels.read().await;
         let mut results = std::collections::HashMap::new();
-        
+
         for (name, channel) in channels.iter() {
             let health = channel.read().await.health_check().await.unwrap_or(false);
             results.insert(name.clone(), health);
         }
-        
+
         results
     }
 }
@@ -135,7 +139,11 @@ impl AgentChannels {
         *self.enabled.read().await
     }
 
-    pub async fn send_to_channel(&self, channel_name: &str, message: SendMessage) -> Result<ChannelMessage> {
+    pub async fn send_to_channel(
+        &self,
+        channel_name: &str,
+        message: SendMessage,
+    ) -> Result<ChannelMessage> {
         self.manager.send_to_channel(channel_name, message).await
     }
 

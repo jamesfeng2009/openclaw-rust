@@ -1,10 +1,10 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::collections::HashMap;
 
-use openclaw_agent::{Agent, BaseAgent, AgentConfig, AgentType, AgentInfo};
-use openclaw_core::{Result, OpenClawError, Message, Content, Role};
-use openclaw_agent::task::{TaskRequest, TaskInput, TaskType};
+use openclaw_agent::task::{TaskInput, TaskRequest, TaskType};
+use openclaw_agent::{Agent, AgentConfig, AgentInfo, AgentType, BaseAgent};
+use openclaw_core::{Content, Message, OpenClawError, Result, Role};
 
 #[derive(Clone)]
 pub struct AgentService {
@@ -38,34 +38,33 @@ impl AgentService {
         agents.remove(id);
     }
 
-    pub async fn process_message(&self, agent_id: &str, message: String, session_id: Option<String>) -> Result<String> {
-        let agent = self.get_agent(agent_id).await
+    pub async fn process_message(
+        &self,
+        agent_id: &str,
+        message: String,
+        session_id: Option<String>,
+    ) -> Result<String> {
+        let agent = self
+            .get_agent(agent_id)
+            .await
             .ok_or_else(|| OpenClawError::Config(format!("Agent not found: {}", agent_id)))?;
 
-        let msg = Message::new(
-            Role::User,
-            vec![Content::Text { text: message }],
-        );
+        let msg = Message::new(Role::User, vec![Content::Text { text: message }]);
 
-        let task = TaskRequest::new(
-            TaskType::Conversation,
-            TaskInput::Message { message: msg },
-        );
-        
+        let task = TaskRequest::new(TaskType::Conversation, TaskInput::Message { message: msg });
+
         let result = agent.process(task).await?;
 
         let output = match result.output {
-            Some(TaskOutput::Message { message }) => {
-                message.content.iter()
-                    .map(|c| {
-                        match c {
-                            Content::Text { text } => text.clone(),
-                            _ => format!("[{:?}]", c),
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            }
+            Some(TaskOutput::Message { message }) => message
+                .content
+                .iter()
+                .map(|c| match c {
+                    Content::Text { text } => text.clone(),
+                    _ => format!("[{:?}]", c),
+                })
+                .collect::<Vec<_>>()
+                .join("\n"),
             Some(other) => format!("{:?}", other),
             None => result.error.unwrap_or_else(|| "No output".to_string()),
         };
@@ -75,10 +74,12 @@ impl AgentService {
 
     pub async fn create_default_agents(&self) -> Result<()> {
         let orchestrator = Arc::new(BaseAgent::orchestrator()) as Arc<dyn Agent>;
-        self.register_agent("orchestrator".to_string(), orchestrator).await;
+        self.register_agent("orchestrator".to_string(), orchestrator)
+            .await;
 
         let researcher = Arc::new(BaseAgent::researcher()) as Arc<dyn Agent>;
-        self.register_agent("researcher".to_string(), researcher).await;
+        self.register_agent("researcher".to_string(), researcher)
+            .await;
 
         let coder = Arc::new(BaseAgent::coder()) as Arc<dyn Agent>;
         self.register_agent("coder".to_string(), coder).await;

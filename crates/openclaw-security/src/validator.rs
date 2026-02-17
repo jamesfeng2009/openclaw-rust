@@ -65,73 +65,73 @@ impl OutputValidator {
             SensitiveType::ApiKey,
             ValidationLevel::Block,
         ));
-        
+
         patterns.push((
             Regex::new(r"(?i)apikey.*[=:].{20,}").unwrap(),
             SensitiveType::ApiKey,
             ValidationLevel::Block,
         ));
-        
+
         patterns.push((
             Regex::new(r"(?i)password.*[=:].{8,}").unwrap(),
             SensitiveType::Password,
             ValidationLevel::Block,
         ));
-        
+
         patterns.push((
             Regex::new(r"bearer [a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+").unwrap(),
             SensitiveType::Token,
             ValidationLevel::Block,
         ));
-        
+
         patterns.push((
             Regex::new(r"-----BEGIN.+PRIVATE KEY-----").unwrap(),
             SensitiveType::PrivateKey,
             ValidationLevel::Block,
         ));
-        
+
         patterns.push((
             Regex::new(r"\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}").unwrap(),
             SensitiveType::CreditCard,
             ValidationLevel::Block,
         ));
-        
+
         patterns.push((
             Regex::new(r"\d{3}-\d{2}-\d{4}").unwrap(),
             SensitiveType::Ssn,
             ValidationLevel::Block,
         ));
-        
+
         patterns.push((
             Regex::new(r"1[3-9]\d{9}").unwrap(),
             SensitiveType::PhoneNumber,
             ValidationLevel::Warning,
         ));
-        
+
         patterns.push((
             Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap(),
             SensitiveType::Email,
             ValidationLevel::Warning,
         ));
-        
+
         patterns.push((
             Regex::new(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}").unwrap(),
             SensitiveType::IpAddress,
             ValidationLevel::Warning,
         ));
-        
+
         patterns.push((
             Regex::new(r"(?i)(/home/|/Users/|/etc/|C:\\|D:\\)[^\s]+").unwrap(),
             SensitiveType::FilePath,
             ValidationLevel::Warning,
         ));
-        
+
         patterns.push((
             Regex::new(r"(?i)secret[_-]?key.*[=:].{16,}").unwrap(),
             SensitiveType::ApiKey,
             ValidationLevel::Block,
         ));
-        
+
         patterns.push((
             Regex::new(r"(?i)access[_-]?token.*[=:].{20,}").unwrap(),
             SensitiveType::Token,
@@ -148,7 +148,7 @@ impl OutputValidator {
     pub async fn validate(&self, output: &str) -> OutputValidation {
         let patterns = self.patterns.read().await;
         let custom_rules = self.custom_rules.read().await;
-        
+
         let mut matches = Vec::new();
         let mut block_count = 0;
         let mut warning_count = 0;
@@ -207,7 +207,9 @@ impl OutputValidator {
         if requires_action {
             warn!(
                 "Output validation: found {} sensitive matches ({} blocks, {} warnings)",
-                matches.len(), block_count, warning_count
+                matches.len(),
+                block_count,
+                warning_count
             );
         }
 
@@ -221,7 +223,7 @@ impl OutputValidator {
 
     pub async fn validate_and_redact(&self, output: &str) -> (String, OutputValidation) {
         let validation = self.validate(output).await;
-        
+
         let mut redacted = output.to_string();
         for m in validation.matches.iter().rev() {
             redacted.replace_range(m.start..m.end, &m.redacted_value);
@@ -234,7 +236,7 @@ impl OutputValidator {
         match sensitive_type {
             SensitiveType::ApiKey | SensitiveType::Token | SensitiveType::PrivateKey => {
                 if value.len() > 8 {
-                    format!("{}...{}", &value[..4], &value[value.len()-4..])
+                    format!("{}...{}", &value[..4], &value[value.len() - 4..])
                 } else {
                     "***".to_string()
                 }
@@ -242,7 +244,7 @@ impl OutputValidator {
             SensitiveType::Password => "********".to_string(),
             SensitiveType::CreditCard => {
                 if value.len() >= 4 {
-                    format!("****-****-****-{}", &value[value.len()-4..])
+                    format!("****-****-****-{}", &value[value.len() - 4..])
                 } else {
                     "****".to_string()
                 }
@@ -250,7 +252,7 @@ impl OutputValidator {
             SensitiveType::Ssn => "***-**-****".to_string(),
             SensitiveType::PhoneNumber => {
                 if value.len() >= 4 {
-                    format!("****{}", &value[value.len()-4..])
+                    format!("****{}", &value[value.len() - 4..])
                 } else {
                     "****".to_string()
                 }
@@ -308,7 +310,7 @@ mod tests {
     async fn test_output_validator_safe_content() {
         let validator = OutputValidator::new();
         let result = validator.validate("Hello, this is a safe response").await;
-        
+
         assert_eq!(result.level, ValidationLevel::Safe);
         assert!(result.matches.is_empty());
     }
@@ -316,8 +318,10 @@ mod tests {
     #[tokio::test]
     async fn test_output_validator_api_key_detection() {
         let validator = OutputValidator::new();
-        let result = validator.validate("Here is your API key: sk-1234567890abcdefghij").await;
-        
+        let result = validator
+            .validate("Here is your API key: sk-1234567890abcdefghij")
+            .await;
+
         assert!(result.requires_action);
         assert!(!result.matches.is_empty());
     }
@@ -326,14 +330,14 @@ mod tests {
     async fn test_output_validator_password_detection() {
         let validator = OutputValidator::new();
         let result = validator.validate("password = mysecretpassword123").await;
-        
+
         assert!(result.requires_action);
     }
 
     #[tokio::test]
     async fn test_output_validator_token_detection() {
         let validator = OutputValidator::new();
-        
+
         let result = validator.validate("password = mysecretpassword123").await;
         assert!(!result.matches.is_empty() || result.level != ValidationLevel::Safe);
     }
@@ -342,7 +346,7 @@ mod tests {
     async fn test_output_validator_credit_card() {
         let validator = OutputValidator::new();
         let result = validator.validate("Credit card: 1234-5678-9012-3456").await;
-        
+
         assert!(result.requires_action);
     }
 
@@ -350,7 +354,7 @@ mod tests {
     async fn test_output_validator_ssn() {
         let validator = OutputValidator::new();
         let result = validator.validate("SSN: 123-45-6789").await;
-        
+
         assert!(result.requires_action);
     }
 
@@ -365,9 +369,11 @@ mod tests {
     async fn test_redacted_value() {
         let validator = OutputValidator::new();
         let result = validator.validate("API Key: sk-1234567890abcdefghij").await;
-        
+
         if let Some(matched) = result.matches.first() {
-            assert!(matched.redacted_value.contains('*') || matched.redacted_value.starts_with("sk-"));
+            assert!(
+                matched.redacted_value.contains('*') || matched.redacted_value.starts_with("sk-")
+            );
         }
     }
 }

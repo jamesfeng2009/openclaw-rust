@@ -18,11 +18,24 @@ pub enum Role {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Content {
-    Text { text: String },
-    Image { url: String },
-    Audio { url: String },
-    ToolCall { id: String, name: String, arguments: serde_json::Value },
-    ToolResult { id: String, content: String },
+    Text {
+        text: String,
+    },
+    Image {
+        url: String,
+    },
+    Audio {
+        url: String,
+    },
+    ToolCall {
+        id: String,
+        name: String,
+        arguments: serde_json::Value,
+    },
+    ToolResult {
+        id: String,
+        content: String,
+    },
 }
 
 /// 消息
@@ -104,14 +117,17 @@ impl Message {
 
     /// 估算 token 数量 (简单实现，实际应使用 tiktoken)
     pub fn estimate_tokens(&self) -> usize {
-        self.content.iter().map(|c| {
-            match c {
-                Content::Text { text } => text.len() / 4, // 粗略估算
-                Content::Image { .. } => 85, // GPT-4V 图像基础 token
-                Content::Audio { .. } => 0,
-                Content::ToolCall { arguments, .. } => arguments.to_string().len() / 4,
-                Content::ToolResult { content, .. } => content.len() / 4,
-            }
-        }).sum()
+        self.content
+            .iter()
+            .map(|c| {
+                match c {
+                    Content::Text { text } => text.len() / 4, // 粗略估算
+                    Content::Image { .. } => 85,              // GPT-4V 图像基础 token
+                    Content::Audio { .. } => 0,
+                    Content::ToolCall { arguments, .. } => arguments.to_string().len() / 4,
+                    Content::ToolResult { content, .. } => content.len() / 4,
+                }
+            })
+            .sum()
     }
 }
