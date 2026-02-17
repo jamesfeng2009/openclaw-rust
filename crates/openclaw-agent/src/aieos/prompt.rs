@@ -242,7 +242,7 @@ impl AIEOSPromptGenerator {
 
     pub fn generate_compact(aieos: &AIEOS) -> String {
         let name = &aieos.identity.names.first;
-        let nickname = aieos.identity.names.nickname.as_deref().unwrap_or(name);
+        let _nickname = aieos.identity.names.nickname.as_deref().unwrap_or(name);
         
         let mut prompt = format!("You are {}.", name);
         

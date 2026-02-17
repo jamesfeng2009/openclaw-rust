@@ -12,12 +12,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::agent::{Agent, BaseAgent};
-use crate::task::{TaskInput, TaskOutput, TaskRequest, TaskResult, TaskStatus};
-use crate::types::{AgentConfig, AgentType, Capability};
+use crate::task::{TaskOutput, TaskRequest, TaskResult, TaskStatus};
+use crate::types::Capability;
 use openclaw_core::Message;
 
 /// 子代理错误

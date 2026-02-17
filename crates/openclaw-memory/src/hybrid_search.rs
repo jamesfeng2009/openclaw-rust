@@ -6,7 +6,9 @@ use openclaw_vector::{VectorStore, VectorItem, SearchQuery, SearchResult};
 
 pub struct HybridSearchManager {
     vector_store: Arc<dyn VectorStore>,
+    #[allow(dead_code)]
     vector_weight: f32,
+    #[allow(dead_code)]
     keyword_weight: f32,
 }
 

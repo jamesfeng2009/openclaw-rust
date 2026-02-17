@@ -1,11 +1,10 @@
 //! 工作记忆实现
 
-use chrono::{DateTime, Utc};
 use std::collections::VecDeque;
 use std::sync::RwLock;
 
 use openclaw_core::Message;
-use crate::types::{MemoryConfig, MemoryItem, WorkingMemoryConfig};
+use crate::types::{MemoryItem, WorkingMemoryConfig};
 
 /// 工作记忆 - 存储最近的消息
 pub struct WorkingMemory {

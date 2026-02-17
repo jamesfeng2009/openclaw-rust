@@ -219,7 +219,7 @@ impl SessionPruner {
         let excess = messages.len() - self.config.max_messages_per_session;
         let mut to_remove = Vec::new();
         let mut pruned = 0;
-        let mut protected = 0;
+        let protected = 0;
         let mut space = 0;
 
         // 按重要性排序，保留重要消息
@@ -269,7 +269,7 @@ impl SessionPruner {
             return 0;
         }
 
-        let excess = items.len() - self.config.max_working_memory;
+        let _excess = items.len() - self.config.max_working_memory;
         let mut pruned = 0;
         let mut space = 0;
 
@@ -307,7 +307,7 @@ impl SessionPruner {
             return 0;
         }
 
-        let excess = summaries.len() - self.config.max_short_term_summaries;
+        let _excess = summaries.len() - self.config.max_short_term_summaries;
         let mut pruned = 0;
         let mut space = 0;
 
@@ -424,7 +424,7 @@ impl AutoPruner {
     }
 
     /// 启动自动修剪任务
-    pub async fn start(&self, pruner: Arc<SessionPruner>) {
+    pub async fn start(&self, _pruner: Arc<SessionPruner>) {
         if !self.config.auto_prune_enabled {
             info!("自动修剪已禁用");
             return;

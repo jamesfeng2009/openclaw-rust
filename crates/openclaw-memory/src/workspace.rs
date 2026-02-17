@@ -3,21 +3,32 @@
 //! 实现 OpenClaw 风格的 Markdown 记忆系统：
 //! - AGENTS.md: 智能体的操作说明和记忆使用策略
 //! - SOUL.md: 个性设定
+//! - IDENTITY.md: Agent 身份（名称、emoji、风格）
 //! - USER.md: 用户信息
-//! - memory/YYYY-MM-DD.md: 每日记忆
+//! - TOOLS.md: 工具配置说明
+//! - HEARTBEAT.md: 定时任务清单
 //! - MEMORY.md: 长期记忆汇总
+//! - memory/YYYY-MM-DD.md: 每日记忆
+//! - transcripts/: 会话转录
 
-use chrono::{Datelike, Local, NaiveDate};
+use chrono::{Local, NaiveDate};
 use openclaw_core::Result;
-use std::fs::{self, File};
-use std::io::{BufRead, BufReader, Write};
+use std::fs::{self};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 const AGENTS_FILENAME: &str = "AGENTS.md";
 const SOUL_FILENAME: &str = "SOUL.md";
+const IDENTITY_FILENAME: &str = "IDENTITY.md";
 const USER_FILENAME: &str = "USER.md";
+const TOOLS_FILENAME: &str = "TOOLS.md";
+const HEARTBEAT_FILENAME: &str = "HEARTBEAT.md";
+const BOOTSTRAP_FILENAME: &str = "BOOTSTRAP.md";
 const MEMORY_FILENAME: &str = "MEMORY.md";
 const MEMORY_DIR: &str = "memory";
+const TRANSCRIPTS_DIR: &str = "transcripts";
+const CANVAS_DIR: &str = "canvas";
+const SKILLS_DIR: &str = "skills";
 
 #[derive(Debug, Clone)]
 pub struct AgentWorkspace {
@@ -61,6 +72,34 @@ impl AgentWorkspace {
         self.workspace_path.join(MEMORY_FILENAME)
     }
 
+    pub fn identity_path(&self) -> PathBuf {
+        self.workspace_path.join(IDENTITY_FILENAME)
+    }
+
+    pub fn tools_path(&self) -> PathBuf {
+        self.workspace_path.join(TOOLS_FILENAME)
+    }
+
+    pub fn heartbeat_path(&self) -> PathBuf {
+        self.workspace_path.join(HEARTBEAT_FILENAME)
+    }
+
+    pub fn bootstrap_path(&self) -> PathBuf {
+        self.workspace_path.join(BOOTSTRAP_FILENAME)
+    }
+
+    pub fn transcripts_dir(&self) -> PathBuf {
+        self.workspace_path.join(TRANSCRIPTS_DIR)
+    }
+
+    pub fn canvas_dir(&self) -> PathBuf {
+        self.workspace_path.join(CANVAS_DIR)
+    }
+
+    pub fn skills_dir(&self) -> PathBuf {
+        self.workspace_path.join(SKILLS_DIR)
+    }
+
     pub fn daily_memory_path(&self, date: NaiveDate) -> PathBuf {
         self.memory_dir().join(format!("{}.md", date.format("%Y-%m-%d")))
     }
@@ -72,6 +111,9 @@ impl AgentWorkspace {
     pub fn initialize(&self) -> Result<()> {
         fs::create_dir_all(self.workspace_path())?;
         fs::create_dir_all(self.memory_dir())?;
+        fs::create_dir_all(self.transcripts_dir())?;
+        fs::create_dir_all(self.canvas_dir())?;
+        fs::create_dir_all(self.skills_dir())?;
         
         if !self.agents_path().exists() {
             self.create_default_agents()?;
@@ -79,8 +121,17 @@ impl AgentWorkspace {
         if !self.soul_path().exists() {
             self.create_default_soul()?;
         }
+        if !self.identity_path().exists() {
+            self.create_default_identity()?;
+        }
         if !self.user_path().exists() {
             self.create_default_user()?;
+        }
+        if !self.tools_path().exists() {
+            self.create_default_tools()?;
+        }
+        if !self.heartbeat_path().exists() {
+            self.create_default_heartbeat()?;
         }
         if !self.memory_path().exists() {
             self.create_empty_memory()?;
@@ -153,6 +204,64 @@ impl AgentWorkspace {
         Ok(())
     }
 
+    fn create_default_identity(&self) -> Result<()> {
+        let content = r#"# IDENTITY.md - Agent 身份
+
+## 基本信息
+- 名称: 
+- Emoji: 
+- 角色: 
+
+## 风格
+- 语气: 
+- 沟通风格: 
+
+## 使命
+（Agent 的核心目标）
+"#;
+        fs::write(self.identity_path(), content)?;
+        Ok(())
+    }
+
+    fn create_default_tools(&self) -> Result<()> {
+        let content = r#"# TOOLS.md - 工具配置
+
+## 本地工具
+（配置本地可用的工具和资源）
+
+## 外部服务
+- SSH 主机: 
+- API 配置: 
+
+## TTS/STT 配置
+- 语音合成: 
+- 语音识别: 
+
+## 其他配置
+（其他工具和环境配置）
+"#;
+        fs::write(self.tools_path(), content)?;
+        Ok(())
+    }
+
+    fn create_default_heartbeat(&self) -> Result<()> {
+        let content = r#"# HEARTBEAT.md - 定时任务
+
+## 每日任务
+- [ ] 检查重要消息
+- [ ] 更新记忆
+
+## 每周任务
+- [ ] 总结一周学习
+- [ ] 清理不必要记忆
+
+## 定期检查
+（其他需要定期执行的任务）
+"#;
+        fs::write(self.heartbeat_path(), content)?;
+        Ok(())
+    }
+
     fn create_empty_memory(&self) -> Result<()> {
         let content = format!(r#"# MEMORY.md - 长期记忆
 
@@ -183,6 +292,18 @@ impl AgentWorkspace {
 
     pub fn read_user(&self) -> Result<String> {
         Ok(fs::read_to_string(self.user_path())?)
+    }
+
+    pub fn read_identity(&self) -> Result<String> {
+        Ok(fs::read_to_string(self.identity_path())?)
+    }
+
+    pub fn read_tools(&self) -> Result<String> {
+        Ok(fs::read_to_string(self.tools_path())?)
+    }
+
+    pub fn read_heartbeat(&self) -> Result<String> {
+        Ok(fs::read_to_string(self.heartbeat_path())?)
     }
 
     pub fn read_memory(&self) -> Result<String> {
@@ -280,6 +401,42 @@ impl AgentWorkspace {
         self.write_to_today(&entry)
     }
 
+    pub fn save_transcript(&self, session_id: &str, messages: &[(String, String)]) -> Result<PathBuf> {
+        let timestamp = Local::now().format("%Y%m%d_%H%M%S");
+        let filename = format!("{}_{}.md", session_id, timestamp);
+        let path = self.transcripts_dir().join(&filename);
+        
+        let mut content = String::new();
+        content.push_str(&format!("# Session: {} - {}\n\n", session_id, timestamp));
+        
+        for (role, msg) in messages {
+            content.push_str(&format!("**{}**: {}\n\n", role, msg));
+        }
+        
+        fs::write(&path, content)?;
+        Ok(path)
+    }
+
+    pub fn list_transcripts(&self) -> Result<Vec<PathBuf>> {
+        let mut transcripts = Vec::new();
+        
+        if let Ok(entries) = fs::read_dir(self.transcripts_dir()) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("md") {
+                    transcripts.push(path);
+                }
+            }
+        }
+        
+        transcripts.sort_by(|a, b| b.cmp(a));
+        Ok(transcripts)
+    }
+
+    pub fn read_transcript(&self, path: &Path) -> Result<String> {
+        Ok(fs::read_to_string(path)?)
+    }
+
     pub fn consolidate_to_memory(&self, days: Option<u32>) -> Result<String> {
         let days = days.unwrap_or(7);
         let cutoff = Local::now().date_naive() - chrono::Duration::days(days as i64);
@@ -324,8 +481,20 @@ impl AgentWorkspace {
             context.push_str(&format!("\n## SOUL (个性设定)\n{}\n", self.read_soul()?));
         }
         
+        if self.identity_path().exists() {
+            context.push_str(&format!("\n## IDENTITY (身份)\n{}\n", self.read_identity()?));
+        }
+        
         if self.user_path().exists() {
             context.push_str(&format!("\n## USER (用户信息)\n{}\n", self.read_user()?));
+        }
+        
+        if self.tools_path().exists() {
+            context.push_str(&format!("\n## TOOLS (工具配置)\n{}\n", self.read_tools()?));
+        }
+        
+        if self.heartbeat_path().exists() {
+            context.push_str(&format!("\n## HEARTBEAT (定时任务)\n{}\n", self.read_heartbeat()?));
         }
         
         if self.memory_path().exists() {
@@ -553,5 +722,37 @@ mod tests {
         assert!(learner.is_trigger_enabled(LearningTrigger::OnError));
         assert!(learner.is_trigger_enabled(LearningTrigger::OnSuccess));
         assert!(!learner.is_trigger_enabled(LearningTrigger::OnUserFeedback));
+    }
+
+    #[test]
+    fn test_workspace_paths() {
+        let workspace = AgentWorkspace::new("my-agent".to_string(), PathBuf::from("/tmp/workspace"));
+        
+        assert!(workspace.identity_path().to_string_lossy().contains("IDENTITY.md"));
+        assert!(workspace.tools_path().to_string_lossy().contains("TOOLS.md"));
+        assert!(workspace.heartbeat_path().to_string_lossy().contains("HEARTBEAT.md"));
+        assert!(workspace.transcripts_dir().to_string_lossy().contains("transcripts"));
+        assert!(workspace.canvas_dir().to_string_lossy().contains("canvas"));
+        assert!(workspace.skills_dir().to_string_lossy().contains("skills"));
+    }
+
+    #[test]
+    fn test_transcripts_operations() {
+        let temp_dir = env::temp_dir().join("openclaw_test_transcripts");
+        let workspace = AgentWorkspace::new("test".to_string(), temp_dir.clone());
+        workspace.initialize().unwrap();
+        
+        let messages = vec![
+            ("user".to_string(), "Hello".to_string()),
+            ("assistant".to_string(), "Hi there!".to_string()),
+        ];
+        
+        let result = workspace.save_transcript("session-001", &messages);
+        assert!(result.is_ok());
+        
+        let transcripts = workspace.list_transcripts();
+        assert!(transcripts.is_ok());
+        
+        let _ = fs::remove_dir_all(temp_dir);
     }
 }

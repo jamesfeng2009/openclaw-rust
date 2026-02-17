@@ -12,7 +12,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -226,7 +225,7 @@ impl AgentRouter {
             RouteStrategy::ByRegex => self.route_by_regex(context).await,
             RouteStrategy::RoundRobin => self.route_round_robin().await,
             RouteStrategy::Random => self.route_random().await,
-            RouteStrategy::Fallback { primary, fallback } => {
+            RouteStrategy::Fallback { primary: _, fallback } => {
                 if let Some(id) = self.try_route(context).await {
                     Some(id)
                 } else {

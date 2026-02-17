@@ -1,6 +1,5 @@
 use crate::types::{AgentType, Capability};
 use crate::task::TaskInput;
-use openclaw_core::Content;
 
 pub struct TaskAnalysis {
     pub complexity: TaskComplexity,

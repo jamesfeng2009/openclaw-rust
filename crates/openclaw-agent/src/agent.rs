@@ -4,10 +4,10 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use chrono::Utc;
 
-use openclaw_core::{Message, OpenClawError, Result, Content};
+use openclaw_core::{Message, Result, Content};
 use openclaw_memory::MemoryManager;
 use openclaw_ai::{AIProvider, ChatRequest};
-use openclaw_security::{SecurityPipeline, PipelineConfig, PipelineResult, PromptCategory};
+use openclaw_security::{SecurityPipeline, PipelineResult};
 
 use crate::types::{AgentConfig, AgentInfo, AgentStatus, AgentType, Capability};
 use crate::task::{TaskInput, TaskOutput, TaskRequest, TaskResult, TaskStatus};

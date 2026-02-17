@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use tokio::sync::RwLock;
 use tracing::{info, warn, debug};
 
@@ -11,10 +10,10 @@ use openclaw_core::{Message, OpenClawError, Result};
 use openclaw_ai::AIProvider;
 use openclaw_memory::MemoryManager;
 
-use crate::agent::{Agent, BaseAgent};
-use crate::task::{TaskInput, TaskOutput, TaskPriority, TaskRequest, TaskResult, TaskStatus, TaskType};
+use crate::agent::Agent;
+use crate::task::{TaskInput, TaskOutput, TaskRequest, TaskResult, TaskStatus, TaskType};
 use crate::team::{AgentTeam, TeamConfig};
-use crate::types::{AgentType, Capability};
+use crate::types::Capability;
 
 /// Orchestrator 配置
 #[derive(Debug, Clone)]

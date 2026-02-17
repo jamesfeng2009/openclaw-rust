@@ -6,11 +6,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
-use crate::types::AgentId;
 
 /// Presence 状态
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -160,7 +158,7 @@ impl PresenceManager {
     /// 更新在线状态 (自动计算)
     pub async fn update_online(&self, id: impl Into<String>, entity_type: PresenceEntityType) {
         let id = id.into();
-        let now = chrono::Utc::now();
+        let _now = chrono::Utc::now();
         
         let config = self.get_config().await;
         let updates = self.last_updates.read().await;
@@ -235,7 +233,7 @@ impl PresenceManager {
     /// 清理离线状态
     pub async fn cleanup_offline(&self) {
         let config = self.get_config().await;
-        let mut updates = self.last_updates.write().await;
+        let updates = self.last_updates.write().await;
         let mut presences = self.presences.write().await;
         
         let now = Instant::now();

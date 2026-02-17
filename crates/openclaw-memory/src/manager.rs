@@ -3,14 +3,14 @@
 use std::sync::Arc;
 
 use openclaw_core::{Message, OpenClawError, Result};
-use openclaw_vector::{VectorStore, SearchQuery};
+use openclaw_vector::VectorStore;
 
 use crate::types::{MemoryConfig, MemoryItem, MemoryContent, MemoryLevel, MemoryRetrieval};
 use crate::compressor::MemoryCompressor;
 use crate::scorer::ImportanceScorer;
 use crate::working::WorkingMemory;
 use crate::hybrid_search::{HybridSearchManager, HybridSearchConfig};
-use crate::embedding::{EmbeddingProvider, Embedding};
+use crate::embedding::EmbeddingProvider;
 use crate::recall::{MemoryRecall, RecallResult, SimpleMemoryRecall};
 
 /// 记忆管理器 - 统一管理三层记忆

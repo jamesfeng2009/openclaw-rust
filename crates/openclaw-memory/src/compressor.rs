@@ -78,9 +78,9 @@ impl Default for MemoryCompressor {
 }
 
 /// AI 驱动的压缩器 (需要 AI 提供商)
+#[allow(dead_code)]
 pub struct AICompressor {
     config: ShortTermMemoryConfig,
-    // AI 提供商引用 (实际使用时需要配置)
 }
 
 impl AICompressor {

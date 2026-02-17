@@ -7,7 +7,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use openclaw_core::{Message, Result};
 
-use crate::embedding::{Embedding, EmbeddingProvider};
+use crate::embedding::EmbeddingProvider;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecallConfig {
@@ -67,7 +67,7 @@ impl SimpleMemoryRecall {
 #[async_trait]
 impl MemoryRecall for SimpleMemoryRecall {
     async fn recall(&self, query: &str, _context: Option<&[Message]>) -> Result<RecallResult> {
-        let query_embedding = self.embedding.embed(query).await?;
+        let _query_embedding = self.embedding.embed(query).await?;
         
         Ok(RecallResult {
             items: vec![],

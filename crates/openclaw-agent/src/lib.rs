@@ -19,6 +19,7 @@ pub mod decision;
 pub mod voice;
 pub mod channels;
 pub mod aieos;
+pub mod memory_pipeline;
 
 pub use agent::*;
 pub use orchestrator::*;
@@ -31,5 +32,6 @@ pub use sessions::*;
 pub use integration::*;
 pub use aieos::*;
 pub use sub_agent::*;
+pub use memory_pipeline::*;
 
 pub use openclaw_core::{Result, OpenClawError};

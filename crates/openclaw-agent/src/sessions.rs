@@ -7,7 +7,6 @@
 //! - 会话状态持久化
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -17,7 +16,6 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use openclaw_core::session::SessionScope;
-use openclaw_core::{Result, OpenClawError};
 
 use crate::types::AgentId;
 

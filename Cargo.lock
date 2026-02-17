@@ -5789,11 +5789,13 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "tantivy",
  "thiserror 2.0.18",
  "tiktoken-rs",
  "tokio",
  "tracing",
  "uuid",
+ "walkdir",
 ]
 
 [[package]]

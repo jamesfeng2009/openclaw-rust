@@ -110,7 +110,7 @@ impl AgentChannels {
         }
     }
 
-    pub fn with_channel(mut self, name: impl Into<String>, channel: Arc<RwLock<dyn Channel>>) -> Self {
+    pub fn with_channel(self, name: impl Into<String>, channel: Arc<RwLock<dyn Channel>>) -> Self {
         let manager = self.manager.clone();
         let name_str = name.into();
         tokio::spawn(async move {
