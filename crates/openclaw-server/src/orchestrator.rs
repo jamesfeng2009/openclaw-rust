@@ -22,6 +22,9 @@ pub struct ServiceOrchestrator {
     session_service: SessionServiceState,
     config: OrchestratorConfig,
     running: Arc<RwLock<bool>>,
+    ai_provider: Arc<RwLock<Option<Arc<dyn AIProvider>>>>,
+    memory_manager: Arc<RwLock<Option<Arc<MemoryManager>>>>,
+    security_pipeline: Arc<RwLock<Option<Arc<SecurityPipeline>>>>,
 }
 
 #[derive(Clone, Default)]
@@ -103,6 +106,9 @@ impl ServiceOrchestrator {
             session_service: SessionServiceState::new(session_manager),
             config,
             running: Arc::new(RwLock::new(false)),
+            ai_provider: Arc::new(RwLock::new(None)),
+            memory_manager: Arc::new(RwLock::new(None)),
+            security_pipeline: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -161,6 +167,38 @@ impl ServiceOrchestrator {
 
     pub async fn register_agent(&self, id: String, agent: Arc<dyn Agent>) {
         let mut agents = self.agent_service.agents.write().await;
+        
+        let should_inject = {
+            let provider = self.ai_provider.read().await;
+            let memory = self.memory_manager.read().await;
+            let pipeline = self.security_pipeline.read().await;
+            provider.is_some() && memory.is_some() && pipeline.is_some()
+        };
+        
+        if should_inject {
+            let agent_clone = agent.clone();
+            let ai_provider = self.ai_provider.clone();
+            let memory_manager = self.memory_manager.clone();
+            let security_pipeline = self.security_pipeline.clone();
+            tokio::spawn(async move {
+                let ai = {
+                    let p = ai_provider.read().await;
+                    p.clone()
+                };
+                let mem = {
+                    let m = memory_manager.read().await;
+                    m.clone()
+                };
+                let sec = {
+                    let s = security_pipeline.read().await;
+                    s.clone()
+                };
+                if let (Some(ai), Some(mem), Some(sec)) = (ai, mem, sec) {
+                    agent_clone.inject_dependencies(ai, mem, sec).await;
+                }
+            });
+        }
+        
         agents.insert(id, agent);
     }
 
@@ -170,6 +208,20 @@ impl ServiceOrchestrator {
         memory_manager: Arc<MemoryManager>,
         security_pipeline: Arc<SecurityPipeline>,
     ) {
+        // 保存依赖供 register_agent 使用
+        {
+            let mut provider = self.ai_provider.write().await;
+            *provider = Some(ai_provider.clone());
+        }
+        {
+            let mut memory = self.memory_manager.write().await;
+            *memory = Some(memory_manager.clone());
+        }
+        {
+            let mut pipeline = self.security_pipeline.write().await;
+            *pipeline = Some(security_pipeline.clone());
+        }
+        
         let agents: Vec<Arc<dyn Agent>> = {
             let agents = self.agent_service.agents.read().await;
             agents.values().cloned().collect()
@@ -321,6 +373,38 @@ impl ServiceOrchestrator {
     pub async fn list_channels(&self) -> Vec<String> {
         let manager = self.channel_service.manager.read().await;
         manager.list_channels().await
+    }
+
+    pub async fn create_channel(&self, name: String, channel_type: String) -> openclaw_core::Result<()> {
+        use openclaw_channels::{Channel, WebChatClient, WebChatConfig};
+        
+        let manager = self.channel_service.manager.read().await;
+        
+        let config = WebChatConfig {
+            webhook_url: None,
+            webhook_secret: None,
+            server_url: None,
+            enabled: true,
+        };
+        
+        let channel: Arc<RwLock<dyn Channel>> = match channel_type.as_str() {
+            "webchat" => {
+                let web_channel = WebChatClient::new(config);
+                Arc::new(RwLock::new(web_channel))
+            }
+            _ => {
+                return Err(openclaw_core::OpenClawError::Config(format!("Unsupported channel type: {}", channel_type)));
+            }
+        };
+        
+        manager.register_channel(name, channel).await;
+        Ok(())
+    }
+
+    pub async fn delete_channel(&self, name: &str) -> openclaw_core::Result<()> {
+        let manager = self.channel_service.manager.read().await;
+        manager.unregister_channel(name).await;
+        Ok(())
     }
 
     pub async fn health_check(&self) -> HashMap<String, bool> {

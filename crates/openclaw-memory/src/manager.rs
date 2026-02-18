@@ -59,13 +59,13 @@ impl MemoryManager {
 
     /// 自动召回相关记忆
     pub async fn recall(&self, query: &str) -> Result<RecallResult> {
-        if let Some(provider) = &self.embedding_provider {
-            let recall_tool = SimpleMemoryRecall::new(provider.clone());
+        if let (Some(provider), Some(store)) = (&self.embedding_provider, &self.long_term) {
+            let recall_tool = SimpleMemoryRecall::new(provider.clone(), store.clone());
             let result = recall_tool.recall(query, None).await?;
             Ok(result)
         } else {
             Err(OpenClawError::Memory(
-                "Embedding provider not configured".to_string(),
+                "Embedding provider or vector store not configured".to_string(),
             ))
         }
     }

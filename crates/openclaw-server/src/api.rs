@@ -250,24 +250,37 @@ async fn list_channels(State(state): State<Arc<RwLock<ApiState>>>) -> Json<Vec<C
 }
 
 async fn create_channel(
-    State(_state): State<Arc<RwLock<ApiState>>>,
+    State(state): State<Arc<RwLock<ApiState>>>,
     Json(input): Json<ChannelInfo>,
 ) -> Json<ChannelInfo> {
     let channel = ChannelInfo {
         id: uuid::Uuid::new_v4().to_string(),
-        channel_type: input.channel_type,
-        name: input.name,
+        channel_type: input.channel_type.clone(),
+        name: input.name.clone(),
         enabled: input.enabled,
         config: input.config,
     };
+    
+    let state = state.read().await;
+    if let Some(ref orchestrator) = *state.orchestrator.read().await {
+        let _ = orchestrator.create_channel(input.name, input.channel_type).await;
+    }
+    
     Json(channel)
 }
 
 async fn delete_channel(
-    State(_state): State<Arc<RwLock<ApiState>>>,
-    Path(_id): Path<String>,
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Path(id): Path<String>,
 ) -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "success": true }))
+    let state = state.read().await;
+    if let Some(ref orchestrator) = *state.orchestrator.read().await {
+        match orchestrator.delete_channel(&id).await {
+            Ok(_) => return Json(serde_json::json!({ "success": true, "channel_id": id })),
+            Err(e) => return Json(serde_json::json!({ "success": false, "error": format!("{}", e) })),
+        }
+    }
+    Json(serde_json::json!({ "success": false, "error": "No orchestrator available" }))
 }
 
 async fn list_agents(State(state): State<Arc<RwLock<ApiState>>>) -> Json<Vec<AgentInfo>> {
