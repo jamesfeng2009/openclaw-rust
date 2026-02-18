@@ -41,7 +41,7 @@ jobs:
         with:
           components: clippy
       - name: Run clippy
-        run: cargo clippy --all-targets -- -W clippy::all -A clippy::needless_update -A clippy::type_complexity
+        run: cargo clippy --all-targets -- -W clippy::all
 
   test:
     name: Test
@@ -73,7 +73,7 @@ jobs:
       - name: Build documentation
         run: cargo doc --all-features --no-deps
         env:
-          RUSTDOCFLAGS: -W clippy::all -A clippy::needless_update -A clippy::type_complexity
+          RUSTDOCFLAGS: -W clippy::all
 
   security:
     name: Security Check

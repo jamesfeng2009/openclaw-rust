@@ -236,9 +236,7 @@ impl Channel for FeishuChannel {
                                 tag: "plain_text".to_string(),
                                 content: message.content.clone(),
                             }),
-                            ..Default::default()
                         }],
-                        ..Default::default()
                     };
                     self.send_interactive(card).await?;
                 }
