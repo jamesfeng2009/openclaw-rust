@@ -31,7 +31,7 @@ impl SystemManager {
     pub async fn run_command(
         &self,
         command: &str,
-        args: Vec<String>,
+        #[allow(unused_variables)] args: Vec<String>,
     ) -> Result<SystemCommandResult, DeviceError> {
         let allowed = self.allowed_commands.read().await;
 

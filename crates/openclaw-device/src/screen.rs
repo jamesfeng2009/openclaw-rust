@@ -10,7 +10,7 @@ impl ScreenManager {
         Self
     }
 
-    pub async fn screenshot(&self, display_id: Option<u32>) -> Result<CaptureResult, DeviceError> {
+    pub async fn screenshot(&self, _display_id: Option<u32>) -> Result<CaptureResult, DeviceError> {
         let timestamp = Utc::now().timestamp_millis();
 
         #[cfg(target_os = "macos")]
@@ -75,8 +75,8 @@ impl ScreenManager {
 
     pub async fn record_screen(
         &self,
-        display_id: Option<u32>,
-        duration_secs: Option<u32>,
+        _display_id: Option<u32>,
+        _duration_secs: Option<u32>,
     ) -> Result<CaptureResult, DeviceError> {
         let timestamp = Utc::now().timestamp_millis();
 

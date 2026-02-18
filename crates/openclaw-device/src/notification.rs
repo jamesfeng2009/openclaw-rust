@@ -12,7 +12,7 @@ impl NotificationManager {
         &self,
         title: &str,
         body: &str,
-        icon: Option<&str>,
+        _icon: Option<&str>,
     ) -> Result<NotificationResult, DeviceError> {
         let notification_id = uuid::Uuid::new_v4().to_string();
 

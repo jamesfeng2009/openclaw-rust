@@ -98,7 +98,7 @@ impl DeviceCapabilities {
     }
 
     fn detect_sensors() -> Vec<SensorType> {
-        let sensors = Vec::new();
+        let mut sensors = Vec::new();
 
         #[cfg(target_os = "linux")]
         {
@@ -226,7 +226,7 @@ impl MemoryCapability {
                 let mut total = 0u64;
                 let mut available = 0u64;
                 let mut swap = 0u64;
-                let mut page_size = 4096u64;
+                let page_size = 4096u64;
 
                 for line in meminfo.lines() {
                     if line.starts_with("MemTotal:") {
@@ -279,7 +279,7 @@ impl StorageCapability {
     fn detect() -> Self {
         #[cfg(target_os = "linux")]
         {
-            let mut has_flash = std::path::Path::new("/sys/class/mtd").exists();
+            let has_flash = std::path::Path::new("/sys/class/mtd").exists();
             let has_sdcard = std::path::Path::new("/dev/mmcblk0").exists();
             let has_emmc = std::path::Path::new("/dev/mmcblk0boot0").exists();
 
