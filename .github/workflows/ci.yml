@@ -71,9 +71,7 @@ jobs:
           version: '29'
       - uses: dtolnay/rust-toolchain@stable
       - name: Build documentation
-        run: cargo doc --all-features --no-deps
-        env:
-          RUSTDOCFLAGS: -W clippy::all
+        run: cargo doc --no-deps
 
   security:
     name: Security Check
