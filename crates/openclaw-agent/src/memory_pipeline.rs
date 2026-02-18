@@ -94,7 +94,7 @@ impl MemoryPipeline {
         self.workspace.as_ref()
     }
 
-    pub fn recall(&self, query: &str, limit: usize) -> Result<Vec<RecallStrategyItem>> {
+    pub async fn recall(&self, query: &str, limit: usize) -> Result<Vec<RecallStrategyItem>> {
         let mut all_items = Vec::new();
 
         if let Some(bm25) = &self.bm25_index {
@@ -114,7 +114,7 @@ impl MemoryPipeline {
         }
 
         if let Some(memory) = &self.memory_manager {
-            let retrieval: RecallResult = futures::executor::block_on(memory.recall(query))?;
+            let retrieval: RecallResult = memory.recall(query).await?;
             for item in retrieval.items {
                 all_items.push(RecallStrategyItem {
                     id: item.id,

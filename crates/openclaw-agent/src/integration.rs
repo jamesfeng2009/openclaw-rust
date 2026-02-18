@@ -117,35 +117,35 @@ pub fn create_provider_by_name(
 // ============== Agent 创建函数 ==============
 
 /// 为 Agent 配置 AI 提供商
-pub fn configure_agent_with_ai(agent: &mut BaseAgent, provider: Arc<dyn AIProvider>) {
-    agent.set_ai_provider(provider);
+pub async fn configure_agent_with_ai(agent: &BaseAgent, provider: Arc<dyn AIProvider>) {
+    agent.set_ai_provider(provider).await;
 }
 
 /// 创建配置好 AI 的 Coder Agent
-pub fn create_coder_agent(provider: Arc<dyn AIProvider>) -> BaseAgent {
-    let mut agent = BaseAgent::coder();
-    agent.set_ai_provider(provider);
+pub async fn create_coder_agent(provider: Arc<dyn AIProvider>) -> BaseAgent {
+    let agent = BaseAgent::coder();
+    agent.set_ai_provider(provider).await;
     agent
 }
 
 /// 创建配置好 AI 的 Conversationalist Agent
-pub fn create_chat_agent(provider: Arc<dyn AIProvider>) -> BaseAgent {
-    let mut agent = BaseAgent::conversationalist();
-    agent.set_ai_provider(provider);
+pub async fn create_chat_agent(provider: Arc<dyn AIProvider>) -> BaseAgent {
+    let agent = BaseAgent::conversationalist();
+    agent.set_ai_provider(provider).await;
     agent
 }
 
 /// 创建配置好 AI 的 Researcher Agent
-pub fn create_researcher_agent(provider: Arc<dyn AIProvider>) -> BaseAgent {
-    let mut agent = BaseAgent::researcher();
-    agent.set_ai_provider(provider);
+pub async fn create_researcher_agent(provider: Arc<dyn AIProvider>) -> BaseAgent {
+    let agent = BaseAgent::researcher();
+    agent.set_ai_provider(provider).await;
     agent
 }
 
 /// 创建配置好 AI 的 Writer Agent
-pub fn create_writer_agent(provider: Arc<dyn AIProvider>) -> BaseAgent {
-    let mut agent = BaseAgent::writer();
-    agent.set_ai_provider(provider);
+pub async fn create_writer_agent(provider: Arc<dyn AIProvider>) -> BaseAgent {
+    let agent = BaseAgent::writer();
+    agent.set_ai_provider(provider).await;
     agent
 }
 
@@ -244,20 +244,20 @@ mod tests {
         assert_eq!(kimi.name(), "kimi");
     }
 
-    #[test]
-    fn test_agent_creation() {
+    #[tokio::test]
+    async fn test_agent_creation() {
         let provider = create_openai_provider("test-key");
 
-        let coder = create_coder_agent(provider.clone());
+        let coder = create_coder_agent(provider.clone()).await;
         assert_eq!(coder.id(), "coder");
 
-        let chat = create_chat_agent(provider.clone());
+        let chat = create_chat_agent(provider.clone()).await;
         assert_eq!(chat.id(), "chat");
 
-        let researcher = create_researcher_agent(provider.clone());
+        let researcher = create_researcher_agent(provider.clone()).await;
         assert_eq!(researcher.id(), "researcher");
 
-        let writer = create_writer_agent(provider);
+        let writer = create_writer_agent(provider).await;
         assert_eq!(writer.id(), "writer");
     }
 

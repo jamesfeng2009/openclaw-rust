@@ -95,6 +95,7 @@ pub struct TaskRequest {
     pub required_capabilities: Vec<Capability>,
     pub preferred_agent: Option<String>,
     pub timeout_seconds: Option<u64>,
+    pub session_id: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -109,6 +110,7 @@ impl TaskRequest {
             required_capabilities: task_type.required_capabilities(),
             preferred_agent: None,
             timeout_seconds: None,
+            session_id: None,
             created_at: Utc::now(),
         }
     }
@@ -120,6 +122,11 @@ impl TaskRequest {
 
     pub fn with_context(mut self, context: Vec<Message>) -> Self {
         self.context = context;
+        self
+    }
+
+    pub fn with_session_id(mut self, session_id: impl Into<String>) -> Self {
+        self.session_id = Some(session_id.into());
         self
     }
 

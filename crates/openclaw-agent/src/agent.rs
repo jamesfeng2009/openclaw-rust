@@ -66,14 +66,14 @@ pub trait Agent: Send + Sync {
     /// 获取当前负载 (0.0 - 1.0)
     fn load(&self) -> f32;
 
-    /// 设置 AI 提供商
-    fn set_ai_provider(&mut self, provider: Arc<dyn AIProvider>);
+    /// 设置 AI 提供商（异步）
+    async fn set_ai_provider(&self, provider: Arc<dyn AIProvider>);
 
-    /// 设置记忆管理器
-    fn set_memory(&mut self, memory: Arc<MemoryManager>);
+    /// 设置记忆管理器（异步）
+    async fn set_memory(&self, memory: Arc<MemoryManager>);
 
-    /// 设置安全管线
-    fn set_security_pipeline(&mut self, pipeline: Arc<SecurityPipeline>);
+    /// 设置安全管线（异步）
+    async fn set_security_pipeline(&self, pipeline: Arc<SecurityPipeline>);
 
     /// 注入依赖（异步）- 通过内部 RwLock 实现可变性
     async fn inject_dependencies(
@@ -170,6 +170,10 @@ impl BaseAgent {
         self
     }
 
+    pub fn get_memory_blocking(&self) -> Option<Arc<MemoryManager>> {
+        futures::executor::block_on(self.memory.read()).clone()
+    }
+
     /// 构建发送给 AI 的消息列表
     fn build_messages(&self, task: &TaskRequest) -> Vec<Message> {
         let mut messages = Vec::new();
@@ -181,6 +185,14 @@ impl BaseAgent {
 
         // 添加上下文消息
         messages.extend(task.context.clone());
+
+        // 从记忆获取上下文
+        if let Some(memory) = self.get_memory_blocking() {
+            let ctx = memory.get_context();
+            if !ctx.is_empty() {
+                messages.extend(ctx);
+            }
+        }
 
         // 根据任务输入添加用户消息
         match &task.input {
@@ -366,7 +378,7 @@ impl Agent for BaseAgent {
                     agent_id: self.id().to_string(),
                     status: TaskStatus::Completed,
                     output: Some(TaskOutput::Message {
-                        message: openclaw_core::Message::user(final_output),
+                        message: openclaw_core::Message::assistant(final_output),
                     }),
                     error: None,
                     started_at,
@@ -409,19 +421,16 @@ impl Agent for BaseAgent {
         self.current_tasks as f32 / self.config.max_concurrent_tasks as f32
     }
 
-    fn set_ai_provider(&mut self, provider: Arc<dyn AIProvider>) {
-        let mut guard = futures::executor::block_on(self.ai_provider.write());
-        *guard = Some(provider);
+    async fn set_ai_provider(&self, provider: Arc<dyn AIProvider>) {
+        *self.ai_provider.write().await = Some(provider);
     }
 
-    fn set_memory(&mut self, memory: Arc<MemoryManager>) {
-        let mut guard = futures::executor::block_on(self.memory.write());
-        *guard = Some(memory);
+    async fn set_memory(&self, memory: Arc<MemoryManager>) {
+        *self.memory.write().await = Some(memory);
     }
 
-    fn set_security_pipeline(&mut self, pipeline: Arc<SecurityPipeline>) {
-        let mut guard = futures::executor::block_on(self.security_pipeline.write());
-        *guard = Some(pipeline);
+    async fn set_security_pipeline(&self, pipeline: Arc<SecurityPipeline>) {
+        *self.security_pipeline.write().await = Some(pipeline);
     }
 
     async fn inject_dependencies(

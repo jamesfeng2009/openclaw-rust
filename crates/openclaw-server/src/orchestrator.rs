@@ -4,6 +4,8 @@ use tokio::sync::RwLock;
 
 use openclaw_ai::AIProvider;
 use openclaw_agent::aieos::{AIEOSParser, AIEOSPromptGenerator};
+use openclaw_agent::sessions::{MemorySessionStorage, SessionManager};
+use openclaw_core::session::SessionScope;
 use openclaw_agent::task::TaskOutput;
 use openclaw_agent::task::{TaskInput, TaskRequest, TaskType};
 use openclaw_agent::{Agent, AgentConfig as OpenclawAgentConfig, AgentInfo, AgentType, BaseAgent};
@@ -17,6 +19,7 @@ pub struct ServiceOrchestrator {
     agent_service: AgentServiceState,
     channel_service: ChannelServiceState,
     canvas_service: CanvasServiceState,
+    session_service: SessionServiceState,
     config: OrchestratorConfig,
     running: Arc<RwLock<bool>>,
 }
@@ -41,6 +44,25 @@ impl Default for CanvasServiceState {
         Self {
             manager: Arc::new(CanvasManager::new()),
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct SessionServiceState {
+    manager: Arc<SessionManager>,
+}
+
+impl SessionServiceState {
+    pub fn new(manager: SessionManager) -> Self {
+        Self {
+            manager: Arc::new(manager),
+        }
+    }
+    
+    pub fn with_default() -> Self {
+        let storage = Arc::new(MemorySessionStorage::new());
+        let manager = SessionManager::new(storage);
+        Self::new(manager)
     }
 }
 
@@ -71,10 +93,14 @@ impl Default for OrchestratorConfig {
 
 impl ServiceOrchestrator {
     pub fn new(config: OrchestratorConfig) -> Self {
+        let storage = Arc::new(MemorySessionStorage::new());
+        let session_manager = SessionManager::new(storage);
+        
         Self {
             agent_service: AgentServiceState::default(),
             channel_service: ChannelServiceState::default(),
             canvas_service: CanvasServiceState::default(),
+            session_service: SessionServiceState::new(session_manager),
             config,
             running: Arc::new(RwLock::new(false)),
         }
@@ -170,11 +196,54 @@ impl ServiceOrchestrator {
         agents.values().map(|a| a.info()).collect()
     }
 
+    pub async fn list_sessions(
+        &self,
+        agent_id: Option<&str>,
+        state: Option<openclaw_agent::sessions::SessionState>,
+    ) -> openclaw_agent::Result<Vec<openclaw_agent::sessions::Session>> {
+        let agent_id: Option<openclaw_agent::types::AgentId> = agent_id.map(|s| s.to_string());
+        self.session_service.manager.list_sessions(agent_id, state).await
+    }
+
+    pub async fn create_session(
+        &self,
+        name: String,
+        agent_id: String,
+        scope: openclaw_core::session::SessionScope,
+        channel_type: Option<String>,
+    ) -> openclaw_agent::Result<openclaw_agent::sessions::Session> {
+        let agent_id_owned = agent_id.clone();
+        self.session_service.manager
+            .create_session(name, agent_id_owned, scope, channel_type, None)
+            .await
+    }
+
+    pub async fn close_session(&self, session_id: &str) -> openclaw_agent::Result<()> {
+        let uuid = uuid::Uuid::parse_str(session_id)
+            .map_err(|_| openclaw_agent::OpenClawError::Config(format!("Invalid session ID: {}", session_id)))?;
+        self.session_service.manager.close_session(&uuid).await
+    }
+
+    pub async fn get_session(&self, session_id: &str) -> openclaw_agent::Result<Option<openclaw_agent::sessions::Session>> {
+        let uuid = uuid::Uuid::parse_str(session_id)
+            .map_err(|_| openclaw_agent::OpenClawError::Config(format!("Invalid session ID: {}", session_id)))?;
+        self.session_service.manager.get_session(&uuid).await
+    }
+
+    pub async fn process_agent_message(
+        &self,
+        agent_id: &str,
+        message: &str,
+        session_id: &str,
+    ) -> Result<String> {
+        self.process_message(agent_id, message.to_string(), Some(session_id.to_string())).await
+    }
+
     pub async fn process_message(
         &self,
         agent_id: &str,
         message: String,
-        _session_id: Option<String>,
+        session_id: Option<String>,
     ) -> Result<String> {
         let agent = self
             .get_agent(agent_id)
@@ -183,7 +252,8 @@ impl ServiceOrchestrator {
 
         let msg = Message::new(Role::User, vec![Content::Text { text: message }]);
 
-        let task = TaskRequest::new(TaskType::Conversation, TaskInput::Message { message: msg });
+        let task = TaskRequest::new(TaskType::Conversation, TaskInput::Message { message: msg })
+            .with_session_id(session_id.unwrap_or_else(|| format!("agent-{}", agent_id)));
 
         let result = agent.process(task).await?;
 

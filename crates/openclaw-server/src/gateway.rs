@@ -88,7 +88,7 @@ impl Gateway {
             self.init_memory_service().await?;
         }
 
-        let app = Router::new()
+        let mut app = Router::new()
             .merge(create_router(self.orchestrator.clone()))
             .merge(websocket_router())
             .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any))
@@ -96,7 +96,7 @@ impl Gateway {
 
         let addr: SocketAddr = format!("{}:{}", self.config.server.host, self.config.server.port)
             .parse()
-            .expect("Invalid address");
+            .map_err(|e| openclaw_core::OpenClawError::Config(format!("Invalid address: {}", e)))?;
 
         tracing::info!("OpenClaw Gateway starting on {}", addr);
         tracing::info!(
@@ -198,7 +198,11 @@ impl Gateway {
             },
         };
 
-        let manager = MemoryManager::new(config);
+        let vector_store: Arc<dyn openclaw_vector::VectorStore> = 
+            Arc::new(openclaw_vector::MemoryStore::new());
+
+        let manager = MemoryManager::new(config)
+            .with_vector_store(vector_store);
 
         Ok(Arc::new(manager))
     }
@@ -235,12 +239,10 @@ impl Gateway {
     }
 
     async fn init_memory_service(&self) -> openclaw_core::Result<()> {
-        use openclaw_memory::MemoryManager;
         use openclaw_vector::MemoryStore;
 
         let vector_store: Arc<dyn openclaw_vector::VectorStore> = Arc::new(MemoryStore::new());
-
-        let memory_manager = Arc::new(MemoryManager::default());
+        let memory_manager = self.create_memory_manager().await?;
 
         self.memory_service.init(memory_manager, vector_store).await;
 

@@ -242,4 +242,190 @@ impl UnifiedConfig {
     pub fn get_api_key(&self, provider: &str) -> Option<String> {
         self.get_provider_config(provider).map(|(key, _)| key)
     }
+
+    pub fn to_config(&self) -> crate::config::Config {
+        let providers: Vec<crate::config::ProviderConfig> = self
+            .providers
+            .entries
+            .iter()
+            .map(|(name, entry)| {
+                let (api_key, api_base) = match entry {
+                    ProviderEntry::WithKey { api_key, api_base } => {
+                        (Some(api_key.clone()), api_base.clone())
+                    }
+                    ProviderEntry::NoKey { api_base } => {
+                        (None, api_base.clone())
+                    }
+                };
+                let provider_type = match name.as_str() {
+                    "openai" => crate::config::ProviderType::OpenAI,
+                    "anthropic" => crate::config::ProviderType::Anthropic,
+                    "google" | "gemini" => crate::config::ProviderType::Google,
+                    "azure" => crate::config::ProviderType::Azure,
+                    "deepseek" => crate::config::ProviderType::DeepSeek,
+                    "openrouter" => crate::config::ProviderType::OpenRouter,
+                    "ollama" => crate::config::ProviderType::Ollama,
+                    "qwen" => crate::config::ProviderType::Qwen,
+                    "doubao" => crate::config::ProviderType::Doubao,
+                    "glm" => crate::config::ProviderType::Glm,
+                    _ => crate::config::ProviderType::OpenAI,
+                };
+                crate::config::ProviderConfig {
+                    name: name.clone(),
+                    provider_type,
+                    api_key,
+                    base_url: api_base,
+                    default_model: self.agents.defaults.model.clone(),
+                    models: vec![],
+                    auth: crate::config::AuthConfig::default(),
+                }
+            })
+            .collect();
+
+        let ai_config = crate::config::AiConfig {
+            default_provider: self.agents.defaults.provider.clone(),
+            providers,
+            token_budget: crate::config::TokenBudget::default(),
+            auth_profiles: vec![],
+            use_accurate_token_count: false,
+        };
+
+        let server_config = crate::config::ServerConfig {
+            host: "0.0.0.0".to_string(),
+            port: 8080,
+            log_level: "info".to_string(),
+            enable_agents: true,
+            enable_channels: self.channels.telegram.enabled 
+                || self.channels.discord.enabled 
+                || self.channels.whatsapp.enabled
+                || self.channels.feishu.enabled
+                || self.channels.dingtalk.enabled,
+            enable_voice: self.voice.enabled,
+            enable_canvas: false,
+        };
+
+        crate::config::Config {
+            server: server_config,
+            ai: ai_config,
+            memory: crate::config::MemoryConfig::default(),
+            vector: crate::config::VectorConfig::default(),
+            channels: crate::config::ChannelsConfig::default(),
+            agents: crate::config::AgentsConfig::default(),
+            devices: crate::config::DevicesConfig::default(),
+            workspaces: crate::config::WorkspacesConfig::default(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_unified_config_to_config() {
+        let unified = UnifiedConfig {
+            user: UserSection {
+                user_id: Some("test_user".to_string()),
+                user_name: Some("Test User".to_string()),
+                language: Some("zh".to_string()),
+                timezone: Some("Asia/Shanghai".to_string()),
+            },
+            providers: ProvidersSection {
+                entries: [
+                    ("openai".to_string(), ProviderEntry::WithKey {
+                        api_key: "test-key".to_string(),
+                        api_base: Some("https://api.openai.com".to_string()),
+                    }),
+                    ("anthropic".to_string(), ProviderEntry::NoKey {
+                        api_base: Some("https://api.anthropic.com".to_string()),
+                    }),
+                ].into_iter().collect(),
+            },
+            agents: AgentsSection {
+                defaults: DefaultAgentConfig {
+                    model: "gpt-4".to_string(),
+                    provider: "openai".to_string(),
+                    temperature: Some(0.7),
+                    max_tokens: Some(4096),
+                },
+                agents: HashMap::new(),
+            },
+            channels: ChannelsSection {
+                telegram: ChannelConfig { enabled: true, token: Some("bot_token".to_string()), ..Default::default() },
+                discord: ChannelConfig::default(),
+                whatsapp: ChannelConfig::default(),
+                feishu: ChannelConfig::default(),
+                dingtalk: ChannelConfig::default(),
+                wecom: ChannelConfig::default(),
+                slack: ChannelConfig::default(),
+                email: ChannelConfig::default(),
+                custom: HashMap::new(),
+            },
+            features: FeaturesSection::default(),
+            security: SecuritySection {
+                enable_input_filter: true,
+                enable_audit: true,
+                enable_self_healer: false,
+                risk_threshold: "medium".to_string(),
+            },
+            sandbox: SandboxSection::default(),
+            voice: VoiceSection {
+                enabled: true,
+                provider: Some("azure".to_string()),
+                stt_model: Some("whisper".to_string()),
+                tts_model: Some("tts-1".to_string()),
+            },
+        };
+
+        let config = unified.to_config();
+
+        assert_eq!(config.server.enable_agents, true);
+        assert_eq!(config.server.enable_channels, true);
+        assert_eq!(config.server.enable_voice, true);
+        
+        assert_eq!(config.ai.default_provider, "openai");
+        assert_eq!(config.ai.providers.len(), 2);
+        
+        let openai_provider = config.ai.providers.iter().find(|p| p.name == "openai").unwrap();
+        assert_eq!(openai_provider.provider_type, crate::config::ProviderType::OpenAI);
+        assert_eq!(openai_provider.api_key, Some("test-key".to_string()));
+        assert_eq!(openai_provider.base_url, Some("https://api.openai.com".to_string()));
+        assert_eq!(openai_provider.default_model, "gpt-4");
+    }
+
+    #[test]
+    fn test_unified_config_to_config_empty() {
+        let unified = UnifiedConfig::default();
+        let config = unified.to_config();
+
+        assert_eq!(config.server.enable_agents, true);
+        assert_eq!(config.server.enable_channels, false);
+        assert_eq!(config.server.enable_voice, false);
+        assert_eq!(config.ai.providers.len(), 0);
+    }
+
+    #[test]
+    fn test_unified_config_provider_entry() {
+        let with_key = ProviderEntry::WithKey {
+            api_key: "key123".to_string(),
+            api_base: Some("https://api.example.com".to_string()),
+        };
+        let no_key = ProviderEntry::NoKey {
+            api_base: Some("https://api.example.com".to_string()),
+        };
+
+        let (key, base) = match &with_key {
+            ProviderEntry::WithKey { api_key, api_base } => (api_key.clone(), api_base.clone()),
+            _ => panic!("expected WithKey"),
+        };
+        assert_eq!(key, "key123");
+        assert_eq!(base, Some("https://api.example.com".to_string()));
+
+        let (key, base) = match &no_key {
+            ProviderEntry::NoKey { api_base } => (String::new(), api_base.clone()),
+            _ => panic!("expected NoKey"),
+        };
+        assert_eq!(key, "");
+        assert_eq!(base, Some("https://api.example.com".to_string()));
+    }
 }

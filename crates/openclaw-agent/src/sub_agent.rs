@@ -502,6 +502,7 @@ impl SubAgentOrchestrator {
                     preferred_agent: Some(agent_id.clone()),
                     context: task.context.clone(),
                     timeout_seconds: task.timeout_seconds,
+                    session_id: task.session_id.clone(),
                     created_at: Utc::now(),
                 };
                 (agent_id.clone(), sub_task)
