@@ -632,11 +632,10 @@ impl McpClient {
         let mut result = HashMap::new();
 
         for (name, server) in servers.iter() {
-            if server.is_connected() {
-                if let Ok(tools) = server.list_tools().await {
+            if server.is_connected()
+                && let Ok(tools) = server.list_tools().await {
                     result.insert(name.clone(), tools);
                 }
-            }
         }
 
         result

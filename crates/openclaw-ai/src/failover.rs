@@ -179,8 +179,10 @@ impl ProviderStatus {
 /// 故障转移策略
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum FailoverStrategy {
     /// 按优先级顺序
+    #[default]
     Priority,
     /// 加权随机
     WeightedRandom,
@@ -192,11 +194,6 @@ pub enum FailoverStrategy {
     LowestLatency,
 }
 
-impl Default for FailoverStrategy {
-    fn default() -> Self {
-        Self::Priority
-    }
-}
 
 /// 故障转移配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -589,11 +586,10 @@ impl AIProvider for FailoverManager {
         let mut models = Vec::new();
 
         for (_, (config, provider)) in providers.iter() {
-            if config.enabled {
-                if let Ok(provider_models) = provider.models().await {
+            if config.enabled
+                && let Ok(provider_models) = provider.models().await {
                     models.extend(provider_models);
                 }
-            }
         }
 
         Ok(models)

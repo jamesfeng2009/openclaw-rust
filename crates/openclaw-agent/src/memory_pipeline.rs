@@ -163,7 +163,7 @@ impl MemoryPipeline {
         let ws_path = self.workspace.as_ref().unwrap().workspace_path();
         let tracker = self.file_tracker.as_mut().unwrap();
 
-        let changed = tracker.scan_directory(&ws_path)?;
+        let changed = tracker.scan_directory(ws_path)?;
 
         let mut temp_chunks = Vec::new();
         for path in &changed {

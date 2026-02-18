@@ -353,7 +353,7 @@ impl SandboxManager {
             let output = tool
                 .execute(input)
                 .await
-                .map_err(|e| SandboxError::NativeError(e))?;
+                .map_err(SandboxError::NativeError)?;
 
             let start = std::time::Instant::now();
             Ok(ExecutionResult {

@@ -455,17 +455,14 @@ impl AgentWorkspace {
         if let Ok(entries) = fs::read_dir(memory_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().and_then(|s| s.to_str()) == Some("md") {
-                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                        if let Ok(date) = NaiveDate::parse_from_str(stem, "%Y-%m-%d") {
-                            if date >= cutoff {
+                if path.extension().and_then(|s| s.to_str()) == Some("md")
+                    && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+                        && let Ok(date) = NaiveDate::parse_from_str(stem, "%Y-%m-%d")
+                            && date >= cutoff {
                                 let content = fs::read_to_string(&path)?;
                                 consolidated.push_str(&content);
                                 consolidated.push_str("\n\n");
                             }
-                        }
-                    }
-                }
             }
         }
 
@@ -542,9 +539,9 @@ impl AgentWorkspace {
         if let Ok(entries) = fs::read_dir(memory_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().and_then(|s| s.to_str()) == Some("md") {
-                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                        if let Ok(date) = NaiveDate::parse_from_str(stem, "%Y-%m-%d") {
+                if path.extension().and_then(|s| s.to_str()) == Some("md")
+                    && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+                        && let Ok(date) = NaiveDate::parse_from_str(stem, "%Y-%m-%d") {
                             let preview = fs::read_to_string(&path)
                                 .map(|c| c.chars().take(200).collect())
                                 .unwrap_or_default();
@@ -555,8 +552,6 @@ impl AgentWorkspace {
                                 preview,
                             });
                         }
-                    }
-                }
             }
         }
 
@@ -585,7 +580,9 @@ pub fn create_workspace(agent_id: &str, base_path: &Path) -> Result<AgentWorkspa
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default)]
 pub enum LearningTrigger {
+    #[default]
     OnError,
     OnUserFeedback,
     OnUncertainty,
@@ -593,11 +590,6 @@ pub enum LearningTrigger {
     All,
 }
 
-impl Default for LearningTrigger {
-    fn default() -> Self {
-        Self::OnError
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct LearningRecord {

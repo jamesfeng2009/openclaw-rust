@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 /// 主配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Config {
     /// 服务配置
     pub server: ServerConfig,
@@ -27,20 +28,6 @@ pub struct Config {
     pub workspaces: WorkspacesConfig,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            ai: AiConfig::default(),
-            memory: MemoryConfig::default(),
-            vector: VectorConfig::default(),
-            channels: ChannelsConfig::default(),
-            agents: AgentsConfig::default(),
-            devices: DevicesConfig::default(),
-            workspaces: WorkspacesConfig::default(),
-        }
-    }
-}
 
 /// 服务配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -172,11 +159,10 @@ pub struct AuthProfile {
 
 impl AuthProfile {
     pub fn is_expired(&self) -> bool {
-        if let AuthConfig::OAuth { expires_at, .. } = &self.auth {
-            if let Some(exp) = expires_at {
+        if let AuthConfig::OAuth { expires_at, .. } = &self.auth
+            && let Some(exp) = expires_at {
                 return chrono::Utc::now() >= *exp;
             }
-        }
         false
     }
 }
@@ -207,6 +193,7 @@ impl Default for TokenBudget {
 
 /// 记忆配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct MemoryConfig {
     /// 工作记忆配置
     pub working: WorkingMemoryConfig,
@@ -216,15 +203,6 @@ pub struct MemoryConfig {
     pub long_term: LongTermMemoryConfig,
 }
 
-impl Default for MemoryConfig {
-    fn default() -> Self {
-        Self {
-            working: WorkingMemoryConfig::default(),
-            short_term: ShortTermMemoryConfig::default(),
-            long_term: LongTermMemoryConfig::default(),
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkingMemoryConfig {

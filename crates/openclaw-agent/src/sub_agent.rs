@@ -344,8 +344,8 @@ impl SubAgentManager {
                 let mut type_counts: HashMap<String, usize> = HashMap::new();
 
                 for result in &results {
-                    if result.success {
-                        if let Some(ref output) = result.result.output {
+                    if result.success
+                        && let Some(ref output) = result.result.output {
                             let type_name = match output {
                                 TaskOutput::Message { .. } => "message",
                                 TaskOutput::Text { .. } => "text",
@@ -357,7 +357,6 @@ impl SubAgentManager {
                             };
                             *type_counts.entry(type_name.to_string()).or_insert(0) += 1;
                         }
-                    }
                 }
 
                 let winning_type = type_counts
@@ -367,8 +366,8 @@ impl SubAgentManager {
 
                 // 返回第一个匹配类型的结果
                 for result in &results {
-                    if result.success {
-                        if let Some(ref output) = result.result.output {
+                    if result.success
+                        && let Some(ref output) = result.result.output {
                             let type_name = match output {
                                 TaskOutput::Message { .. } => "message",
                                 TaskOutput::Text { .. } => "text",
@@ -382,7 +381,6 @@ impl SubAgentManager {
                                 return Ok(output.clone());
                             }
                         }
-                    }
                 }
 
                 Err(SubAgentError::ExecutionFailed("投票失败".to_string()))
@@ -497,7 +495,7 @@ impl SubAgentOrchestrator {
                     id: Uuid::new_v4(),
                     input: task.input.clone(),
                     task_type: task.task_type.clone(),
-                    priority: task.priority.clone(),
+                    priority: task.priority,
                     required_capabilities: task.required_capabilities.clone(),
                     preferred_agent: Some(agent_id.clone()),
                     context: task.context.clone(),

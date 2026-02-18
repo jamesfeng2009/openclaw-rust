@@ -23,8 +23,8 @@ impl LocationManager {
                         .output()
                 });
 
-            if let Ok(output) = output {
-                if output.status.success() {
+            if let Ok(output) = output
+                && output.status.success() {
                     let output_str = String::from_utf8_lossy(&output.stdout);
                     if let (Some(lat), Some(lon)) =
                         (self.parse_lat(&output_str), self.parse_lon(&output_str))
@@ -40,7 +40,6 @@ impl LocationManager {
                         });
                     }
                 }
-            }
 
             Ok(LocationResult {
                 success: false,

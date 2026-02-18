@@ -309,8 +309,8 @@ impl AnthropicProvider {
             }
             "content_block_delta" => {
                 // 内容增量事件
-                if let Some(delta) = json.get("delta") {
-                    if let Some(text) = delta.get("text").and_then(|v| v.as_str()) {
+                if let Some(delta) = json.get("delta")
+                    && let Some(text) = delta.get("text").and_then(|v| v.as_str()) {
                         return Some(Ok(StreamChunk {
                             id: message_id.clone(),
                             model: model.clone(),
@@ -323,7 +323,6 @@ impl AnthropicProvider {
                             finish_reason: None,
                         }));
                     }
-                }
                 None
             }
             "message_delta" => {

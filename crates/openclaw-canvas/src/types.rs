@@ -288,7 +288,9 @@ pub struct UserCursor {
 /// 绘图工具
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type")]
+#[derive(Default)]
 pub enum Tool {
+    #[default]
     Select,
     Pen {
         stroke: StrokeStyle,
@@ -319,11 +321,6 @@ pub enum Tool {
     Zoom,
 }
 
-impl Default for Tool {
-    fn default() -> Self {
-        Tool::Select
-    }
-}
 
 /// 视口状态
 #[derive(Debug, Clone, Serialize, Deserialize)]

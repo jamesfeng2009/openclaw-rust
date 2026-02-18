@@ -11,6 +11,7 @@ use serde_json::json;
 
 /// WhatsApp Cloud API 配置
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct WhatsAppConfig {
     /// WhatsApp Business Account ID (WABA ID)
     pub business_account_id: String,
@@ -24,17 +25,6 @@ pub struct WhatsAppConfig {
     pub enabled: bool,
 }
 
-impl Default for WhatsAppConfig {
-    fn default() -> Self {
-        Self {
-            business_account_id: String::new(),
-            phone_number_id: String::new(),
-            access_token: String::new(),
-            verify_token: None,
-            enabled: false,
-        }
-    }
-}
 
 /// WhatsApp 通道
 pub struct WhatsAppChannel {
@@ -351,7 +341,7 @@ impl Channel for WhatsAppChannel {
             }
             "document" => {
                 let parts: Vec<&str> = message.content.splitn(2, '|').collect();
-                let doc_url = parts.get(0).unwrap_or(&"");
+                let doc_url = parts.first().unwrap_or(&"");
                 let filename = parts.get(1).unwrap_or(&"document.pdf");
                 self.send_document(to, doc_url, filename, message.title.as_deref())
                     .await?;
@@ -359,7 +349,7 @@ impl Channel for WhatsAppChannel {
             "template" => {
                 // 格式: template_name|language_code
                 let parts: Vec<&str> = message.content.splitn(2, '|').collect();
-                let template_name = parts.get(0).unwrap_or(&"hello_world");
+                let template_name = parts.first().unwrap_or(&"hello_world");
                 let language_code = parts.get(1).unwrap_or(&"en_US");
                 self.send_template(to, template_name, language_code, None)
                     .await?;
@@ -367,7 +357,7 @@ impl Channel for WhatsAppChannel {
             "interactive" | "buttons" => {
                 // 简单按钮，content 格式: "body_text|button1,button2,button3"
                 let parts: Vec<&str> = message.content.splitn(2, '|').collect();
-                let body_text = parts.get(0).unwrap_or(&"");
+                let body_text = parts.first().unwrap_or(&"");
                 let button_titles: Vec<&str> = parts
                     .get(1)
                     .unwrap_or(&"")

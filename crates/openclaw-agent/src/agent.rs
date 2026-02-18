@@ -332,7 +332,7 @@ impl Agent for BaseAgent {
                     pipeline
                         .complete_operation(
                             &session_id,
-                            &op_id,
+                            op_id,
                             "completed",
                             duration.num_milliseconds() as u64,
                         )
@@ -362,7 +362,7 @@ impl Agent for BaseAgent {
                 // 标记操作失败
                 if let (Some(pipeline), Some(op_id)) = (&self.security_pipeline, &operation_id) {
                     pipeline
-                        .complete_operation(&session_id, &op_id, &format!("error: {}", e), 0)
+                        .complete_operation(&session_id, op_id, &format!("error: {}", e), 0)
                         .await;
                 }
 

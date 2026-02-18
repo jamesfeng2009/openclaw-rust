@@ -57,11 +57,8 @@ pub trait ChannelHandler: Send + Sync {
 
     /// 处理通道事件
     async fn handle_event(&self, event: ChannelEvent) -> Result<()> {
-        match event {
-            ChannelEvent::Message(msg) => {
-                self.handle(msg).await?;
-            }
-            _ => {}
+        if let ChannelEvent::Message(msg) = event {
+            self.handle(msg).await?;
         }
         Ok(())
     }

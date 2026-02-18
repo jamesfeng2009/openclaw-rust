@@ -285,7 +285,7 @@ impl Selector {
         let mut candidates: Vec<_> = elements
             .iter()
             .filter(|(_, e)| e.visible)
-            .filter(|(_, e)| layer_filter.map_or(true, |l| e.layer == l))
+            .filter(|(_, e)| layer_filter.is_none_or(|l| e.layer == l))
             .collect();
 
         candidates.sort_by_key(|(_, e)| std::cmp::Reverse(e.layer));

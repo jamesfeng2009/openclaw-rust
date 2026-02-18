@@ -404,11 +404,10 @@ impl PermissionManager {
         // 检查角色权限
         let roles = self.roles.read().await;
         for role_id in &user.roles {
-            if let Some(role) = roles.get(role_id) {
-                if role.permissions.contains(permission) {
+            if let Some(role) = roles.get(role_id)
+                && role.permissions.contains(permission) {
                     return Ok(true);
                 }
-            }
         }
 
         // 检查资源 ACL
@@ -421,19 +420,17 @@ impl PermissionManager {
                 }
 
                 // 检查用户权限
-                if let Some(perms) = acl.user_permissions.get(user_id) {
-                    if perms.contains(permission) {
+                if let Some(perms) = acl.user_permissions.get(user_id)
+                    && perms.contains(permission) {
                         return Ok(true);
                     }
-                }
 
                 // 检查角色权限
                 for role_id in &user.roles {
-                    if let Some(perms) = acl.role_permissions.get(role_id) {
-                        if perms.contains(permission) {
+                    if let Some(perms) = acl.role_permissions.get(role_id)
+                        && perms.contains(permission) {
                             return Ok(true);
                         }
-                    }
                 }
             }
         }
@@ -483,7 +480,7 @@ impl PermissionManager {
             "tk_{}",
             base64::Engine::encode(
                 &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-                &hasher.finalize()
+                hasher.finalize()
             )
         )
     }

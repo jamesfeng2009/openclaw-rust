@@ -188,7 +188,7 @@ impl From<&Skill> for SkillDefinition {
             name: skill.name.clone(),
             description: skill.description.clone(),
             version: skill.version.clone(),
-            category: skill.category.clone(),
+            category: skill.category,
             tools: skill.tools.clone(),
             triggers: skill.triggers.clone(),
             config_schema: None,
@@ -245,11 +245,10 @@ impl SkillBundle {
             if file.name().ends_with('/') {
                 std::fs::create_dir_all(&outpath)?;
             } else {
-                if let Some(p) = outpath.parent() {
-                    if !p.exists() {
+                if let Some(p) = outpath.parent()
+                    && !p.exists() {
                         std::fs::create_dir_all(p)?;
                     }
-                }
                 let mut outfile = std::fs::File::create(&outpath)?;
                 std::io::copy(&mut file, &mut outfile)?;
             }
@@ -442,11 +441,10 @@ impl BundleManager {
                 let entry = entry?;
                 let path = entry.path();
 
-                if path.is_dir() {
-                    if let Ok(bundle) = SkillBundle::from_dir(&path) {
+                if path.is_dir()
+                    && let Ok(bundle) = SkillBundle::from_dir(&path) {
                         bundles.insert(bundle.manifest.id.clone(), bundle);
                     }
-                }
             }
         }
 
@@ -475,7 +473,7 @@ impl BundleManager {
                 .create_skill(
                     skill_def.name.clone(),
                     skill_def.description.clone(),
-                    skill_def.category.clone(),
+                    skill_def.category,
                     skill_def.tools.clone(),
                     skill_def.triggers.clone(),
                 )

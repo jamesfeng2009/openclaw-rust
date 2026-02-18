@@ -44,7 +44,7 @@ impl ChannelConfigManager {
         if path.exists() {
             let content = std::fs::read_to_string(&path)
                 .map_err(|e| OpenClawError::Config(format!("读取通道配置失败: {}", e)))?;
-            serde_json::from_str(&content).map_err(|e| OpenClawError::Serialization(e))
+            serde_json::from_str(&content).map_err(OpenClawError::Serialization)
         } else {
             Ok(Self::default())
         }
@@ -58,7 +58,7 @@ impl ChannelConfigManager {
                 .map_err(|e| OpenClawError::Config(format!("创建配置目录失败: {}", e)))?;
         }
         let content =
-            serde_json::to_string_pretty(self).map_err(|e| OpenClawError::Serialization(e))?;
+            serde_json::to_string_pretty(self).map_err(OpenClawError::Serialization)?;
         std::fs::write(&path, content)
             .map_err(|e| OpenClawError::Config(format!("保存通道配置失败: {}", e)))?;
         Ok(())

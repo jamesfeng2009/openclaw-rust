@@ -10,6 +10,7 @@ use super::{CustomSttConfig, CustomSttProvider, CustomTtsConfig, CustomTtsProvid
 
 /// 自定义提供商配置
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Default)]
 pub struct CustomProviderConfig {
     /// 自定义 TTS 提供商配置
     pub custom_tts: Vec<CustomTtsConfig>,
@@ -17,14 +18,6 @@ pub struct CustomProviderConfig {
     pub custom_stt: Vec<CustomSttConfig>,
 }
 
-impl Default for CustomProviderConfig {
-    fn default() -> Self {
-        Self {
-            custom_tts: Vec::new(),
-            custom_stt: Vec::new(),
-        }
-    }
-}
 
 /// TTS 自定义提供商存储
 pub struct TtsRegistry {

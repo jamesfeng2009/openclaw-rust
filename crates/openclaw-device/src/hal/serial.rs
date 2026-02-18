@@ -26,6 +26,7 @@ pub enum SerialError {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum BaudRate {
     B300,
     B1200,
@@ -35,6 +36,7 @@ pub enum BaudRate {
     B19200,
     B38400,
     B57600,
+    #[default]
     B115200,
     B230400,
     B460800,
@@ -42,11 +44,6 @@ pub enum BaudRate {
     Custom(u32),
 }
 
-impl Default for BaudRate {
-    fn default() -> Self {
-        Self::B115200
-    }
-}
 
 impl BaudRate {
     pub fn to_speed(&self) -> u32 {
@@ -70,45 +67,36 @@ impl BaudRate {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum DataBits {
     Five,
     Six,
     Seven,
+    #[default]
     Eight,
 }
 
-impl Default for DataBits {
-    fn default() -> Self {
-        Self::Eight
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum Parity {
+    #[default]
     None,
     Even,
     Odd,
 }
 
-impl Default for Parity {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum StopBits {
+    #[default]
     One,
     Two,
 }
 
-impl Default for StopBits {
-    fn default() -> Self {
-        Self::One
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerialConfig {

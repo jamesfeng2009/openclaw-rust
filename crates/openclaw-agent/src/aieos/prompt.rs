@@ -169,8 +169,8 @@ impl AIEOSPromptGenerator {
             }
         }
 
-        if let Some(vocab) = &linguistics.vocabulary {
-            if !vocab.technical_terms.is_empty() || !vocab.preferred_words.is_empty() {
+        if let Some(vocab) = &linguistics.vocabulary
+            && (!vocab.technical_terms.is_empty() || !vocab.preferred_words.is_empty()) {
                 parts.push("\n## Vocabulary".to_string());
 
                 if !vocab.technical_terms.is_empty() {
@@ -194,7 +194,6 @@ impl AIEOSPromptGenerator {
                     }
                 }
             }
-        }
 
         parts.join("\n")
     }

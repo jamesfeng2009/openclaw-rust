@@ -328,7 +328,7 @@ impl GeminiProvider {
         // 提取文本内容
         let text = content["parts"]
             .as_array()
-            .and_then(|parts| parts.get(0))
+            .and_then(|parts| parts.first())
             .and_then(|part| part["text"].as_str())
             .map(|s| s.to_string());
 

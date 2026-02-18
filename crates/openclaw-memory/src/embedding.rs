@@ -91,7 +91,7 @@ impl EmbeddingProvider for OpenAIEmbedding {
         let client = reqwest::Client::new();
 
         let response = client
-            .post(&format!("{}/embeddings", self.base_url))
+            .post(format!("{}/embeddings", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
             .json(&serde_json::json!({
@@ -173,7 +173,7 @@ impl EmbeddingProvider for OllamaEmbedding {
         let client = reqwest::Client::new();
 
         let response = client
-            .post(&format!("{}/api/embeddings", self.base_url))
+            .post(format!("{}/api/embeddings", self.base_url))
             .json(&serde_json::json!({
                 "model": self.model,
                 "prompt": text,

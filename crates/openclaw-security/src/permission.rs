@@ -323,11 +323,10 @@ impl PermissionManager {
 
     pub async fn check_rate_limit(&self, tool_id: &str) -> bool {
         let perms = self.tool_permissions.read().await;
-        if let Some(perm) = perms.get(tool_id) {
-            if let Some(_limit) = perm.rate_limit_per_minute {
+        if let Some(perm) = perms.get(tool_id)
+            && let Some(_limit) = perm.rate_limit_per_minute {
                 return true;
             }
-        }
         true
     }
 }

@@ -209,7 +209,7 @@ impl SelfHealer {
 
         for (id, op) in ops.iter() {
             if op.is_stuck(self.timeout) {
-                let suggestion = self.generate_recovery_suggestion(&op);
+                let suggestion = self.generate_recovery_suggestion(op);
                 stuck_ops.push(StuckDetection {
                     operation_id: id.clone(),
                     stuck_duration: op.last_progress_at.elapsed(),

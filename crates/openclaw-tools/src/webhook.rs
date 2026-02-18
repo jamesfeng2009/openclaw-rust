@@ -227,7 +227,7 @@ impl WebhookManager {
             Ok(response) => {
                 let code = response.status().as_u16();
                 let body = response.text().await.unwrap_or_default();
-                if code >= 200 && code < 300 {
+                if (200..300).contains(&code) {
                     (TriggerStatus::Success, Some(code), Some(body.clone()), None)
                 } else {
                     (

@@ -49,6 +49,12 @@ pub struct DeviceRegistry {
     capabilities: DeviceCapabilities,
 }
 
+impl Default for DeviceRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DeviceRegistry {
     pub fn new() -> Self {
         let platform_info = PlatformInfo::detect();
@@ -134,7 +140,7 @@ impl DeviceRegistry {
 
         candidates
             .into_iter()
-            .max_by_key(|d| Self::score_device(d))
+            .max_by_key(Self::score_device)
             .ok_or_else(|| RegistryError::NotFound("No matching device".to_string()))
     }
 
@@ -198,29 +204,25 @@ pub struct DeviceQuery {
 
 impl DeviceQuery {
     pub fn matches(&self, device: &DeviceHandle) -> bool {
-        if let Some(platform) = &self.platform {
-            if &device.platform != platform {
+        if let Some(platform) = &self.platform
+            && &device.platform != platform {
                 return false;
             }
-        }
 
-        if let Some(category) = &self.category {
-            if device.platform.category() != *category {
+        if let Some(category) = &self.category
+            && device.platform.category() != *category {
                 return false;
             }
-        }
 
-        if let Some(min_cores) = self.min_cores {
-            if device.capabilities.cpu.cores < min_cores {
+        if let Some(min_cores) = self.min_cores
+            && device.capabilities.cpu.cores < min_cores {
                 return false;
             }
-        }
 
-        if let Some(min_memory) = self.min_memory_bytes {
-            if device.capabilities.memory.total_bytes < min_memory {
+        if let Some(min_memory) = self.min_memory_bytes
+            && device.capabilities.memory.total_bytes < min_memory {
                 return false;
             }
-        }
 
         if self.has_gpu && !device.capabilities.gpu.has_gpu {
             return false;
@@ -234,17 +236,15 @@ impl DeviceQuery {
             return false;
         }
 
-        if let Some(is_container) = self.is_container {
-            if device.capabilities.features.is_container != is_container {
+        if let Some(is_container) = self.is_container
+            && device.capabilities.features.is_container != is_container {
                 return false;
             }
-        }
 
-        if let Some(status) = &self.status {
-            if &device.status != status {
+        if let Some(status) = &self.status
+            && &device.status != status {
                 return false;
             }
-        }
 
         true
     }

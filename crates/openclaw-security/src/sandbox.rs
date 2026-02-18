@@ -169,8 +169,7 @@ impl NetworkWhitelist {
         let host_lower = host.to_lowercase();
 
         for pattern in denied_domains {
-            if pattern.starts_with("*.") {
-                let suffix = &pattern[2..];
+            if let Some(suffix) = pattern.strip_prefix("*.") {
                 if host_lower.ends_with(suffix) || host_lower == suffix {
                     return true;
                 }
@@ -211,8 +210,7 @@ impl NetworkWhitelist {
                 return true;
             }
 
-            if pattern.starts_with("*.") {
-                let suffix = &pattern[2..];
+            if let Some(suffix) = pattern.strip_prefix("*.") {
                 if host_lower.ends_with(suffix) || host_lower == suffix {
                     return true;
                 }

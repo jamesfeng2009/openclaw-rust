@@ -248,7 +248,7 @@ impl Channel for SmsClient {
         if let Some(error_code) = response.error_code {
             return Err(OpenClawError::Channel(format!(
                 "SMS 发送失败: {}",
-                response.error_message.unwrap_or_else(|| error_code)
+                response.error_message.unwrap_or(error_code)
             )));
         }
 

@@ -259,7 +259,7 @@ impl MemoryCapability {
     fn parse_meminfo_value(line: &str) -> u64 {
         line.split(':')
             .nth(1)
-            .and_then(|v| v.trim().split_whitespace().next())
+            .and_then(|v| v.split_whitespace().next())
             .and_then(|v| v.parse().ok())
             .unwrap_or(0)
     }
@@ -413,6 +413,7 @@ impl Default for NetworkCapability {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct GpuCapability {
     pub has_gpu: bool,
     pub gpu_name: Option<String>,
@@ -481,20 +482,6 @@ impl GpuCapability {
     }
 }
 
-impl Default for GpuCapability {
-    fn default() -> Self {
-        Self {
-            has_gpu: false,
-            gpu_name: None,
-            vram_bytes: 0,
-            has_npu: false,
-            npu_name: None,
-            supports_vulkan: false,
-            supports_cuda: false,
-            supports_opencl: false,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FeatureFlags {

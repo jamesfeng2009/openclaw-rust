@@ -238,12 +238,11 @@ impl CollabManager {
     pub async fn cleanup_session(&self, canvas_id: &CanvasId) {
         let mut sessions = self.sessions.write().await;
 
-        if let Some(session) = sessions.get(canvas_id) {
-            if session.user_count().await == 0 {
+        if let Some(session) = sessions.get(canvas_id)
+            && session.user_count().await == 0 {
                 sessions.remove(canvas_id);
                 info!("清理协作会话: {}", canvas_id);
             }
-        }
     }
 
     /// 列出所有活跃会话

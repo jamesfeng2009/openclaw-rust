@@ -59,18 +59,15 @@ pub struct Session {
 /// 会话状态
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum SessionState {
+    #[default]
     Active,
     Idle,
     Paused,
     Closed,
 }
 
-impl Default for SessionState {
-    fn default() -> Self {
-        SessionState::Active
-    }
-}
 
 impl Session {
     pub fn new(name: impl Into<String>, agent_id: AgentId, scope: SessionScope) -> Self {
@@ -356,11 +353,10 @@ impl SessionManager {
 
         let key = session.key();
 
-        if let Some(existing) = self.storage.find_by_key(&key, &agent_id).await? {
-            if existing.is_active() {
+        if let Some(existing) = self.storage.find_by_key(&key, &agent_id).await?
+            && existing.is_active() {
                 return Ok(existing);
             }
-        }
 
         if self.config.auto_save {
             self.storage.save(&session).await?;
@@ -400,13 +396,12 @@ impl SessionManager {
             peer_id.as_deref().unwrap_or("unknown")
         );
 
-        if let Some(session) = self.storage.find_by_key(&key, &agent_id).await? {
-            if session.is_active() {
+        if let Some(session) = self.storage.find_by_key(&key, &agent_id).await?
+            && session.is_active() {
                 let mut active = self.active_sessions.write().await;
                 active.insert(session.id, session.clone());
                 return Ok(session);
             }
-        }
 
         self.create_session(name, agent_id, scope, channel_type, peer_id)
             .await

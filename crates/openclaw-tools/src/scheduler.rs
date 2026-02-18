@@ -152,7 +152,7 @@ impl TaskScheduler {
             };
             executor(task.action.clone(), params)
                 .await
-                .map_err(|e| SchedulerError::ExecutionFailed(e))
+                .map_err(SchedulerError::ExecutionFailed)
         } else {
             Err(SchedulerError::ExecutionFailed(
                 "未找到任务执行器".to_string(),

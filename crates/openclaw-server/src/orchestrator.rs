@@ -312,8 +312,8 @@ impl ServiceOrchestrator {
                 AgentType::Custom(agent_cfg.id.clone()),
             );
 
-            if let Some(aieos_path) = &agent_cfg.aieos_path {
-                if aieos_path.exists() {
+            if let Some(aieos_path) = &agent_cfg.aieos_path
+                && aieos_path.exists() {
                     match AIEOSParser::from_file(aieos_path) {
                         Ok(aieos) => {
                             let system_prompt =
@@ -334,7 +334,6 @@ impl ServiceOrchestrator {
                         }
                     }
                 }
-            }
 
             let agent = Arc::new(BaseAgent::new(openclaw_cfg)) as Arc<dyn Agent>;
             self.register_agent(agent_cfg.id.clone(), agent).await;

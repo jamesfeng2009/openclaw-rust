@@ -295,13 +295,11 @@ impl PlatformInfo {
         }
 
         // 检测是否为嵌入式 Linux
-        if std::path::Path::new("/proc/device-tree/model").exists() {
-            if let Ok(model) = std::fs::read_to_string("/proc/device-tree/model") {
-                if model.contains("Raspberry Pi") {
+        if std::path::Path::new("/proc/device-tree/model").exists()
+            && let Ok(model) = std::fs::read_to_string("/proc/device-tree/model")
+                && model.contains("Raspberry Pi") {
                     return Platform::LinuxEmbedded;
                 }
-            }
-        }
 
         // 检测桌面环境
         if std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok() {
@@ -339,14 +337,13 @@ impl PlatformInfo {
 
     fn detect_container() -> bool {
         // 检查 cgroup
-        if let Ok(cgroup) = std::fs::read_to_string("/proc/1/cgroup") {
-            if cgroup.contains("docker")
+        if let Ok(cgroup) = std::fs::read_to_string("/proc/1/cgroup")
+            && (cgroup.contains("docker")
                 || cgroup.contains("containerd")
-                || cgroup.contains("kubepods")
+                || cgroup.contains("kubepods"))
             {
                 return true;
             }
-        }
 
         // 检查 .dockerenv
         if std::path::Path::new("/.dockerenv").exists() {

@@ -178,28 +178,25 @@ impl Bm25Index {
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
 
-            if let Some(filter) = source_filter {
-                if source != filter {
+            if let Some(filter) = source_filter
+                && source != filter {
                     continue;
                 }
-            }
 
             let timestamp = retrieved_doc
                 .get_first(self.timestamp_field)
                 .and_then(|v| v.as_i64())
                 .unwrap_or(0);
 
-            if let Some(start) = start_time {
-                if timestamp < start {
+            if let Some(start) = start_time
+                && timestamp < start {
                     continue;
                 }
-            }
 
-            if let Some(end) = end_time {
-                if timestamp > end {
+            if let Some(end) = end_time
+                && timestamp > end {
                     continue;
                 }
-            }
 
             let id = retrieved_doc
                 .get_first(self.id_field)

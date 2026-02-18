@@ -279,7 +279,7 @@ impl GroupContextInjector {
         }
 
         let context_text = self.build_context_text(context);
-        Some(Message::system(&format!(
+        Some(Message::system(format!(
             "你正在群聊「{}」中回复消息。以下是群聊上下文：\n\n{}",
             context.group_info.name, context_text
         )))
@@ -401,14 +401,13 @@ impl GroupContextManager {
 
     /// 更新群聊摘要
     pub fn update_summary(&mut self, group_id: &str) {
-        if let Some(context) = self.contexts.get(group_id) {
-            if context.needs_summary_update(self.config.summary_update_interval) {
+        if let Some(context) = self.contexts.get(group_id)
+            && context.needs_summary_update(self.config.summary_update_interval) {
                 let summary = self.injector.generate_summary(context);
                 if let Some(ctx) = self.contexts.get_mut(group_id) {
                     ctx.update_summary(summary);
                 }
             }
-        }
     }
 
     /// 清理过期上下文

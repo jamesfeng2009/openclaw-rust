@@ -7,8 +7,10 @@ use crate::provider::CustomProviderConfig;
 /// STT 提供商
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum SttProvider {
     /// OpenAI Whisper API
+    #[default]
     OpenAI,
     /// 本地 Whisper 模型
     LocalWhisper,
@@ -20,17 +22,14 @@ pub enum SttProvider {
     Custom(String),
 }
 
-impl Default for SttProvider {
-    fn default() -> Self {
-        Self::OpenAI
-    }
-}
 
 /// TTS 提供商
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum TtsProvider {
     /// OpenAI TTS API
+    #[default]
     OpenAI,
     /// Edge TTS (免费)
     Edge,
@@ -44,11 +43,6 @@ pub enum TtsProvider {
     Custom(String),
 }
 
-impl Default for TtsProvider {
-    fn default() -> Self {
-        Self::OpenAI
-    }
-}
 
 /// 语音识别结果
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,7 +118,9 @@ impl AudioFormat {
 /// OpenAI TTS 可用语音
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum OpenAIVoice {
+    #[default]
     Alloy,
     Echo,
     Fable,
@@ -146,16 +142,13 @@ impl OpenAIVoice {
     }
 }
 
-impl Default for OpenAIVoice {
-    fn default() -> Self {
-        Self::Alloy
-    }
-}
 
 /// OpenAI Whisper 可用模型
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum WhisperModel {
+    #[default]
     Whisper1,
 }
 
@@ -167,16 +160,13 @@ impl WhisperModel {
     }
 }
 
-impl Default for WhisperModel {
-    fn default() -> Self {
-        Self::Whisper1
-    }
-}
 
 /// OpenAI TTS 可用模型
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum TtsModel {
+    #[default]
     Tts1,
     Tts1Hd,
 }
@@ -190,11 +180,6 @@ impl TtsModel {
     }
 }
 
-impl Default for TtsModel {
-    fn default() -> Self {
-        Self::Tts1
-    }
-}
 
 /// Talk Mode 状态
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -244,6 +229,7 @@ impl Default for VoiceConfig {
 
 /// STT 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SttConfig {
     /// OpenAI API Key
     pub openai_api_key: Option<String>,
@@ -264,20 +250,6 @@ pub struct SttConfig {
     pub google_api_key: Option<String>,
 }
 
-impl Default for SttConfig {
-    fn default() -> Self {
-        Self {
-            openai_api_key: None,
-            openai_base_url: None,
-            whisper_model: WhisperModel::default(),
-            language: None,
-            local_model_path: None,
-            azure_api_key: None,
-            azure_region: None,
-            google_api_key: None,
-        }
-    }
-}
 
 /// TTS 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]

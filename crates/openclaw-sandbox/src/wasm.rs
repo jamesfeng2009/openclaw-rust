@@ -135,8 +135,8 @@ impl WasmToolRuntime {
             let params_json = input.params.to_string();
             let params_ptr = params_json.as_bytes();
 
-            if let Some(memory) = memory {
-                if let Some(alloc_func) = instance.get_func(&mut store, "alloc") {
+            if let Some(memory) = memory
+                && let Some(alloc_func) = instance.get_func(&mut store, "alloc") {
                     let mut alloc_result = [wasmtime::Val::I64(0)];
                     if alloc_func.call(&mut store, &[], &mut alloc_result).is_ok() {
                         let ptr = match alloc_result[0] {
@@ -179,7 +179,6 @@ impl WasmToolRuntime {
                         }
                     }
                 }
-            }
         }
 
         Ok(WasmExecutionResult {

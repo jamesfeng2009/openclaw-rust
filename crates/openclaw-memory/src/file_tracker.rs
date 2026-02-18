@@ -80,11 +80,10 @@ impl FileTracker {
 
         let existing = self.files.get(&path_str).cloned();
 
-        if let Some(entry) = &existing {
-            if entry.hash == hash && entry.modified_time == modified {
+        if let Some(entry) = &existing
+            && entry.hash == hash && entry.modified_time == modified {
                 return Ok(None);
             }
-        }
 
         let entry = FileEntry {
             path: path_str.clone(),
@@ -112,9 +111,9 @@ impl FileTracker {
     pub fn is_changed(&self, path: &Path) -> bool {
         let path_str = path.to_string_lossy().to_string();
 
-        if let Some(entry) = self.files.get(&path_str) {
-            if let Ok(metadata) = fs::metadata(path) {
-                if let Ok(modified) = metadata.modified() {
+        if let Some(entry) = self.files.get(&path_str)
+            && let Ok(metadata) = fs::metadata(path)
+                && let Ok(modified) = metadata.modified() {
                     let modified_secs = modified
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .map(|d| d.as_secs())
@@ -122,8 +121,6 @@ impl FileTracker {
 
                     return modified_secs != entry.modified_time;
                 }
-            }
-        }
 
         true
     }
@@ -177,11 +174,10 @@ impl FileTracker {
         {
             let path = entry.path();
 
-            if path.is_file() {
-                if let Some(result) = self.track_file(path)? {
+            if path.is_file()
+                && let Some(result) = self.track_file(path)? {
                     updated.push(PathBuf::from(result.path));
                 }
-            }
         }
 
         Ok(updated)

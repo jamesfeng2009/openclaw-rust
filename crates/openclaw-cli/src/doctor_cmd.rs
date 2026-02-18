@@ -1,7 +1,6 @@
 //! 健康检查命令
 
 use anyhow::Result;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Command;
 

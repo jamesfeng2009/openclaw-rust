@@ -270,11 +270,10 @@ async fn handle_canvas_ws(socket: WebSocket, state: CanvasApiState, canvas_id: C
             }
             // 接收协作事件
             event = event_rx.recv() => {
-                if let Ok(event) = event {
-                    if let Ok(msg) = serde_json::to_string(&CollabEventWrapper { event }) {
+                if let Ok(event) = event
+                    && let Ok(msg) = serde_json::to_string(&CollabEventWrapper { event }) {
                         let _ = tx.send(Message::Text(msg.into())).await;
                     }
-                }
             }
         }
     }

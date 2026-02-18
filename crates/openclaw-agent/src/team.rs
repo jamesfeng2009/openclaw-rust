@@ -104,6 +104,7 @@ impl TeamConfig {
 /// 路由策略
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum RoutingStrategy {
     /// 能力匹配 - 选择具备所需能力的 Agent
     CapabilityMatch,
@@ -114,16 +115,12 @@ pub enum RoutingStrategy {
     /// 轮询 - 依次分配
     RoundRobin,
     /// 智能路由 - 根据任务类型和 Agent 能力智能选择
+    #[default]
     Smart,
     /// 手动指定 - 由用户指定 Agent
     Manual,
 }
 
-impl Default for RoutingStrategy {
-    fn default() -> Self {
-        Self::Smart
-    }
-}
 
 /// Agent Team
 pub struct AgentTeam {
@@ -191,17 +188,15 @@ impl AgentTeam {
         preferred_agent: Option<&str>,
     ) -> Option<String> {
         // 如果指定了偏好 Agent，优先选择
-        if let Some(preferred) = preferred_agent {
-            if let Some(agent) = self.get_agent(preferred) {
-                if agent.is_available()
+        if let Some(preferred) = preferred_agent
+            && let Some(agent) = self.get_agent(preferred)
+                && agent.is_available()
                     && required_capabilities
                         .iter()
                         .all(|c| agent.has_capability(c))
                 {
                     return Some(preferred.to_string());
                 }
-            }
-        }
 
         let agents = self.agents.read().unwrap();
 

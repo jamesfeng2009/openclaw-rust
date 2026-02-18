@@ -48,8 +48,8 @@ impl HybridSearchManager {
     ) -> Result<Vec<SearchResult>> {
         let mut all_results: Vec<SearchResult> = Vec::new();
 
-        if let Some(vector) = query_vector {
-            if config.vector_weight > 0.0 {
+        if let Some(vector) = query_vector
+            && config.vector_weight > 0.0 {
                 let mut query = SearchQuery::new(vector);
                 query.limit = config.limit;
                 query.min_score = config.min_score;
@@ -57,13 +57,11 @@ impl HybridSearchManager {
                 let vector_results = self.vector_store.search(query).await?;
                 all_results.extend(vector_results);
             }
-        }
 
-        if config.keyword_weight > 0.0 && !query_text.is_empty() {
-            if let Ok(fts_results) = self.fts_search(query_text, config.limit).await {
+        if config.keyword_weight > 0.0 && !query_text.is_empty()
+            && let Ok(fts_results) = self.fts_search(query_text, config.limit).await {
                 all_results.extend(fts_results);
             }
-        }
 
         Ok(self.merge_results(all_results, config))
     }
@@ -73,15 +71,14 @@ impl HybridSearchManager {
 
         let mut results = Vec::new();
         for item in all_items {
-            if let Some(content) = item.payload.get("content").and_then(|v| v.as_str()) {
-                if content.to_lowercase().contains(&query.to_lowercase()) {
+            if let Some(content) = item.payload.get("content").and_then(|v| v.as_str())
+                && content.to_lowercase().contains(&query.to_lowercase()) {
                     results.push(SearchResult {
                         id: item.id,
                         score: 1.0,
                         payload: item.payload,
                     });
                 }
-            }
         }
 
         results.truncate(limit);
@@ -127,7 +124,7 @@ impl HybridSearchManager {
         let total_weight = config.vector_weight + config.keyword_weight;
         if total_weight > 0.0 {
             for result in combined.values_mut() {
-                result.score = result.score / total_weight;
+                result.score /= total_weight;
             }
         }
 

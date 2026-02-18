@@ -40,17 +40,14 @@ pub struct MqttMessage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum MqttQos {
+    #[default]
     AtMostOnce,
     AtLeastOnce,
     ExactlyOnce,
 }
 
-impl Default for MqttQos {
-    fn default() -> Self {
-        Self::AtMostOnce
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MqttSubscription {

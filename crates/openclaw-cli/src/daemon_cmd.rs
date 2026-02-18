@@ -10,14 +10,13 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 /// Daemon 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -203,13 +202,12 @@ impl DaemonManager {
         self.running.store(true, Ordering::SeqCst);
 
         // 写入 PID 文件
-        if let Some(ref pid_path) = self.config.pid_file {
-            if let Some(ref process) = self.process {
+        if let Some(ref pid_path) = self.config.pid_file
+            && let Some(ref process) = self.process {
                 let pid = process.id();
                 fs::write(pid_path, pid.to_string())
                     .with_context(|| format!("写入 PID 文件失败: {:?}", pid_path))?;
             }
-        }
 
         info!(
             "守护进程已启动, PID: {:?}",

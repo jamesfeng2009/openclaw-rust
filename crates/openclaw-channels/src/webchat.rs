@@ -74,7 +74,7 @@ impl WebChatClient {
     /// 处理接收到的 Webhook 消息
     pub async fn handle_webhook(&self, payload: serde_json::Value) -> Result<ChannelMessage> {
         let msg: WebChatMessage =
-            serde_json::from_value(payload).map_err(|e| OpenClawError::Serialization(e))?;
+            serde_json::from_value(payload).map_err(OpenClawError::Serialization)?;
 
         Ok(ChannelMessage {
             id: msg.id,

@@ -238,15 +238,14 @@ impl Orchestrator {
 
         // 推荐适合的 Agent
         for agent_id in self.team.agent_ids() {
-            if let Some(agent) = self.team.get_agent(&agent_id) {
-                if request
+            if let Some(agent) = self.team.get_agent(&agent_id)
+                && request
                     .required_capabilities
                     .iter()
                     .all(|c| agent.has_capability(c))
                 {
                     analysis.suggested_agents.push(agent.id().to_string());
                 }
-            }
         }
 
         Ok(analysis)
@@ -264,9 +263,9 @@ impl Orchestrator {
                 // 文档任务分解为：研究 + 写作
                 Ok(vec![
                     TaskRequest::new(TaskType::WebSearch, request.input.clone())
-                        .with_priority(request.priority.clone()),
+                        .with_priority(request.priority),
                     TaskRequest::new(TaskType::Documentation, request.input.clone())
-                        .with_priority(request.priority.clone()),
+                        .with_priority(request.priority),
                 ])
             }
             _ => {
@@ -364,6 +363,7 @@ enum TaskComplexity {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::task::TaskInput;
 
     #[tokio::test]
     async fn test_orchestrator_without_ai_provider() {

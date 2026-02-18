@@ -182,7 +182,7 @@ impl SandboxManager {
             tokio::time::timeout(timeout_duration, self.docker.wait_sandbox(&sandbox_id))
                 .await
                 .map_err(|_| SandboxManagerError::Timeout)?
-                .map_err(|e| SandboxManagerError::Docker(e))?;
+                .map_err(SandboxManagerError::Docker)?;
 
         // 获取日志
         let (stdout, stderr) = self.docker.get_logs(&sandbox_id).await?;
@@ -291,11 +291,10 @@ impl SandboxManager {
         let mut result = vec![];
 
         for (id, record) in sandboxes.iter() {
-            if record.owner_id == user_id {
-                if let Ok(status) = self.docker.get_status(id).await {
+            if record.owner_id == user_id
+                && let Ok(status) = self.docker.get_status(id).await {
                     result.push(status);
                 }
-            }
         }
 
         result

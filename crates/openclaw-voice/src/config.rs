@@ -8,6 +8,7 @@ use openclaw_core::{OpenClawError, Result};
 
 /// 语音配置管理器
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct VoiceConfigManager {
     /// 语音配置
     pub voice: VoiceConfig,
@@ -25,13 +26,11 @@ impl VoiceConfigManager {
     /// 加载配置
     pub fn load() -> Self {
         let path = Self::get_config_path();
-        if path.exists() {
-            if let Ok(content) = std::fs::read_to_string(&path) {
-                if let Ok(config) = serde_json::from_str(&content) {
+        if path.exists()
+            && let Ok(content) = std::fs::read_to_string(&path)
+                && let Ok(config) = serde_json::from_str(&content) {
                     return config;
                 }
-            }
-        }
         Self::default()
     }
 
@@ -43,7 +42,7 @@ impl VoiceConfigManager {
                 .map_err(|e| OpenClawError::Config(format!("创建配置目录失败: {}", e)))?;
         }
         let content =
-            serde_json::to_string_pretty(self).map_err(|e| OpenClawError::Serialization(e))?;
+            serde_json::to_string_pretty(self).map_err(OpenClawError::Serialization)?;
         std::fs::write(&path, &content)
             .map_err(|e| OpenClawError::Config(format!("保存配置失败: {}", e)))?;
         Ok(())
@@ -99,13 +98,6 @@ impl VoiceConfigManager {
     }
 }
 
-impl Default for VoiceConfigManager {
-    fn default() -> Self {
-        Self {
-            voice: VoiceConfig::default(),
-        }
-    }
-}
 
 /// 创建默认配置
 pub fn default_voice_config() -> VoiceConfig {

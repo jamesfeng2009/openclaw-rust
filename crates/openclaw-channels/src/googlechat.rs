@@ -172,7 +172,7 @@ impl GoogleChatClient {
     /// 处理 Webhook 消息
     pub async fn handle_webhook(&self, payload: serde_json::Value) -> Result<ChannelMessage> {
         let msg: GoogleChatMessage =
-            serde_json::from_value(payload).map_err(|e| OpenClawError::Serialization(e))?;
+            serde_json::from_value(payload).map_err(OpenClawError::Serialization)?;
 
         let space = msg.space.as_ref();
         let sender = msg.sender.as_ref();

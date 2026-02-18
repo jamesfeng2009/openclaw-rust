@@ -12,19 +12,16 @@ use tokio::sync::RwLock;
 /// Presence 状态
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum PresenceStatus {
     Online,
     Away,
     Busy,
+    #[default]
     Offline,
     Unknown,
 }
 
-impl Default for PresenceStatus {
-    fn default() -> Self {
-        PresenceStatus::Offline
-    }
-}
 
 impl std::fmt::Display for PresenceStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

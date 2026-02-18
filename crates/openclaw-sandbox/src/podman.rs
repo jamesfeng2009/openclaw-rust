@@ -177,7 +177,7 @@ impl PodmanClient {
 
         // 添加命名空间参数
         if let Some(ref ns) = self.config.namespace {
-            cmd.args(&["--namespace", ns]);
+            cmd.args(["--namespace", ns]);
         }
 
         cmd.args(args);

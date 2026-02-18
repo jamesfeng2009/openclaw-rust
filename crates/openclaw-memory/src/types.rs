@@ -106,6 +106,7 @@ impl MemoryItem {
 
 /// 记忆配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct MemoryConfig {
     /// 工作记忆配置
     pub working: WorkingMemoryConfig,
@@ -189,15 +190,6 @@ impl Default for LongTermMemoryConfig {
     }
 }
 
-impl Default for MemoryConfig {
-    fn default() -> Self {
-        Self {
-            working: WorkingMemoryConfig::default(),
-            short_term: ShortTermMemoryConfig::default(),
-            long_term: LongTermMemoryConfig::default(),
-        }
-    }
-}
 
 /// 记忆检索结果
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -205,6 +197,12 @@ pub struct MemoryRetrieval {
     pub items: Vec<MemoryItem>,
     pub total_tokens: usize,
     pub from_levels: Vec<MemoryLevel>,
+}
+
+impl Default for MemoryRetrieval {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MemoryRetrieval {

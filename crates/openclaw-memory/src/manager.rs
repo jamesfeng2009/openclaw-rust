@@ -86,12 +86,11 @@ impl MemoryManager {
             if self.short_term.len() > self.config.short_term.max_summaries {
                 // 将最旧的摘要移到长期记忆
                 if let Some(old_summary) = self.short_term.first().cloned() {
-                    if self.config.long_term.enabled {
-                        if let Some(store) = &self.long_term {
+                    if self.config.long_term.enabled
+                        && let Some(store) = &self.long_term {
                             self.archive_to_long_term(store.as_ref(), old_summary)
                                 .await?;
                         }
-                    }
                     self.short_term.remove(0);
                 }
             }
@@ -125,8 +124,8 @@ impl MemoryManager {
         }
 
         // 3. 从长期记忆检索相关内容
-        if self.config.long_term.enabled {
-            if let Some(search) = &self.hybrid_search {
+        if self.config.long_term.enabled
+            && let Some(search) = &self.hybrid_search {
                 let config = HybridSearchConfig::default();
                 if let Ok(results) = search.search(_query, None, &config).await {
                     for result in results {
@@ -160,7 +159,6 @@ impl MemoryManager {
                     }
                 }
             }
-        }
 
         Ok(retrieval)
     }

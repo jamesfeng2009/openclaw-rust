@@ -16,6 +16,12 @@ pub struct WebSocketState {
     pub connections: Arc<RwLock<Vec<String>>>,
 }
 
+impl Default for WebSocketState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WebSocketState {
     pub fn new() -> Self {
         Self {

@@ -73,7 +73,7 @@ impl ToolCall {
     /// 解析参数
     pub fn parse_arguments<T: for<'de> Deserialize<'de>>(&self) -> Result<T> {
         serde_json::from_str(&self.function.arguments)
-            .map_err(|e| openclaw_core::OpenClawError::Serialization(e))
+            .map_err(openclaw_core::OpenClawError::Serialization)
     }
 }
 

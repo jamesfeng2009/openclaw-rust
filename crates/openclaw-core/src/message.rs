@@ -50,6 +50,7 @@ pub struct Message {
 
 /// 消息元数据
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct MessageMetadata {
     /// 来源通道
     pub channel: Option<String>,
@@ -67,19 +68,6 @@ pub struct MessageMetadata {
     pub tags: Vec<String>,
 }
 
-impl Default for MessageMetadata {
-    fn default() -> Self {
-        Self {
-            channel: None,
-            sender_id: None,
-            session_id: None,
-            token_count: None,
-            importance_score: None,
-            is_compressed: false,
-            tags: Vec::new(),
-        }
-    }
-}
 
 impl Message {
     pub fn new(role: Role, content: Vec<Content>) -> Self {

@@ -62,6 +62,7 @@ pub struct NeuralMatrix {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Traits {
     #[serde(default)]
     pub mbti: Option<String>,
@@ -163,6 +164,7 @@ pub struct Skill {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Preferences {
     #[serde(default)]
     pub communication_style: Option<String>,
@@ -219,15 +221,6 @@ impl Default for Psychology {
     }
 }
 
-impl Default for Traits {
-    fn default() -> Self {
-        Self {
-            mbti: None,
-            big_five: None,
-            custom: Vec::new(),
-        }
-    }
-}
 
 impl Default for Linguistics {
     fn default() -> Self {
@@ -257,12 +250,3 @@ impl Default for Motivations {
     }
 }
 
-impl Default for Preferences {
-    fn default() -> Self {
-        Self {
-            communication_style: None,
-            work_style: None,
-            response_format: None,
-        }
-    }
-}
