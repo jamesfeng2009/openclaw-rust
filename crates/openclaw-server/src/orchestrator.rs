@@ -313,27 +313,23 @@ impl ServiceOrchestrator {
             );
 
             if let Some(aieos_path) = &agent_cfg.aieos_path
-                && aieos_path.exists() {
-                    match AIEOSParser::from_file(aieos_path) {
-                        Ok(aieos) => {
-                            let system_prompt =
-                                AIEOSPromptGenerator::generate_system_prompt(&aieos);
-                            openclaw_cfg = openclaw_cfg.with_system_prompt(system_prompt);
-                            tracing::info!(
-                                "Loaded AIEOS for agent {} from {:?}",
-                                agent_cfg.id,
-                                aieos_path
-                            );
-                        }
-                        Err(e) => {
-                            tracing::warn!(
-                                "Failed to load AIEOS for agent {}: {}",
-                                agent_cfg.id,
-                                e
-                            );
-                        }
+                && aieos_path.exists()
+            {
+                match AIEOSParser::from_file(aieos_path) {
+                    Ok(aieos) => {
+                        let system_prompt = AIEOSPromptGenerator::generate_system_prompt(&aieos);
+                        openclaw_cfg = openclaw_cfg.with_system_prompt(system_prompt);
+                        tracing::info!(
+                            "Loaded AIEOS for agent {} from {:?}",
+                            agent_cfg.id,
+                            aieos_path
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to load AIEOS for agent {}: {}", agent_cfg.id, e);
                     }
                 }
+            }
 
             let agent = Arc::new(BaseAgent::new(openclaw_cfg)) as Arc<dyn Agent>;
             self.register_agent(agent_cfg.id.clone(), agent).await;

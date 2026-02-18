@@ -238,12 +238,13 @@ impl Channel for ZaloClient {
         let response = self.send_text(&message.chat_id, &message.content).await?;
 
         if let Some(error) = response.error
-            && error != 0 {
-                return Err(OpenClawError::Channel(format!(
-                    "Zalo 发送失败: {}",
-                    response.message.unwrap_or_default()
-                )));
-            }
+            && error != 0
+        {
+            return Err(OpenClawError::Channel(format!(
+                "Zalo 发送失败: {}",
+                response.message.unwrap_or_default()
+            )));
+        }
 
         Ok(ChannelMessage {
             id: uuid::Uuid::new_v4().to_string(),

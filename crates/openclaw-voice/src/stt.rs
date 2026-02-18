@@ -340,10 +340,11 @@ impl SpeechToText for GoogleStt {
         if let Some(results) = result.results {
             for result in results {
                 if let Some(alternatives) = result.alternatives
-                    && let Some(alt) = alternatives.first() {
-                        text = alt.transcript.clone();
-                        break;
-                    }
+                    && let Some(alt) = alternatives.first()
+                {
+                    text = alt.transcript.clone();
+                    break;
+                }
             }
         }
 

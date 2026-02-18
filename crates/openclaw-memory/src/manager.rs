@@ -87,10 +87,11 @@ impl MemoryManager {
                 // 将最旧的摘要移到长期记忆
                 if let Some(old_summary) = self.short_term.first().cloned() {
                     if self.config.long_term.enabled
-                        && let Some(store) = &self.long_term {
-                            self.archive_to_long_term(store.as_ref(), old_summary)
-                                .await?;
-                        }
+                        && let Some(store) = &self.long_term
+                    {
+                        self.archive_to_long_term(store.as_ref(), old_summary)
+                            .await?;
+                    }
                     self.short_term.remove(0);
                 }
             }
@@ -125,40 +126,41 @@ impl MemoryManager {
 
         // 3. 从长期记忆检索相关内容
         if self.config.long_term.enabled
-            && let Some(search) = &self.hybrid_search {
-                let config = HybridSearchConfig::default();
-                if let Ok(results) = search.search(_query, None, &config).await {
-                    for result in results {
-                        let content_preview = result
-                            .payload
-                            .get("content")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string();
+            && let Some(search) = &self.hybrid_search
+        {
+            let config = HybridSearchConfig::default();
+            if let Ok(results) = search.search(_query, None, &config).await {
+                for result in results {
+                    let content_preview = result
+                        .payload
+                        .get("content")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
 
-                        let token_count = content_preview.len() / 4;
-                        let memory_item = MemoryItem {
-                            id: uuid::Uuid::new_v4(),
-                            level: MemoryLevel::LongTerm,
-                            content: MemoryContent::VectorRef {
-                                vector_id: result.id.clone(),
-                                preview: content_preview,
-                            },
-                            created_at: chrono::Utc::now(),
-                            last_accessed: chrono::Utc::now(),
-                            access_count: 1,
-                            importance_score: result.score,
-                            token_count,
-                            metadata: crate::types::MemoryMetadata::default(),
-                        };
+                    let token_count = content_preview.len() / 4;
+                    let memory_item = MemoryItem {
+                        id: uuid::Uuid::new_v4(),
+                        level: MemoryLevel::LongTerm,
+                        content: MemoryContent::VectorRef {
+                            vector_id: result.id.clone(),
+                            preview: content_preview,
+                        },
+                        created_at: chrono::Utc::now(),
+                        last_accessed: chrono::Utc::now(),
+                        access_count: 1,
+                        importance_score: result.score,
+                        token_count,
+                        metadata: crate::types::MemoryMetadata::default(),
+                    };
 
-                        if current_tokens + token_count <= max_tokens {
-                            retrieval.add(memory_item);
-                            current_tokens += token_count;
-                        }
+                    if current_tokens + token_count <= max_tokens {
+                        retrieval.add(memory_item);
+                        current_tokens += token_count;
                     }
                 }
             }
+        }
 
         Ok(retrieval)
     }

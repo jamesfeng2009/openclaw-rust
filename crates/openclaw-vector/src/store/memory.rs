@@ -6,9 +6,7 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 
 use crate::VectorStore;
-use crate::types::{
-    Filter, FilterOperator, SearchQuery, SearchResult, StoreStats, VectorItem,
-};
+use crate::types::{Filter, FilterOperator, SearchQuery, SearchResult, StoreStats, VectorItem};
 use openclaw_core::Result;
 
 /// 内存向量存储

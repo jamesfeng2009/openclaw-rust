@@ -22,7 +22,6 @@ pub enum SttProvider {
     Custom(String),
 }
 
-
 /// TTS 提供商
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -42,7 +41,6 @@ pub enum TtsProvider {
     /// 自定义提供商 (用户配置)
     Custom(String),
 }
-
 
 /// 语音识别结果
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,7 +140,6 @@ impl OpenAIVoice {
     }
 }
 
-
 /// OpenAI Whisper 可用模型
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -159,7 +156,6 @@ impl WhisperModel {
         }
     }
 }
-
 
 /// OpenAI TTS 可用模型
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,7 +175,6 @@ impl TtsModel {
         }
     }
 }
-
 
 /// Talk Mode 状态
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -228,8 +223,7 @@ impl Default for VoiceConfig {
 }
 
 /// STT 配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SttConfig {
     /// OpenAI API Key
     pub openai_api_key: Option<String>,
@@ -249,7 +243,6 @@ pub struct SttConfig {
     /// Google Cloud API Key
     pub google_api_key: Option<String>,
 }
-
 
 /// TTS 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]

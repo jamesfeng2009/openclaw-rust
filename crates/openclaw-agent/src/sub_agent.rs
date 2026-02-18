@@ -345,18 +345,19 @@ impl SubAgentManager {
 
                 for result in &results {
                     if result.success
-                        && let Some(ref output) = result.result.output {
-                            let type_name = match output {
-                                TaskOutput::Message { .. } => "message",
-                                TaskOutput::Text { .. } => "text",
-                                TaskOutput::Code { .. } => "code",
-                                TaskOutput::Data { .. } => "data",
-                                TaskOutput::SearchResult { .. } => "search",
-                                TaskOutput::ToolResult { .. } => "tool",
-                                TaskOutput::Multiple { .. } => "multiple",
-                            };
-                            *type_counts.entry(type_name.to_string()).or_insert(0) += 1;
-                        }
+                        && let Some(ref output) = result.result.output
+                    {
+                        let type_name = match output {
+                            TaskOutput::Message { .. } => "message",
+                            TaskOutput::Text { .. } => "text",
+                            TaskOutput::Code { .. } => "code",
+                            TaskOutput::Data { .. } => "data",
+                            TaskOutput::SearchResult { .. } => "search",
+                            TaskOutput::ToolResult { .. } => "tool",
+                            TaskOutput::Multiple { .. } => "multiple",
+                        };
+                        *type_counts.entry(type_name.to_string()).or_insert(0) += 1;
+                    }
                 }
 
                 let winning_type = type_counts
@@ -367,20 +368,21 @@ impl SubAgentManager {
                 // 返回第一个匹配类型的结果
                 for result in &results {
                     if result.success
-                        && let Some(ref output) = result.result.output {
-                            let type_name = match output {
-                                TaskOutput::Message { .. } => "message",
-                                TaskOutput::Text { .. } => "text",
-                                TaskOutput::Code { .. } => "code",
-                                TaskOutput::Data { .. } => "data",
-                                TaskOutput::SearchResult { .. } => "search",
-                                TaskOutput::ToolResult { .. } => "tool",
-                                TaskOutput::Multiple { .. } => "multiple",
-                            };
-                            if Some(type_name) == winning_type.as_deref() {
-                                return Ok(output.clone());
-                            }
+                        && let Some(ref output) = result.result.output
+                    {
+                        let type_name = match output {
+                            TaskOutput::Message { .. } => "message",
+                            TaskOutput::Text { .. } => "text",
+                            TaskOutput::Code { .. } => "code",
+                            TaskOutput::Data { .. } => "data",
+                            TaskOutput::SearchResult { .. } => "search",
+                            TaskOutput::ToolResult { .. } => "tool",
+                            TaskOutput::Multiple { .. } => "multiple",
+                        };
+                        if Some(type_name) == winning_type.as_deref() {
+                            return Ok(output.clone());
                         }
+                    }
                 }
 
                 Err(SubAgentError::ExecutionFailed("投票失败".to_string()))

@@ -44,7 +44,6 @@ pub enum BaudRate {
     Custom(u32),
 }
 
-
 impl BaudRate {
     pub fn to_speed(&self) -> u32 {
         match self {
@@ -76,7 +75,6 @@ pub enum DataBits {
     Eight,
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
@@ -87,7 +85,6 @@ pub enum Parity {
     Odd,
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
@@ -96,7 +93,6 @@ pub enum StopBits {
     One,
     Two,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerialConfig {

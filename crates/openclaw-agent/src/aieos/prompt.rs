@@ -170,30 +170,31 @@ impl AIEOSPromptGenerator {
         }
 
         if let Some(vocab) = &linguistics.vocabulary
-            && (!vocab.technical_terms.is_empty() || !vocab.preferred_words.is_empty()) {
-                parts.push("\n## Vocabulary".to_string());
+            && (!vocab.technical_terms.is_empty() || !vocab.preferred_words.is_empty())
+        {
+            parts.push("\n## Vocabulary".to_string());
 
-                if !vocab.technical_terms.is_empty() {
-                    parts.push("- Technical Terms:".to_string());
-                    for term in &vocab.technical_terms {
-                        parts.push(format!("  - {}", term));
-                    }
-                }
-
-                if !vocab.preferred_words.is_empty() {
-                    parts.push("- Preferred Words:".to_string());
-                    for word in &vocab.preferred_words {
-                        parts.push(format!("  - {}", word));
-                    }
-                }
-
-                if !vocab.avoided_words.is_empty() {
-                    parts.push("- Avoided Words:".to_string());
-                    for word in &vocab.avoided_words {
-                        parts.push(format!("  - {}", word));
-                    }
+            if !vocab.technical_terms.is_empty() {
+                parts.push("- Technical Terms:".to_string());
+                for term in &vocab.technical_terms {
+                    parts.push(format!("  - {}", term));
                 }
             }
+
+            if !vocab.preferred_words.is_empty() {
+                parts.push("- Preferred Words:".to_string());
+                for word in &vocab.preferred_words {
+                    parts.push(format!("  - {}", word));
+                }
+            }
+
+            if !vocab.avoided_words.is_empty() {
+                parts.push("- Avoided Words:".to_string());
+                for word in &vocab.avoided_words {
+                    parts.push(format!("  - {}", word));
+                }
+            }
+        }
 
         parts.join("\n")
     }

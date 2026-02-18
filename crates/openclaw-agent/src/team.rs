@@ -121,7 +121,6 @@ pub enum RoutingStrategy {
     Manual,
 }
 
-
 /// Agent Team
 pub struct AgentTeam {
     config: TeamConfig,
@@ -190,13 +189,13 @@ impl AgentTeam {
         // 如果指定了偏好 Agent，优先选择
         if let Some(preferred) = preferred_agent
             && let Some(agent) = self.get_agent(preferred)
-                && agent.is_available()
-                    && required_capabilities
-                        .iter()
-                        .all(|c| agent.has_capability(c))
-                {
-                    return Some(preferred.to_string());
-                }
+            && agent.is_available()
+            && required_capabilities
+                .iter()
+                .all(|c| agent.has_capability(c))
+        {
+            return Some(preferred.to_string());
+        }
 
         let agents = self.agents.read().unwrap();
 

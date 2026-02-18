@@ -203,11 +203,12 @@ impl DaemonManager {
 
         // 写入 PID 文件
         if let Some(ref pid_path) = self.config.pid_file
-            && let Some(ref process) = self.process {
-                let pid = process.id();
-                fs::write(pid_path, pid.to_string())
-                    .with_context(|| format!("写入 PID 文件失败: {:?}", pid_path))?;
-            }
+            && let Some(ref process) = self.process
+        {
+            let pid = process.id();
+            fs::write(pid_path, pid.to_string())
+                .with_context(|| format!("写入 PID 文件失败: {:?}", pid_path))?;
+        }
 
         info!(
             "守护进程已启动, PID: {:?}",

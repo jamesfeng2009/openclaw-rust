@@ -3,9 +3,7 @@
 //! 提供 WASM 模块的加载和执行能力
 
 use crate::types::*;
-use openclaw_sandbox::wasm::{
-    WasmError, WasmExecutionInput, WasmToolConfig, WasmToolRegistry,
-};
+use openclaw_sandbox::wasm::{WasmError, WasmExecutionInput, WasmToolConfig, WasmToolRegistry};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info};

@@ -81,9 +81,11 @@ impl FileTracker {
         let existing = self.files.get(&path_str).cloned();
 
         if let Some(entry) = &existing
-            && entry.hash == hash && entry.modified_time == modified {
-                return Ok(None);
-            }
+            && entry.hash == hash
+            && entry.modified_time == modified
+        {
+            return Ok(None);
+        }
 
         let entry = FileEntry {
             path: path_str.clone(),
@@ -113,14 +115,15 @@ impl FileTracker {
 
         if let Some(entry) = self.files.get(&path_str)
             && let Ok(metadata) = fs::metadata(path)
-                && let Ok(modified) = metadata.modified() {
-                    let modified_secs = modified
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .map(|d| d.as_secs())
-                        .unwrap_or(0);
+            && let Ok(modified) = metadata.modified()
+        {
+            let modified_secs = modified
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
 
-                    return modified_secs != entry.modified_time;
-                }
+            return modified_secs != entry.modified_time;
+        }
 
         true
     }
@@ -175,9 +178,10 @@ impl FileTracker {
             let path = entry.path();
 
             if path.is_file()
-                && let Some(result) = self.track_file(path)? {
-                    updated.push(PathBuf::from(result.path));
-                }
+                && let Some(result) = self.track_file(path)?
+            {
+                updated.push(PathBuf::from(result.path));
+            }
         }
 
         Ok(updated)

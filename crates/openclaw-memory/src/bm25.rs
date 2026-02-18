@@ -179,9 +179,10 @@ impl Bm25Index {
                 .unwrap_or("");
 
             if let Some(filter) = source_filter
-                && source != filter {
-                    continue;
-                }
+                && source != filter
+            {
+                continue;
+            }
 
             let timestamp = retrieved_doc
                 .get_first(self.timestamp_field)
@@ -189,14 +190,16 @@ impl Bm25Index {
                 .unwrap_or(0);
 
             if let Some(start) = start_time
-                && timestamp < start {
-                    continue;
-                }
+                && timestamp < start
+            {
+                continue;
+            }
 
             if let Some(end) = end_time
-                && timestamp > end {
-                    continue;
-                }
+                && timestamp > end
+            {
+                continue;
+            }
 
             let id = retrieved_doc
                 .get_first(self.id_field)

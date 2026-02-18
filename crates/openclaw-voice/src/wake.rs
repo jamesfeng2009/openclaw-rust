@@ -8,9 +8,7 @@ use std::sync::Arc;
 use tokio::sync::{RwLock, broadcast};
 
 fn zip_err(e: zip::result::ZipError) -> OpenClawError {
-    OpenClawError::Io(std::io::Error::other(
-        e.to_string(),
-    ))
+    OpenClawError::Io(std::io::Error::other(e.to_string()))
 }
 
 /// 唤醒词配置

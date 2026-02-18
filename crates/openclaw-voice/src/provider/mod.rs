@@ -10,9 +10,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::types::{
-    SynthesisOptions, TranscriptionResult,
-};
+use crate::types::{SynthesisOptions, TranscriptionResult};
 
 /// 自定义 TTS 提供商配置
 #[derive(Debug, Clone, Serialize, Deserialize)]

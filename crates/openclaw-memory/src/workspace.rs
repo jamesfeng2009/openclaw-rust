@@ -457,12 +457,13 @@ impl AgentWorkspace {
                 let path = entry.path();
                 if path.extension().and_then(|s| s.to_str()) == Some("md")
                     && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
-                        && let Ok(date) = NaiveDate::parse_from_str(stem, "%Y-%m-%d")
-                            && date >= cutoff {
-                                let content = fs::read_to_string(&path)?;
-                                consolidated.push_str(&content);
-                                consolidated.push_str("\n\n");
-                            }
+                    && let Ok(date) = NaiveDate::parse_from_str(stem, "%Y-%m-%d")
+                    && date >= cutoff
+                {
+                    let content = fs::read_to_string(&path)?;
+                    consolidated.push_str(&content);
+                    consolidated.push_str("\n\n");
+                }
             }
         }
 
@@ -541,17 +542,18 @@ impl AgentWorkspace {
                 let path = entry.path();
                 if path.extension().and_then(|s| s.to_str()) == Some("md")
                     && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
-                        && let Ok(date) = NaiveDate::parse_from_str(stem, "%Y-%m-%d") {
-                            let preview = fs::read_to_string(&path)
-                                .map(|c| c.chars().take(200).collect())
-                                .unwrap_or_default();
+                    && let Ok(date) = NaiveDate::parse_from_str(stem, "%Y-%m-%d")
+                {
+                    let preview = fs::read_to_string(&path)
+                        .map(|c| c.chars().take(200).collect())
+                        .unwrap_or_default();
 
-                            memories.push(DailyMemory {
-                                date,
-                                path,
-                                preview,
-                            });
-                        }
+                    memories.push(DailyMemory {
+                        date,
+                        path,
+                        preview,
+                    });
+                }
             }
         }
 
@@ -579,8 +581,7 @@ pub fn create_workspace(agent_id: &str, base_path: &Path) -> Result<AgentWorkspa
     Ok(workspace)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum LearningTrigger {
     #[default]
     OnError,
@@ -589,7 +590,6 @@ pub enum LearningTrigger {
     OnSuccess,
     All,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct LearningRecord {

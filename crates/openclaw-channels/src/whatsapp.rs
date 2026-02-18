@@ -10,8 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 /// WhatsApp Cloud API 配置
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct WhatsAppConfig {
     /// WhatsApp Business Account ID (WABA ID)
     pub business_account_id: String,
@@ -24,7 +23,6 @@ pub struct WhatsAppConfig {
     /// 是否启用
     pub enabled: bool,
 }
-
 
 /// WhatsApp 通道
 pub struct WhatsAppChannel {

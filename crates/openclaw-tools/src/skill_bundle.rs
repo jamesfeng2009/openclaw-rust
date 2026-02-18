@@ -246,9 +246,10 @@ impl SkillBundle {
                 std::fs::create_dir_all(&outpath)?;
             } else {
                 if let Some(p) = outpath.parent()
-                    && !p.exists() {
-                        std::fs::create_dir_all(p)?;
-                    }
+                    && !p.exists()
+                {
+                    std::fs::create_dir_all(p)?;
+                }
                 let mut outfile = std::fs::File::create(&outpath)?;
                 std::io::copy(&mut file, &mut outfile)?;
             }
@@ -442,9 +443,10 @@ impl BundleManager {
                 let path = entry.path();
 
                 if path.is_dir()
-                    && let Ok(bundle) = SkillBundle::from_dir(&path) {
-                        bundles.insert(bundle.manifest.id.clone(), bundle);
-                    }
+                    && let Ok(bundle) = SkillBundle::from_dir(&path)
+                {
+                    bundles.insert(bundle.manifest.id.clone(), bundle);
+                }
             }
         }
 

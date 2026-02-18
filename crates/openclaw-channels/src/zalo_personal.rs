@@ -294,12 +294,13 @@ impl Channel for ZaloPersonalClient {
         let response = self.send_text(&message.chat_id, &message.content).await?;
 
         if let Some(error) = response.error
-            && error != 0 {
-                return Err(OpenClawError::Channel(format!(
-                    "Zalo Personal 发送失败: {}",
-                    response.message.unwrap_or_default()
-                )));
-            }
+            && error != 0
+        {
+            return Err(OpenClawError::Channel(format!(
+                "Zalo Personal 发送失败: {}",
+                response.message.unwrap_or_default()
+            )));
+        }
 
         let msg_id = response
             .data

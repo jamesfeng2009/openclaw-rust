@@ -11,8 +11,8 @@ use axum::{
 };
 use futures::{SinkExt, StreamExt};
 use openclaw_canvas::{
-    CanvasId, CanvasManager, CanvasOps, CanvasState, CollabEvent, CollabManager, DrawAction, Element, ElementUpdate, UserColorGenerator, UserCursor,
-    UserInfo, WsMessage,
+    CanvasId, CanvasManager, CanvasOps, CanvasState, CollabEvent, CollabManager, DrawAction,
+    Element, ElementUpdate, UserColorGenerator, UserCursor, UserInfo, WsMessage,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

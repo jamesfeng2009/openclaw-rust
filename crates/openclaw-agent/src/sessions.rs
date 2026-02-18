@@ -68,7 +68,6 @@ pub enum SessionState {
     Closed,
 }
 
-
 impl Session {
     pub fn new(name: impl Into<String>, agent_id: AgentId, scope: SessionScope) -> Self {
         let now = Utc::now();
@@ -354,9 +353,10 @@ impl SessionManager {
         let key = session.key();
 
         if let Some(existing) = self.storage.find_by_key(&key, &agent_id).await?
-            && existing.is_active() {
-                return Ok(existing);
-            }
+            && existing.is_active()
+        {
+            return Ok(existing);
+        }
 
         if self.config.auto_save {
             self.storage.save(&session).await?;
@@ -397,11 +397,12 @@ impl SessionManager {
         );
 
         if let Some(session) = self.storage.find_by_key(&key, &agent_id).await?
-            && session.is_active() {
-                let mut active = self.active_sessions.write().await;
-                active.insert(session.id, session.clone());
-                return Ok(session);
-            }
+            && session.is_active()
+        {
+            let mut active = self.active_sessions.write().await;
+            active.insert(session.id, session.clone());
+            return Ok(session);
+        }
 
         self.create_session(name, agent_id, scope, channel_type, peer_id)
             .await

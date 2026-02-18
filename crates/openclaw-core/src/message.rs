@@ -49,8 +49,7 @@ pub struct Message {
 }
 
 /// 消息元数据
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MessageMetadata {
     /// 来源通道
     pub channel: Option<String>,
@@ -67,7 +66,6 @@ pub struct MessageMetadata {
     /// 自定义标签
     pub tags: Vec<String>,
 }
-
 
 impl Message {
     pub fn new(role: Role, content: Vec<Content>) -> Self {

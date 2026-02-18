@@ -5,8 +5,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// 主配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     /// 服务配置
     pub server: ServerConfig,
@@ -27,7 +26,6 @@ pub struct Config {
     #[serde(default)]
     pub workspaces: WorkspacesConfig,
 }
-
 
 /// 服务配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -160,9 +158,10 @@ pub struct AuthProfile {
 impl AuthProfile {
     pub fn is_expired(&self) -> bool {
         if let AuthConfig::OAuth { expires_at, .. } = &self.auth
-            && let Some(exp) = expires_at {
-                return chrono::Utc::now() >= *exp;
-            }
+            && let Some(exp) = expires_at
+        {
+            return chrono::Utc::now() >= *exp;
+        }
         false
     }
 }
@@ -192,8 +191,7 @@ impl Default for TokenBudget {
 }
 
 /// 记忆配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MemoryConfig {
     /// 工作记忆配置
     pub working: WorkingMemoryConfig,
@@ -202,7 +200,6 @@ pub struct MemoryConfig {
     /// 长期记忆配置
     pub long_term: LongTermMemoryConfig,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkingMemoryConfig {

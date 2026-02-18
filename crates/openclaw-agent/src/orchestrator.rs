@@ -243,9 +243,9 @@ impl Orchestrator {
                     .required_capabilities
                     .iter()
                     .all(|c| agent.has_capability(c))
-                {
-                    analysis.suggested_agents.push(agent.id().to_string());
-                }
+            {
+                analysis.suggested_agents.push(agent.id().to_string());
+            }
         }
 
         Ok(analysis)

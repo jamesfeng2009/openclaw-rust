@@ -46,9 +46,10 @@ impl TaskComplexity {
             TaskInput::Message { .. } => TaskComplexity::Medium,
             TaskInput::Data { data } => {
                 if let Some(arr) = data.as_array()
-                    && arr.len() > 100 {
-                        return TaskComplexity::Complex;
-                    }
+                    && arr.len() > 100
+                {
+                    return TaskComplexity::Complex;
+                }
                 TaskComplexity::Medium
             }
             TaskInput::File { content, .. } => {

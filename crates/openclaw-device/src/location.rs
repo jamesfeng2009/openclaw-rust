@@ -24,22 +24,23 @@ impl LocationManager {
                 });
 
             if let Ok(output) = output
-                && output.status.success() {
-                    let output_str = String::from_utf8_lossy(&output.stdout);
-                    if let (Some(lat), Some(lon)) =
-                        (self.parse_lat(&output_str), self.parse_lon(&output_str))
-                    {
-                        return Ok(LocationResult {
-                            success: true,
-                            latitude: Some(lat),
-                            longitude: Some(lon),
-                            altitude: None,
-                            accuracy: Some(10.0),
-                            timestamp,
-                            error: None,
-                        });
-                    }
+                && output.status.success()
+            {
+                let output_str = String::from_utf8_lossy(&output.stdout);
+                if let (Some(lat), Some(lon)) =
+                    (self.parse_lat(&output_str), self.parse_lon(&output_str))
+                {
+                    return Ok(LocationResult {
+                        success: true,
+                        latitude: Some(lat),
+                        longitude: Some(lon),
+                        altitude: None,
+                        accuracy: Some(10.0),
+                        timestamp,
+                        error: None,
+                    });
                 }
+            }
 
             Ok(LocationResult {
                 success: false,

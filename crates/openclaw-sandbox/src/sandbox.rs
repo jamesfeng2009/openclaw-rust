@@ -292,9 +292,10 @@ impl SandboxManager {
 
         for (id, record) in sandboxes.iter() {
             if record.owner_id == user_id
-                && let Ok(status) = self.docker.get_status(id).await {
-                    result.push(status);
-                }
+                && let Ok(status) = self.docker.get_status(id).await
+            {
+                result.push(status);
+            }
         }
 
         result

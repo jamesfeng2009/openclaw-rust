@@ -57,8 +57,7 @@ impl ChannelConfigManager {
             std::fs::create_dir_all(parent)
                 .map_err(|e| OpenClawError::Config(format!("创建配置目录失败: {}", e)))?;
         }
-        let content =
-            serde_json::to_string_pretty(self).map_err(OpenClawError::Serialization)?;
+        let content = serde_json::to_string_pretty(self).map_err(OpenClawError::Serialization)?;
         std::fs::write(&path, content)
             .map_err(|e| OpenClawError::Config(format!("保存通道配置失败: {}", e)))?;
         Ok(())

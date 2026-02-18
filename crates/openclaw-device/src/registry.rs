@@ -205,24 +205,28 @@ pub struct DeviceQuery {
 impl DeviceQuery {
     pub fn matches(&self, device: &DeviceHandle) -> bool {
         if let Some(platform) = &self.platform
-            && &device.platform != platform {
-                return false;
-            }
+            && &device.platform != platform
+        {
+            return false;
+        }
 
         if let Some(category) = &self.category
-            && device.platform.category() != *category {
-                return false;
-            }
+            && device.platform.category() != *category
+        {
+            return false;
+        }
 
         if let Some(min_cores) = self.min_cores
-            && device.capabilities.cpu.cores < min_cores {
-                return false;
-            }
+            && device.capabilities.cpu.cores < min_cores
+        {
+            return false;
+        }
 
         if let Some(min_memory) = self.min_memory_bytes
-            && device.capabilities.memory.total_bytes < min_memory {
-                return false;
-            }
+            && device.capabilities.memory.total_bytes < min_memory
+        {
+            return false;
+        }
 
         if self.has_gpu && !device.capabilities.gpu.has_gpu {
             return false;
@@ -237,14 +241,16 @@ impl DeviceQuery {
         }
 
         if let Some(is_container) = self.is_container
-            && device.capabilities.features.is_container != is_container {
-                return false;
-            }
+            && device.capabilities.features.is_container != is_container
+        {
+            return false;
+        }
 
         if let Some(status) = &self.status
-            && &device.status != status {
-                return false;
-            }
+            && &device.status != status
+        {
+            return false;
+        }
 
         true
     }

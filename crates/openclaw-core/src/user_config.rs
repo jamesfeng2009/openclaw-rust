@@ -131,7 +131,10 @@ impl Default for NotificationSettings {
 impl UserConfig {
     /// 创建新用户配置
     pub fn new(user_name: String) -> Self {
-        Self { user_name, ..Self::default() }
+        Self {
+            user_name,
+            ..Self::default()
+        }
     }
 
     /// 从文件加载
@@ -323,15 +326,16 @@ impl UserConfigManager {
 
         // 隐藏 API Key
         if let Some(providers) = safe_config.get_mut("providers")
-            && let Some(providers_obj) = providers.as_object_mut() {
-                for provider in providers_obj.values_mut() {
-                    if let Some(api_key) = provider.get_mut("api_key")
-                        && let Some(key) = api_key.as_str() {
-                            *api_key =
-                                serde_json::json!(format!("{}****", &key[..8.min(key.len())]));
-                        }
+            && let Some(providers_obj) = providers.as_object_mut()
+        {
+            for provider in providers_obj.values_mut() {
+                if let Some(api_key) = provider.get_mut("api_key")
+                    && let Some(key) = api_key.as_str()
+                {
+                    *api_key = serde_json::json!(format!("{}****", &key[..8.min(key.len())]));
                 }
             }
+        }
 
         safe_config
     }

@@ -61,8 +61,7 @@ pub struct NeuralMatrix {
     pub patience: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Traits {
     #[serde(default)]
     pub mbti: Option<String>,
@@ -163,8 +162,7 @@ pub struct Skill {
     pub description: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Preferences {
     #[serde(default)]
     pub communication_style: Option<String>,
@@ -221,7 +219,6 @@ impl Default for Psychology {
     }
 }
 
-
 impl Default for Linguistics {
     fn default() -> Self {
         Self {
@@ -249,4 +246,3 @@ impl Default for Motivations {
         }
     }
 }
-

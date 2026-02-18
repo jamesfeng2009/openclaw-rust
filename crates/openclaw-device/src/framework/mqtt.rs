@@ -48,7 +48,6 @@ pub enum MqttQos {
     ExactlyOnce,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MqttSubscription {
     pub topic: String,

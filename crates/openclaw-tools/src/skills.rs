@@ -193,12 +193,14 @@ impl SkillPlatform {
             // 从上下文中替换变量
             for key in context.variables.keys() {
                 if let Some(serde_json::Value::String(template)) = params.get(key)
-                    && template.starts_with("${") && template.ends_with("}") {
-                        let var_name = &template[2..template.len() - 1];
-                        if let Some(var_value) = context.variables.get(var_name) {
-                            params.insert(key.to_string(), var_value.clone());
-                        }
+                    && template.starts_with("${")
+                    && template.ends_with("}")
+                {
+                    let var_name = &template[2..template.len() - 1];
+                    if let Some(var_value) = context.variables.get(var_name) {
+                        params.insert(key.to_string(), var_value.clone());
                     }
+                }
             }
 
             // 获取执行器并执行

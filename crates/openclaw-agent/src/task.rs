@@ -66,7 +66,6 @@ pub enum TaskPriority {
     Urgent = 3,
 }
 
-
 /// 任务状态
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]

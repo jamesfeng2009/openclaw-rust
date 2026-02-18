@@ -204,9 +204,10 @@ impl VectorStore for PgVectorStore {
             let score = Self::cosine_similarity(&query.vector, &stored_vector);
 
             if let Some(min_score) = query.min_score
-                && score < min_score {
-                    continue;
-                }
+                && score < min_score
+            {
+                continue;
+            }
 
             let payload: serde_json::Value = payload_json
                 .and_then(|s| serde_json::from_str(&s).ok())

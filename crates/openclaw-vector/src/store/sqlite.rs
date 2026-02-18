@@ -174,9 +174,10 @@ impl SqliteStore {
             let score = cosine_similarity(query_vector, &stored_vector);
 
             if let Some(min_score) = query.min_score
-                && score < min_score {
-                    continue;
-                }
+                && score < min_score
+            {
+                continue;
+            }
 
             let payload: serde_json::Value =
                 serde_json::from_str(&payload_str).unwrap_or(serde_json::Value::Null);

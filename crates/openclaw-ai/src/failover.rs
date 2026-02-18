@@ -194,7 +194,6 @@ pub enum FailoverStrategy {
     LowestLatency,
 }
 
-
 /// 故障转移配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FailoverConfig {
@@ -587,9 +586,10 @@ impl AIProvider for FailoverManager {
 
         for (_, (config, provider)) in providers.iter() {
             if config.enabled
-                && let Ok(provider_models) = provider.models().await {
-                    models.extend(provider_models);
-                }
+                && let Ok(provider_models) = provider.models().await
+            {
+                models.extend(provider_models);
+            }
         }
 
         Ok(models)

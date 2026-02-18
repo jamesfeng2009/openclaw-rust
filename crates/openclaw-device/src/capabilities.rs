@@ -412,8 +412,7 @@ impl Default for NetworkCapability {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GpuCapability {
     pub has_gpu: bool,
     pub gpu_name: Option<String>,
@@ -481,7 +480,6 @@ impl GpuCapability {
         4 * 1024 * 1024 * 1024 // 4GB
     }
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FeatureFlags {

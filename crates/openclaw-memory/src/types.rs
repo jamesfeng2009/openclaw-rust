@@ -105,8 +105,7 @@ impl MemoryItem {
 }
 
 /// 记忆配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MemoryConfig {
     /// 工作记忆配置
     pub working: WorkingMemoryConfig,
@@ -189,7 +188,6 @@ impl Default for LongTermMemoryConfig {
         }
     }
 }
-
 
 /// 记忆检索结果
 #[derive(Debug, Clone, Serialize, Deserialize)]

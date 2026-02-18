@@ -136,49 +136,50 @@ impl WasmToolRuntime {
             let params_ptr = params_json.as_bytes();
 
             if let Some(memory) = memory
-                && let Some(alloc_func) = instance.get_func(&mut store, "alloc") {
-                    let mut alloc_result = [wasmtime::Val::I64(0)];
-                    if alloc_func.call(&mut store, &[], &mut alloc_result).is_ok() {
-                        let ptr = match alloc_result[0] {
-                            wasmtime::Val::I64(v) => v as usize,
-                            _ => 0,
-                        };
-                        let memory_view = memory.data_mut(&mut store);
-                        if ptr + params_ptr.len() <= memory_view.len() {
-                            memory_view[ptr..ptr + params_ptr.len()].copy_from_slice(params_ptr);
+                && let Some(alloc_func) = instance.get_func(&mut store, "alloc")
+            {
+                let mut alloc_result = [wasmtime::Val::I64(0)];
+                if alloc_func.call(&mut store, &[], &mut alloc_result).is_ok() {
+                    let ptr = match alloc_result[0] {
+                        wasmtime::Val::I64(v) => v as usize,
+                        _ => 0,
+                    };
+                    let memory_view = memory.data_mut(&mut store);
+                    if ptr + params_ptr.len() <= memory_view.len() {
+                        memory_view[ptr..ptr + params_ptr.len()].copy_from_slice(params_ptr);
 
-                            let call_result = func.call(
-                                &mut store,
-                                &[
-                                    wasmtime::Val::I32(ptr as i32),
-                                    wasmtime::Val::I32(params_ptr.len() as i32),
-                                ],
-                                &mut [],
-                            );
+                        let call_result = func.call(
+                            &mut store,
+                            &[
+                                wasmtime::Val::I32(ptr as i32),
+                                wasmtime::Val::I32(params_ptr.len() as i32),
+                            ],
+                            &mut [],
+                        );
 
-                            let exec_time = start.elapsed().as_millis() as u64;
-                            let call_ok = call_result.is_ok();
-                            let call_err = call_result.err();
+                        let exec_time = start.elapsed().as_millis() as u64;
+                        let call_ok = call_result.is_ok();
+                        let call_err = call_result.err();
 
-                            return Ok(WasmExecutionResult {
-                                success: call_ok,
-                                output: if call_ok {
-                                    serde_json::json!({
-                                        "message": "Function executed successfully",
-                                        "function": function_name
-                                    })
-                                } else {
-                                    serde_json::json!({
-                                        "error": format!("{:?}", call_err)
-                                    })
-                                },
-                                error: call_err.map(|e| e.to_string()),
-                                memory_used_bytes: memory_usage,
-                                execution_time_ms: exec_time,
-                            });
-                        }
+                        return Ok(WasmExecutionResult {
+                            success: call_ok,
+                            output: if call_ok {
+                                serde_json::json!({
+                                    "message": "Function executed successfully",
+                                    "function": function_name
+                                })
+                            } else {
+                                serde_json::json!({
+                                    "error": format!("{:?}", call_err)
+                                })
+                            },
+                            error: call_err.map(|e| e.to_string()),
+                            memory_used_bytes: memory_usage,
+                            execution_time_ms: exec_time,
+                        });
                     }
                 }
+            }
         }
 
         Ok(WasmExecutionResult {
