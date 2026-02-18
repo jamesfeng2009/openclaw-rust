@@ -65,6 +65,28 @@ impl NotificationManager {
                 }
             }
 
+            #[cfg(target_os = "windows")]
+            {
+                let ps_script = format!(
+                    r#"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; $template = [Windows.UI.Notifications.ToastTemplateType]::ToastText02; $xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent($template); $text = $xml.GetElementsByTagName("text"); $text[0].AppendChild($xml.CreateTextNode("{}")) | Out-Null; $text[1].AppendChild($xml.CreateTextNode("{}")) | Out-Null; $toast = [Windows.UI.Notifications.ToastNotification]::new($xml); [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("OpenClaw").Show($toast)"#,
+                    title.replace("\"", "'"),
+                    body.replace("\"", "'")
+                );
+
+                let output = Command::new("powershell")
+                    .args(["-NoProfile", "-Command", &ps_script])
+                    .output()
+                    .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
+                if output.status.success() {
+                    return Ok(NotificationResult {
+                        success: true,
+                        notification_id: Some(notification_id),
+                        error: None,
+                    });
+                }
+            }
+
             Ok(NotificationResult {
                 success: false,
                 notification_id: None,

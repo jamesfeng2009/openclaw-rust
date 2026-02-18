@@ -31,7 +31,7 @@ impl SystemManager {
     pub async fn run_command(
         &self,
         command: &str,
-        #[allow(unused_variables)] args: Vec<String>,
+        args: Vec<String>,
     ) -> Result<SystemCommandResult, DeviceError> {
         let allowed = self.allowed_commands.read().await;
 
@@ -61,7 +61,39 @@ impl SystemManager {
             })
         }
 
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "linux")]
+        {
+            let output = Command::new(command)
+                .args(&args)
+                .output()
+                .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
+            Ok(SystemCommandResult {
+                success: output.status.success(),
+                stdout: Some(String::from_utf8_lossy(&output.stdout).to_string()),
+                stderr: Some(String::from_utf8_lossy(&output.stderr).to_string()),
+                exit_code: output.status.code(),
+                error: None,
+            })
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            let output = Command::new(command)
+                .args(&args)
+                .output()
+                .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
+            Ok(SystemCommandResult {
+                success: output.status.success(),
+                stdout: Some(String::from_utf8_lossy(&output.stdout).to_string()),
+                stderr: Some(String::from_utf8_lossy(&output.stderr).to_string()),
+                exit_code: output.status.code(),
+                error: None,
+            })
+        }
+
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
         {
             Ok(SystemCommandResult {
                 success: false,

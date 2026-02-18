@@ -1,6 +1,7 @@
 use crate::nodes::{CaptureResult, DeviceError};
 use chrono::Utc;
 use std::fs;
+use std::path::PathBuf;
 use std::process::Command;
 
 pub struct ScreenManager;
@@ -15,8 +16,6 @@ impl ScreenManager {
 
         #[cfg(target_os = "macos")]
         {
-            use std::path::PathBuf;
-
             let output_dir = PathBuf::from("/tmp/openclaw");
             fs::create_dir_all(&output_dir)
                 .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
@@ -61,7 +60,138 @@ impl ScreenManager {
             }
         }
 
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "linux")]
+        {
+            let output_dir = PathBuf::from("/tmp/openclaw");
+            fs::create_dir_all(&output_dir)
+                .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
+            let output_path = output_dir.join(format!("screen_{}.png", timestamp));
+
+            let screenshot_cmd = if Command::new("gnome-screenshot").arg("--version").output().is_ok() {
+                "gnome-screenshot"
+            } else if Command::new("scrot").arg("--version").output().is_ok() {
+                "scrot"
+            } else if Command::new("import").arg("-version").output().is_ok() {
+                "import"
+            } else {
+                return Ok(CaptureResult {
+                    success: false,
+                    data: None,
+                    mime_type: "image/png".to_string(),
+                    timestamp,
+                    error: Some("无可用截图工具，请安装 gnome-screenshot, scrot 或 imagemagick".to_string()),
+                });
+            };
+
+            let result = if screenshot_cmd == "import" {
+                Command::new("import")
+                    .arg("-window")
+                    .arg("root")
+                    .arg(output_path.to_str().unwrap())
+                    .output()
+            } else if screenshot_cmd == "gnome-screenshot" {
+                Command::new("gnome-screenshot")
+                    .arg("-f")
+                    .arg(output_path.to_str().unwrap())
+                    .output()
+            } else {
+                Command::new("scrot")
+                    .arg(output_path.to_str().unwrap())
+                    .output()
+            };
+
+            match result {
+                Ok(output) if output.status.success() => {
+                    if output_path.exists() {
+                        let data = fs::read(&output_path)
+                            .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+                        let base64_data =
+                            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
+                        fs::remove_file(&output_path).ok();
+
+                        Ok(CaptureResult {
+                            success: true,
+                            data: Some(base64_data),
+                            mime_type: "image/png".to_string(),
+                            timestamp,
+                            error: None,
+                        })
+                    } else {
+                        Ok(CaptureResult {
+                            success: false,
+                            data: None,
+                            mime_type: "image/png".to_string(),
+                            timestamp,
+                            error: Some("截图文件未生成".to_string()),
+                        })
+                    }
+                }
+                Ok(output) => {
+                    let error = String::from_utf8_lossy(&output.stderr).to_string();
+                    Ok(CaptureResult {
+                        success: false,
+                        data: None,
+                        mime_type: "image/png".to_string(),
+                        timestamp,
+                        error: Some(error),
+                    })
+                }
+                Err(e) => Ok(CaptureResult {
+                    success: false,
+                    data: None,
+                    mime_type: "image/png".to_string(),
+                    timestamp,
+                    error: Some(e.to_string()),
+                }),
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            let output_dir = PathBuf::from(std::env::temp_dir()).join("openclaw");
+            fs::create_dir_all(&output_dir)
+                .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
+            let output_path = output_dir.join(format!("screen_{}.png", timestamp));
+
+            let ps_script = format!(
+                r#"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::PrimaryScreen.Bounds | ForEach-Object {{ $bmp = New-Object System.Drawing.Bitmap($_.Width, $_.Height); $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($_.Location, [System.Drawing.Point]::Empty, $_.Size); $bmp.Save('{}', [System.Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $bmp.Dispose() }}"#,
+                output_path.to_str().unwrap().replace("\\", "\\\\")
+            );
+
+            let output = Command::new("powershell")
+                .args(["-NoProfile", "-Command", &ps_script])
+                .output()
+                .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
+            if output.status.success() && output_path.exists() {
+                let data = fs::read(&output_path)
+                    .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+                let base64_data =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
+                fs::remove_file(&output_path).ok();
+
+                Ok(CaptureResult {
+                    success: true,
+                    data: Some(base64_data),
+                    mime_type: "image/png".to_string(),
+                    timestamp,
+                    error: None,
+                })
+            } else {
+                let error = String::from_utf8_lossy(&output.stderr).to_string();
+                Ok(CaptureResult {
+                    success: false,
+                    data: None,
+                    mime_type: "image/png".to_string(),
+                    timestamp,
+                    error: Some(error),
+                })
+            }
+        }
+
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
         {
             Ok(CaptureResult {
                 success: false,
@@ -82,8 +212,6 @@ impl ScreenManager {
 
         #[cfg(target_os = "macos")]
         {
-            use std::path::PathBuf;
-
             let output_dir = PathBuf::from("/tmp/openclaw");
             fs::create_dir_all(&output_dir)
                 .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
@@ -150,7 +278,114 @@ impl ScreenManager {
             }
         }
 
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "linux")]
+        {
+            let output_dir = PathBuf::from("/tmp/openclaw");
+            fs::create_dir_all(&output_dir)
+                .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
+            let output_path = output_dir.join(format!("recording_{}.mp4", timestamp));
+            let duration = duration_secs.unwrap_or(10);
+
+            let output_path_clone = output_path.clone();
+
+            let result = tokio::task::spawn_blocking(move || {
+                let output = Command::new("ffmpeg")
+                    .args([
+                        "-f", "x11grab",
+                        "-framerate", "30",
+                        "-video_size", "1920x1080",
+                        "-i", ":0.0",
+                        "-t", &duration.to_string(),
+                        "-c:v", "libx264",
+                        "-preset", "ultrafast",
+                        output_path_clone.to_str().unwrap(),
+                    ])
+                    .output()
+                    .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
+                Ok::<_, DeviceError>(output)
+            })
+            .await
+            .map_err(|e| DeviceError::Internal(anyhow::anyhow!(e.to_string())))??;
+
+            if result.status.success() && output_path.exists() {
+                let data = fs::read(&output_path)
+                    .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+                let base64_data =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
+                fs::remove_file(&output_path).ok();
+
+                Ok(CaptureResult {
+                    success: true,
+                    data: Some(base64_data),
+                    mime_type: "video/mp4".to_string(),
+                    timestamp,
+                    error: None,
+                })
+            } else {
+                let error = String::from_utf8_lossy(&result.stderr).to_string();
+                Ok(CaptureResult {
+                    success: false,
+                    data: None,
+                    mime_type: "video/mp4".to_string(),
+                    timestamp,
+                    error: Some(error),
+                })
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            let output_dir = PathBuf::from(std::env::temp_dir()).join("openclaw");
+            fs::create_dir_all(&output_dir)
+                .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+
+            let output_path = output_dir.join(format!("recording_{}.mp4", timestamp));
+            let duration = duration_secs.unwrap_or(10);
+
+            let output_path_clone = output_path.clone();
+
+            let result = tokio::task::spawn_blocking(move || {
+                let ps_script = format!(
+                    r#"Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; $duration = {}; $fps = 30; $width = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width; $height = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height; $bmp = New-Object System.Drawing.Bitmap($width, $height); $g = [System.Drawing.Graphics]::FromImage($bmp); $frames = @(); for($i = 0; $i -lt $duration * $fps; $i++) {{ $g.CopyFromScreen([System.Drawing.Point]::Zero, [System.Drawing.Point]::Zero, [System.Drawing.Size]::new($width, $height)); $frames += $bmp.Clone(); Start-Sleep -Milliseconds (1000 / $fps) }}; $g.Dispose(); $bmp.Dispose(); $frames[0].Save('{}', [System.Drawing.Imaging.ImageFormat]::Png); $frames | ForEach-Object {{ $_.Dispose() }}"#,
+                    duration,
+                    output_path_clone.to_str().unwrap().replace("\\", "\\\\")
+                );
+                Command::new("powershell")
+                    .args(["-NoProfile", "-Command", &ps_script])
+                    .output()
+                    .map_err(|e| DeviceError::OperationFailed(e.to_string()))
+            })
+            .await
+            .map_err(|e| DeviceError::Internal(anyhow::anyhow!(e.to_string())))??;
+
+            if output_path.exists() {
+                let data = fs::read(&output_path)
+                    .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
+                let base64_data =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
+                fs::remove_file(&output_path).ok();
+
+                Ok(CaptureResult {
+                    success: true,
+                    data: Some(base64_data),
+                    mime_type: "video/mp4".to_string(),
+                    timestamp,
+                    error: None,
+                })
+            } else {
+                Ok(CaptureResult {
+                    success: false,
+                    data: None,
+                    mime_type: "video/mp4".to_string(),
+                    timestamp,
+                    error: Some("录制功能需要 ffmpeg".to_string()),
+                })
+            }
+        }
+
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
         {
             Ok(CaptureResult {
                 success: false,
