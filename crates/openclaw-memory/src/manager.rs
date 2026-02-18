@@ -215,7 +215,7 @@ impl MemoryManager {
                 "memory_id": item.id.to_string(),
                 "level": item.level,
                 "importance": item.importance_score,
-                "text_preview": if text.len() > 200 { &text[..200] } else { &text },
+                "content": if text.len() > 200 { &text[..200] } else { &text },
             }),
             created_at: item.created_at,
         };

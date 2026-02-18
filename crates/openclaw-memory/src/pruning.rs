@@ -167,29 +167,47 @@ impl SessionPruner {
         }
 
         // 收集所有会话并按最后访问时间排序
-        let mut session_list: Vec<_> = sessions.iter().collect();
-        session_list.sort_by_key(|(_, s)| s.last_accessed());
+        let keys_to_remove: Vec<String> = {
+            let mut session_list: Vec<_> = sessions.iter().collect();
+            session_list.sort_by_key(|(_, s)| s.last_accessed());
 
-        let mut to_remove = Vec::new();
-        let mut pruned = 0;
-        let mut space = 0;
+            let mut result: Vec<String> = Vec::new();
 
-        for (id, session) in session_list.into_iter().take(excess) {
-            // 检查保护
-            if self.config.protect_important && session.should_protect() {
-                continue;
+            for (id, session) in &session_list {
+                if result.len() >= excess {
+                    break;
+                }
+                if self.config.protect_important && session.should_protect() {
+                    continue;
+                }
+                if session.importance() >= self.config.importance_threshold {
+                    continue;
+                }
+                result.push(id.to_string());
             }
 
-            if session.importance() >= self.config.importance_threshold {
-                continue;
+            // 如果保护机制导致无法删除足够会话，强制删除最旧会话
+            if sessions.len() > self.config.max_sessions && result.len() < excess {
+                result.clear();
+                for (id, _) in session_list.iter() {
+                    if sessions.len() <= self.config.max_sessions {
+                        break;
+                    }
+                    result.push(id.to_string());
+                }
             }
 
-            to_remove.push(id.clone());
-            space += session.size_estimate();
-            pruned += 1;
-        }
+            result
+        };
 
-        for id in to_remove {
+        let space: usize = keys_to_remove.iter()
+            .filter_map(|id: &String| sessions.get(id))
+            .map(|s: &T| s.size_estimate())
+            .sum();
+
+        let pruned = keys_to_remove.len();
+
+        for id in keys_to_remove {
             sessions.remove(&id);
         }
 
@@ -219,7 +237,7 @@ impl SessionPruner {
         let protected = 0;
         let mut space = 0;
 
-        // 按重要性排序，保留重要消息
+        // 按原始顺序遍历，删除非保护消息直到达到目标数量
         for (idx, msg) in messages.iter().enumerate() {
             if self.config.protect_important && msg.should_protect() {
                 continue;

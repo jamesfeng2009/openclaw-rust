@@ -4,6 +4,20 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+fn path_to_str(path: &PathBuf) -> Result<&str, DeviceError> {
+    path.to_str().ok_or_else(|| {
+        DeviceError::OperationFailed("路径包含无效 Unicode 字符".to_string())
+    })
+}
+
+fn path_to_string(path: &PathBuf) -> Result<String, DeviceError> {
+    path.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| {
+            DeviceError::OperationFailed("路径包含无效 Unicode 字符".to_string())
+        })
+}
+
 pub struct ScreenManager;
 
 impl ScreenManager {
@@ -28,7 +42,7 @@ impl ScreenManager {
                     "-x",
                     "-D",
                     &display.to_string(),
-                    output_path.to_str().unwrap(),
+                    path_to_str(&output_path)?,
                 ])
                 .output()
                 .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
@@ -84,20 +98,22 @@ impl ScreenManager {
                 });
             };
 
+            let path_str = path_to_str(&output_path)?;
+
             let result = if screenshot_cmd == "import" {
                 Command::new("import")
                     .arg("-window")
                     .arg("root")
-                    .arg(output_path.to_str().unwrap())
+                    .arg(path_str)
                     .output()
             } else if screenshot_cmd == "gnome-screenshot" {
                 Command::new("gnome-screenshot")
                     .arg("-f")
-                    .arg(output_path.to_str().unwrap())
+                    .arg(path_str)
                     .output()
             } else {
                 Command::new("scrot")
-                    .arg(output_path.to_str().unwrap())
+                    .arg(path_str)
                     .output()
             };
 
@@ -154,10 +170,11 @@ impl ScreenManager {
                 .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
 
             let output_path = output_dir.join(format!("screen_{}.png", timestamp));
+            let path_str = path_to_string(&output_path)?;
 
             let ps_script = format!(
                 r#"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::PrimaryScreen.Bounds | ForEach-Object {{ $bmp = New-Object System.Drawing.Bitmap($_.Width, $_.Height); $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($_.Location, [System.Drawing.Point]::Empty, $_.Size); $bmp.Save('{}', [System.Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $bmp.Dispose() }}"#,
-                output_path.to_str().unwrap().replace("\\", "\\\\")
+                path_str.replace('\\', "\\\\")
             );
 
             let output = Command::new("powershell")
@@ -221,6 +238,7 @@ impl ScreenManager {
             let duration = duration_secs.unwrap_or(10);
 
             let output_path_clone = output_path.clone();
+            let path_str = path_to_string(&output_path_clone)?;
             let display_clone = display;
 
             let result = tokio::task::spawn_blocking(move || {
@@ -231,7 +249,7 @@ impl ScreenManager {
                         &display_clone.to_string(),
                         "-t",
                         &duration.to_string(),
-                        output_path_clone.to_str().unwrap(),
+                        &path_str,
                     ])
                     .output()
                     .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
@@ -288,6 +306,7 @@ impl ScreenManager {
             let duration = duration_secs.unwrap_or(10);
 
             let output_path_clone = output_path.clone();
+            let path_str = path_to_string(&output_path_clone)?;
 
             let result = tokio::task::spawn_blocking(move || {
                 let output = Command::new("ffmpeg")
@@ -299,7 +318,7 @@ impl ScreenManager {
                         "-t", &duration.to_string(),
                         "-c:v", "libx264",
                         "-preset", "ultrafast",
-                        output_path_clone.to_str().unwrap(),
+                        &path_str,
                     ])
                     .output()
                     .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
@@ -345,12 +364,13 @@ impl ScreenManager {
             let duration = duration_secs.unwrap_or(10);
 
             let output_path_clone = output_path.clone();
+            let path_str = path_to_string(&output_path_clone)?;
 
             let result = tokio::task::spawn_blocking(move || {
                 let ps_script = format!(
                     r#"Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; $duration = {}; $fps = 30; $width = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width; $height = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height; $bmp = New-Object System.Drawing.Bitmap($width, $height); $g = [System.Drawing.Graphics]::FromImage($bmp); $frames = @(); for($i = 0; $i -lt $duration * $fps; $i++) {{ $g.CopyFromScreen([System.Drawing.Point]::Zero, [System.Drawing.Point]::Zero, [System.Drawing.Size]::new($width, $height)); $frames += $bmp.Clone(); Start-Sleep -Milliseconds (1000 / $fps) }}; $g.Dispose(); $bmp.Dispose(); $frames[0].Save('{}', [System.Drawing.Imaging.ImageFormat]::Png); $frames | ForEach-Object {{ $_.Dispose() }}"#,
                     duration,
-                    output_path_clone.to_str().unwrap().replace("\\", "\\\\")
+                    path_str.replace('\\', "\\\\")
                 );
                 Command::new("powershell")
                     .args(["-NoProfile", "-Command", &ps_script])

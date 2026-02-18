@@ -236,7 +236,9 @@ impl SkillBundle {
             .map_err(|e| BundleError::CorruptedBundle(format!("解压失败: {}", e)))?;
 
         for i in 0..archive.len() {
-            let mut file = archive.by_index(i).unwrap();
+            let mut file = archive.by_index(i).map_err(|e| {
+                BundleError::CorruptedBundle(format!("读取zip第{}个文件失败: {}", i, e))
+            })?;
             let outpath = match file.enclosed_name() {
                 Some(path) => temp_dir.path().join(path),
                 None => continue,

@@ -4,6 +4,12 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+fn path_to_str(path: &PathBuf) -> Result<&str, DeviceError> {
+    path.to_str().ok_or_else(|| {
+        DeviceError::OperationFailed("路径包含无效 Unicode 字符".to_string())
+    })
+}
+
 pub struct CameraManager;
 
 impl CameraManager {
@@ -32,7 +38,7 @@ impl CameraManager {
                     "5",
                     "-d",
                     &device.to_string(),
-                    output_path.to_str().unwrap(),
+                    path_to_str(&output_path)?,
                 ])
                 .output()
                 .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
@@ -80,7 +86,7 @@ impl CameraManager {
                     "-r", "1280x720",
                     "--no-banner",
                     "-d", &device_path,
-                    output_path.to_str().unwrap(),
+                    path_to_str(&output_path)?,
                 ])
                 .output();
 
@@ -140,7 +146,7 @@ impl CameraManager {
 
             let ps_script = format!(
                 r#"Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; $capture = New-Object System.Windows.Forms.WebCamCapture; $capture.Start(); Start-Sleep -Seconds 2; $capture.Stop(); $bitmap = $capture.GetCurrentFrame(); $bitmap.Save('{}', [System.Drawing.Imaging.ImageFormat]::Jpeg); $bitmap.Dispose()"#,
-                output_path.to_str().unwrap().replace("\\", "\\\\")
+                path_to_str(&output_path)?.replace('\\', "\\\\")
             );
 
             let output = Command::new("powershell")
@@ -210,7 +216,7 @@ impl CameraManager {
                     &device.to_string(),
                     "-t",
                     &duration.to_string(),
-                    output_path.to_str().unwrap(),
+                    path_to_str(&output_path)?,
                 ])
                 .output()
                 .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
@@ -254,6 +260,7 @@ impl CameraManager {
             let device_path = format!("/dev/video{}", device);
 
             let output_path_clone = output_path.clone();
+            let path_str = path_to_str(&output_path_clone)?;
 
             let result = tokio::task::spawn_blocking(move || {
                 Command::new("ffmpeg")
@@ -265,7 +272,7 @@ impl CameraManager {
                         "-t", &duration.to_string(),
                         "-c:v", "libx264",
                         "-preset", "ultrafast",
-                        output_path_clone.to_str().unwrap(),
+                        path_str,
                     ])
                     .output()
                     .map_err(|e| DeviceError::OperationFailed(e.to_string()))

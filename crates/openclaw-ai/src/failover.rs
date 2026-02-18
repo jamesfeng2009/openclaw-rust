@@ -359,9 +359,52 @@ impl FailoverManager {
                     .map(|(name, provider)| (*name, *provider))
                     .ok_or(FailoverError::NoProviderAvailable)
             }
-            _ => {
-                // 默认返回第一个
-                let (name, provider) = healthy[0];
+            FailoverStrategy::WeightedRandom => {
+                use std::collections::hash_map::DefaultHasher;
+                use std::hash::{Hash, Hasher};
+                let total_weight: u32 = healthy
+                    .iter()
+                    .map(|item| item.1 .0.weight as u32)
+                    .sum();
+                if total_weight == 0 {
+                    let (name, provider) = healthy[0];
+                    return Ok((name, *provider));
+                }
+                let mut hasher = DefaultHasher::new();
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+                    .hash(&mut hasher);
+                let rand_val = (hasher.finish() % total_weight as u64) as u32;
+                let mut acc = 0u32;
+                let mut selected_idx = 0;
+                for (idx, item) in healthy.iter().enumerate() {
+                    let (_, (config, _)) = *item;
+                    acc += config.weight as u32;
+                    if rand_val < acc {
+                        selected_idx = idx;
+                        break;
+                    }
+                }
+                let (name, provider) = healthy[selected_idx];
+                Ok((name, *provider))
+            }
+            FailoverStrategy::LeastConnections => {
+                let mut min_conn = u64::MAX;
+                let mut selected_idx = 0;
+                for (idx, item) in healthy.iter().enumerate() {
+                    let (name, _) = *item;
+                    let conn = statuses
+                        .get(*name)
+                        .map(|s| s.total_requests)
+                        .unwrap_or(0);
+                    if conn < min_conn {
+                        min_conn = conn;
+                        selected_idx = idx;
+                    }
+                }
+                let (name, provider) = healthy[selected_idx];
                 Ok((name, *provider))
             }
         }
@@ -492,6 +535,174 @@ impl FailoverManager {
         Err(FailoverError::AllProvidersFailed)
     }
 
+    async fn execute_stream_with_retry(
+        &self,
+        selected: (&String, &(FailoverProviderConfig, Arc<dyn AIProvider>)),
+        request: ChatRequest,
+    ) -> openclaw_core::Result<Pin<Box<dyn Stream<Item = openclaw_core::Result<StreamChunk>> + Send>>>
+    {
+        let (name, (config, provider)) = selected;
+        let name = name.clone();
+
+        let mut mapped_request = request.clone();
+        if let Some(mapped) = config.model_mapping.get(&mapped_request.model) {
+            mapped_request.model = mapped.clone();
+        }
+
+        match provider.chat_stream(mapped_request).await {
+            Ok(stream) => {
+                let mut statuses = self.statuses.write().await;
+                if let Some(status) = statuses.get_mut(&name) {
+                    status.record_success(0);
+                }
+                Ok(stream)
+            }
+            Err(e) => {
+                warn!("流式提供商 {} 失败: {}", name, e);
+
+                let mut statuses = self.statuses.write().await;
+                if let Some(status) = statuses.get_mut(&name) {
+                    status.record_failure(e.to_string(), self.config.circuit_breaker_threshold);
+                }
+
+                self.failover_stream_to_next(request).await
+            }
+        }
+    }
+
+    async fn failover_stream_to_next(
+        &self,
+        request: ChatRequest,
+    ) -> openclaw_core::Result<Pin<Box<dyn Stream<Item = openclaw_core::Result<StreamChunk>> + Send>>>
+    {
+        info!("尝试故障转移到其他流式提供商");
+
+        let providers = self.providers.read().await;
+        let statuses = self.statuses.read().await;
+
+        let available: Vec<_> = providers
+            .iter()
+            .filter(|(name, (config, _))| {
+                config.enabled && statuses.get(*name).map(|s| s.should_try()).unwrap_or(true)
+            })
+            .collect();
+
+        drop(statuses);
+
+        for (name, (config, provider)) in available {
+            let mut mapped_request = request.clone();
+            if let Some(mapped) = config.model_mapping.get(&request.model) {
+                mapped_request.model = mapped.clone();
+            }
+
+            match provider.chat_stream(mapped_request).await {
+                Ok(stream) => {
+                    let mut statuses = self.statuses.write().await;
+                    if let Some(status) = statuses.get_mut(name) {
+                        status.record_success(0);
+                    }
+                    info!("故障转移到流式提供商 {} 成功", name);
+                    return Ok(stream);
+                }
+                Err(e) => {
+                    warn!("流式提供商 {} 也失败: {}", name, e);
+
+                    let mut statuses = self.statuses.write().await;
+                    if let Some(status) = statuses.get_mut(name) {
+                        status.record_failure(e.to_string(), self.config.circuit_breaker_threshold);
+                    }
+                }
+            }
+        }
+
+        Err(openclaw_core::OpenClawError::AIProvider(
+            "所有流式提供商均失败".to_string(),
+        ))
+    }
+
+    async fn execute_embed_with_retry(
+        &self,
+        selected: (&String, &(FailoverProviderConfig, Arc<dyn AIProvider>)),
+        request: EmbeddingRequest,
+    ) -> openclaw_core::Result<EmbeddingResponse> {
+        let (name, (config, provider)) = selected;
+        let name = name.clone();
+
+        let mut mapped_request = request.clone();
+        if let Some(mapped) = config.model_mapping.get(&mapped_request.model) {
+            mapped_request.model = mapped.clone();
+        }
+
+        match provider.embed(mapped_request).await {
+            Ok(response) => {
+                let mut statuses = self.statuses.write().await;
+                if let Some(status) = statuses.get_mut(&name) {
+                    status.record_success(0);
+                }
+                Ok(response)
+            }
+            Err(e) => {
+                warn!("嵌入提供商 {} 失败: {}", name, e);
+
+                let mut statuses = self.statuses.write().await;
+                if let Some(status) = statuses.get_mut(&name) {
+                    status.record_failure(e.to_string(), self.config.circuit_breaker_threshold);
+                }
+
+                self.failover_embed_to_next(request).await
+            }
+        }
+    }
+
+    async fn failover_embed_to_next(
+        &self,
+        request: EmbeddingRequest,
+    ) -> openclaw_core::Result<EmbeddingResponse> {
+        info!("尝试故障转移到其他嵌入提供商");
+
+        let providers = self.providers.read().await;
+        let statuses = self.statuses.read().await;
+
+        let available: Vec<_> = providers
+            .iter()
+            .filter(|(name, (config, _))| {
+                config.enabled && statuses.get(*name).map(|s| s.should_try()).unwrap_or(true)
+            })
+            .collect();
+
+        drop(statuses);
+
+        for (name, (config, provider)) in available {
+            let mut mapped_request = request.clone();
+            if let Some(mapped) = config.model_mapping.get(&request.model) {
+                mapped_request.model = mapped.clone();
+            }
+
+            match provider.embed(mapped_request).await {
+                Ok(response) => {
+                    let mut statuses = self.statuses.write().await;
+                    if let Some(status) = statuses.get_mut(name) {
+                        status.record_success(0);
+                    }
+                    info!("故障转移到嵌入提供商 {} 成功", name);
+                    return Ok(response);
+                }
+                Err(e) => {
+                    warn!("嵌入提供商 {} 也失败: {}", name, e);
+
+                    let mut statuses = self.statuses.write().await;
+                    if let Some(status) = statuses.get_mut(name) {
+                        status.record_failure(e.to_string(), self.config.circuit_breaker_threshold);
+                    }
+                }
+            }
+        }
+
+        Err(openclaw_core::OpenClawError::AIProvider(
+            "所有嵌入提供商均失败".to_string(),
+        ))
+    }
+
     /// 获取提供商状态
     pub async fn get_status(&self, name: &str) -> Option<ProviderStatus> {
         let statuses = self.statuses.read().await;
@@ -555,29 +766,45 @@ impl AIProvider for FailoverManager {
         request: ChatRequest,
     ) -> openclaw_core::Result<Pin<Box<dyn Stream<Item = openclaw_core::Result<StreamChunk>> + Send>>>
     {
-        // 尝试使用第一个可用提供商进行流式聊天
         let providers = self.providers.read().await;
-        for (_, (config, provider)) in providers.iter() {
-            if config.enabled {
-                return provider.chat_stream(request).await;
-            }
+        let available: Vec<_> = providers
+            .iter()
+            .filter(|(_, (config, _))| config.enabled)
+            .collect();
+
+        if available.is_empty() {
+            return Err(openclaw_core::OpenClawError::AIProvider(
+                "没有可用的提供商".to_string(),
+            ));
         }
-        Err(openclaw_core::OpenClawError::AIProvider(
-            "没有可用的提供商".to_string(),
-        ))
+
+        let selected = match self.select_provider(&available).await {
+            Ok(s) => s,
+            Err(e) => return Err(openclaw_core::OpenClawError::AIProvider(e.to_string())),
+        };
+
+        self.execute_stream_with_retry(selected, request).await
     }
 
     async fn embed(&self, request: EmbeddingRequest) -> openclaw_core::Result<EmbeddingResponse> {
-        // 使用第一个可用提供商进行嵌入
         let providers = self.providers.read().await;
-        for (_, (config, provider)) in providers.iter() {
-            if config.enabled {
-                return provider.embed(request).await;
-            }
+        let available: Vec<_> = providers
+            .iter()
+            .filter(|(_, (config, _))| config.enabled)
+            .collect();
+
+        if available.is_empty() {
+            return Err(openclaw_core::OpenClawError::AIProvider(
+                "没有可用的提供商".to_string(),
+            ));
         }
-        Err(openclaw_core::OpenClawError::AIProvider(
-            "没有可用的提供商".to_string(),
-        ))
+
+        let selected = match self.select_provider(&available).await {
+            Ok(s) => s,
+            Err(e) => return Err(openclaw_core::OpenClawError::AIProvider(e.to_string())),
+        };
+
+        self.execute_embed_with_retry(selected, request).await
     }
 
     async fn models(&self) -> openclaw_core::Result<Vec<String>> {

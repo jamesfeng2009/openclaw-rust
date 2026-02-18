@@ -423,7 +423,6 @@ impl OAuthManager {
             }
 
             if let Some(refresh_token) = &token.refresh_token {
-                drop(token);
                 return self.refresh_token(refresh_token).await;
             }
         }

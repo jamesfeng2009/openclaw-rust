@@ -10,6 +10,7 @@ pub struct HybridSearchManager {
     vector_weight: f32,
     #[allow(dead_code)]
     keyword_weight: f32,
+    embedding_dimension: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -18,6 +19,7 @@ pub struct HybridSearchConfig {
     pub keyword_weight: f32,
     pub min_score: Option<f32>,
     pub limit: usize,
+    pub embedding_dimension: Option<usize>,
 }
 
 impl Default for HybridSearchConfig {
@@ -27,16 +29,19 @@ impl Default for HybridSearchConfig {
             keyword_weight: 0.3,
             min_score: Some(0.0),
             limit: 10,
+            embedding_dimension: None,
         }
     }
 }
 
 impl HybridSearchManager {
     pub fn new(vector_store: Arc<dyn VectorStore>, config: HybridSearchConfig) -> Self {
+        let embedding_dimension = config.embedding_dimension.unwrap_or(1536);
         Self {
             vector_store,
             vector_weight: config.vector_weight,
             keyword_weight: config.keyword_weight,
+            embedding_dimension,
         }
     }
 
@@ -93,7 +98,7 @@ impl HybridSearchManager {
         let stats = self.vector_store.stats().await?;
         let limit = stats.total_vectors.min(1000);
 
-        let dummy_vector = vec![0.0; 128];
+        let dummy_vector = vec![0.0; self.embedding_dimension];
         let query = SearchQuery::new(dummy_vector).with_limit(limit);
 
         let results = self.vector_store.search(query).await?;
