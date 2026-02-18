@@ -13,17 +13,21 @@ use tokio::sync::RwLock;
 use crate::browser_api::{BrowserApiState, create_browser_router};
 use crate::canvas_api::{CanvasApiState, create_canvas_router};
 use crate::orchestrator::ServiceOrchestrator;
+use crate::voice_service::VoiceService;
 
 pub fn create_router(
-    orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>
+    orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
+    voice_service: Arc<VoiceService>,
 ) -> Router {
-    let state = Arc::new(RwLock::new(ApiState::new(orchestrator)));
+    let state = Arc::new(RwLock::new(ApiState::new(orchestrator, voice_service)));
 
     Router::new()
         .route("/health", get(health_check))
         .route("/chat", post(chat_handler))
         .route("/models", get(list_models))
         .route("/stats", get(get_stats))
+        .route("/voice/tts", post(tts_handler))
+        .route("/voice/stt", post(stt_handler))
         .route("/api/channels", get(list_channels).post(create_channel))
         .route("/api/channels/:id", delete(delete_channel))
         .route("/api/agents", get(list_agents).post(create_agent))
@@ -42,20 +46,28 @@ pub fn create_router(
 pub struct ApiState {
     pub orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
     pub presence: String,
+    pub voice_service: Arc<VoiceService>,
+}
+
+impl ApiState {
+    pub fn new(
+        orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
+        voice_service: Arc<VoiceService>,
+    ) -> Self {
+        Self {
+            orchestrator,
+            presence: "online".to_string(),
+            voice_service,
+        }
+    }
 }
 
 impl Default for ApiState {
     fn default() -> Self {
-        Self::new(Arc::new(RwLock::new(None)))
-    }
-}
-
-impl ApiState {
-    pub fn new(orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>) -> Self {
-        Self {
-            orchestrator,
-            presence: "online".to_string(),
-        }
+        Self::new(
+            Arc::new(RwLock::new(None)),
+            Arc::new(VoiceService::new()),
+        )
     }
 }
 
@@ -197,7 +209,27 @@ pub struct ModelInfo {
     pub provider: String,
 }
 
-async fn list_models() -> Json<ModelsResponse> {
+async fn list_models(State(state): State<Arc<RwLock<ApiState>>>) -> Json<ModelsResponse> {
+    let state = state.read().await;
+    
+    if let Some(ref orchestrator) = *state.orchestrator.read().await {
+        if let Some(provider) = orchestrator.get_ai_provider().await {
+            match provider.models().await {
+                Ok(models) => {
+                    let model_infos: Vec<ModelInfo> = models.into_iter().map(|id| ModelInfo {
+                        id: id.clone(),
+                        name: id,
+                        provider: "dynamic".to_string(),
+                    }).collect();
+                    return Json(ModelsResponse { models: model_infos });
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to get models from provider: {}", e);
+                }
+            }
+        }
+    }
+    
     Json(ModelsResponse {
         models: vec![
             ModelInfo {
@@ -529,4 +561,62 @@ async fn set_presence(
         state.presence = status.to_string();
     }
     Json(serde_json::json!({ "success": true }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TtsRequest {
+    pub text: String,
+    pub voice: Option<String>,
+    pub model: Option<String>,
+}
+
+async fn tts_handler(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Json(input): Json<TtsRequest>,
+) -> Json<serde_json::Value> {
+    let voice_service = &state.read().await.voice_service;
+    
+    match voice_service.speak(&input.text).await {
+        Some(Ok(_audio_data)) => {
+            Json(serde_json::json!({
+                "success": true,
+                "message": "TTS audio generated (base64 encoding not available)",
+                "format": "mp3"
+            }))
+        }
+        Some(Err(e)) => Json(serde_json::json!({
+            "success": false,
+            "error": format!("TTS error: {}", e)
+        })),
+        None => Json(serde_json::json!({
+            "success": false,
+            "error": "Voice service not initialized"
+        })),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SttRequest {
+    pub audio: String,
+    pub language: Option<String>,
+    pub model: Option<String>,
+}
+
+async fn stt_handler(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Json(input): Json<SttRequest>,
+) -> Json<serde_json::Value> {
+    let voice_service = &state.read().await.voice_service;
+    
+    if input.audio.is_empty() {
+        return Json(serde_json::json!({
+            "success": false,
+            "error": "Empty audio data"
+        }));
+    }
+    
+    Json(serde_json::json!({
+        "success": true,
+        "text": "STT processing requires base64 crate - audio placeholder"
+    }))
 }

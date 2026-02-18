@@ -89,7 +89,7 @@ impl Gateway {
         }
 
         let mut app = Router::new()
-            .merge(create_router(self.orchestrator.clone()))
+            .merge(create_router(self.orchestrator.clone(), self.voice_service.clone()))
             .merge(websocket_router())
             .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any))
             .layer(TraceLayer::new_for_http());

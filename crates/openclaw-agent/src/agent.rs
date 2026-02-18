@@ -265,6 +265,7 @@ impl Agent for BaseAgent {
 
         let security_pipeline = self.security_pipeline.read().await.clone();
         let ai_provider = self.ai_provider.read().await.clone();
+        let memory = self.memory.read().await.clone();
 
         // 安全检查：输入过滤和分类
         if let Some(pipeline) = &security_pipeline {
@@ -308,6 +309,12 @@ impl Agent for BaseAgent {
                     "No AI provider configured for this agent".to_string(),
                 ));
             }
+        };
+
+        // 获取用户输入用于写入记忆
+        let user_input_message = match &task.input {
+            TaskInput::Message { message } => Some(message.clone()),
+            _ => None,
         };
 
         // 构建消息
@@ -372,13 +379,24 @@ impl Agent for BaseAgent {
                         .await;
                 }
 
+                // 写入对话到记忆
+                if let Some(mem) = &memory {
+                    // 写入用户消息
+                    if let Some(user_msg) = &user_input_message {
+                        let _ = mem.add(user_msg.clone()).await;
+                    }
+                    // 写入 AI 回复 (克隆 final_output 以避免移动)
+                    let assistant_message = openclaw_core::Message::assistant(final_output.clone());
+                    let _ = mem.add(assistant_message).await;
+                }
+
                 // 构建任务结果
                 Ok(TaskResult {
                     task_id: task.id,
                     agent_id: self.id().to_string(),
                     status: TaskStatus::Completed,
                     output: Some(TaskOutput::Message {
-                        message: openclaw_core::Message::assistant(final_output),
+                        message: openclaw_core::Message::assistant(final_output.clone()),
                     }),
                     error: None,
                     started_at,

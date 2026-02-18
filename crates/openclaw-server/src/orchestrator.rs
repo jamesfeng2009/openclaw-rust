@@ -248,6 +248,11 @@ impl ServiceOrchestrator {
         agents.values().map(|a| a.info()).collect()
     }
 
+    pub async fn get_ai_provider(&self) -> Option<Arc<dyn AIProvider>> {
+        let provider = self.ai_provider.read().await;
+        provider.clone()
+    }
+
     pub async fn list_sessions(
         &self,
         agent_id: Option<&str>,
