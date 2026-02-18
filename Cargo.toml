@@ -126,6 +126,7 @@ openclaw-sandbox = { path = "crates/openclaw-sandbox" }
 openclaw-tools = { path = "crates/openclaw-tools" }
 openclaw-device = { path = "crates/openclaw-device" }
 openclaw-security = { path = "crates/openclaw-security" }
+openclaw-testing = { path = "crates/openclaw-testing" }
 
 [profile.release]
 opt-level = 3

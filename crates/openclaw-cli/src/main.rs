@@ -132,6 +132,9 @@ enum Commands {
         /// System prompt override
         #[arg(long)]
         system: Option<String>,
+        /// Gateway URL
+        #[arg(long, default_value = "http://localhost:18789")]
+        gateway_url: String,
     },
     /// Show version info
     Version,
@@ -217,6 +220,7 @@ async fn main() -> Result<()> {
             stream,
             continue_conv,
             system,
+            gateway_url,
         } => {
             let cli = agent_cmd::AgentCli {
                 agent,
@@ -225,6 +229,7 @@ async fn main() -> Result<()> {
                 stream,
                 continue_conv,
                 system,
+                gateway_url,
             };
             cli.run().await?;
         }

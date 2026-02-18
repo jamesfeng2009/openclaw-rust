@@ -25,3 +25,7 @@ chrono.workspace = true
 uuid.workspace = true
 futures.workspace = true
 regex.workspace = true
+
+[dev-dependencies]
+openclaw-testing.workspace = true
+tokio-test.workspace = true

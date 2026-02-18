@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use openclaw_ai::AIProvider;
 use openclaw_agent::aieos::{AIEOSParser, AIEOSPromptGenerator};
 use openclaw_agent::task::TaskOutput;
 use openclaw_agent::task::{TaskInput, TaskRequest, TaskType};
@@ -9,6 +10,8 @@ use openclaw_agent::{Agent, AgentConfig as OpenclawAgentConfig, AgentInfo, Agent
 use openclaw_canvas::CanvasManager;
 use openclaw_channels::{ChannelManager, ChannelMessage, SendMessage};
 use openclaw_core::{Config, Content, Message, OpenClawError, Result, Role};
+use openclaw_memory::MemoryManager;
+use openclaw_security::SecurityPipeline;
 
 pub struct ServiceOrchestrator {
     agent_service: AgentServiceState,
@@ -133,6 +136,28 @@ impl ServiceOrchestrator {
     pub async fn register_agent(&self, id: String, agent: Arc<dyn Agent>) {
         let mut agents = self.agent_service.agents.write().await;
         agents.insert(id, agent);
+    }
+
+    pub async fn inject_dependencies(
+        &self,
+        ai_provider: Arc<dyn AIProvider>,
+        memory_manager: Arc<MemoryManager>,
+        security_pipeline: Arc<SecurityPipeline>,
+    ) {
+        let agents: Vec<Arc<dyn Agent>> = {
+            let agents = self.agent_service.agents.read().await;
+            agents.values().cloned().collect()
+        };
+
+        for agent in agents {
+            agent.inject_dependencies(
+                ai_provider.clone(),
+                memory_manager.clone(),
+                security_pipeline.clone(),
+            ).await;
+        }
+
+        tracing::info!("Dependencies injected to all agents");
     }
 
     pub async fn get_agent(&self, id: &str) -> Option<Arc<dyn Agent>> {

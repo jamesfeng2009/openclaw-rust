@@ -344,6 +344,7 @@ use chrono::Utc;
 
 /// 任务分析结果
 #[derive(Debug)]
+#[allow(dead_code)]
 struct TaskAnalysis {
     task_type: TaskType,
     complexity: TaskComplexity,

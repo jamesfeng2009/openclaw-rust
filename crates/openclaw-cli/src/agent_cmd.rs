@@ -1,7 +1,9 @@
 //! Agent CLI 工具 - 直接与 AI Assistant 对话
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{ArgAction, Parser};
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Parser)]
 pub struct AgentCli {
@@ -23,6 +25,24 @@ pub struct AgentCli {
     /// System prompt override
     #[arg(long)]
     pub system: Option<String>,
+    /// Gateway URL
+    #[arg(long, default_value = "http://localhost:18789")]
+    pub gateway_url: String,
+}
+
+#[derive(Debug, Serialize)]
+struct AgentMessageRequest {
+    agent_id: String,
+    message: String,
+    session_id: Option<String>,
+    thinking: Option<String>,
+    system_prompt: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AgentMessageResponse {
+    message: String,
+    session_id: String,
 }
 
 impl AgentCli {
@@ -40,6 +60,7 @@ impl AgentCli {
 
         println!("🤖 Agent: {}", self.agent);
         println!("💭 Thinking: {}", self.thinking);
+        println!("🌐 Gateway: {}", self.gateway_url);
 
         if !message.is_empty() {
             println!("📝 Message: {}", message);
@@ -51,7 +72,18 @@ impl AgentCli {
     }
 
     async fn connect_and_send(&self, message: String) -> Result<()> {
-        println!("✅ Connected to Gateway (ws://localhost:18789)");
+        let client = Client::new();
+        let url = format!("{}/api/agent/message", self.gateway_url);
+
+        let request = AgentMessageRequest {
+            agent_id: self.agent.clone(),
+            message: message.clone(),
+            session_id: None,
+            thinking: Some(self.thinking.clone()),
+            system_prompt: self.system.clone(),
+        };
+
+        println!("✅ Connected to Gateway");
         println!("\n📤 Sending request...");
 
         if message.is_empty() {
@@ -60,10 +92,39 @@ impl AgentCli {
             println!("💬 You: {}", message);
         }
 
-        println!("\n🤖 Agent: (AI response simulation)");
-        println!("This feature requires the Gateway to be running with agent services enabled.");
-        println!("Start the gateway with: openclaw-rust gateway");
+        match client.post(&url).json(&request).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    match response.json::<AgentMessageResponse>().await {
+                        Ok(result) => {
+                            println!("\n🤖 Agent: {}", result.message);
+                            println!("📋 Session: {}", result.session_id);
+                        }
+                        Err(e) => {
+                            println!("\n⚠️ Failed to parse response: {}", e);
+                            println!("🤖 Agent: (fallback simulation)");
+                            self.print_simulation().await;
+                        }
+                    }
+                } else {
+                    let status = response.status();
+                    println!("\n⚠️ Gateway returned error: {}", status);
+                    println!("🤖 Agent: (fallback simulation)");
+                    self.print_simulation().await;
+                }
+            }
+            Err(e) => {
+                println!("\n⚠️ Could not connect to Gateway: {}", e);
+                println!("🤖 Agent: (fallback simulation)");
+                self.print_simulation().await;
+            }
+        }
 
         Ok(())
+    }
+
+    async fn print_simulation(&self) {
+        println!("This feature requires the Gateway to be running.");
+        println!("Start the gateway with: openclaw-rust gateway");
     }
 }

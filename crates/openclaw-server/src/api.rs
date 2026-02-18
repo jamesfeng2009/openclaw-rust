@@ -9,12 +9,14 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::agent_service::AgentService;
 use crate::browser_api::{BrowserApiState, create_browser_router};
 use crate::canvas_api::{CanvasApiState, create_canvas_router};
+use crate::orchestrator::ServiceOrchestrator;
 
-pub fn create_router() -> Router {
-    let state = Arc::new(RwLock::new(ApiState::new()));
+pub fn create_router(
+    orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>
+) -> Router {
+    let state = Arc::new(RwLock::new(ApiState::new(orchestrator)));
 
     Router::new()
         .route("/health", get(health_check))
@@ -37,27 +39,23 @@ pub fn create_router() -> Router {
 
 #[derive(Clone)]
 pub struct ApiState {
-    pub channels: Vec<ChannelInfo>,
-    pub agents: Vec<AgentInfo>,
+    pub orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
     pub sessions: Vec<SessionInfo>,
     pub presence: String,
-    pub agent_service: AgentService,
 }
 
 impl Default for ApiState {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(RwLock::new(None)))
     }
 }
 
 impl ApiState {
-    pub fn new() -> Self {
+    pub fn new(orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>) -> Self {
         Self {
-            channels: Vec::new(),
-            agents: Vec::new(),
+            orchestrator,
             sessions: Vec::new(),
             presence: "online".to_string(),
-            agent_service: AgentService::new(),
         }
     }
 }
@@ -183,11 +181,26 @@ async fn get_stats() -> Json<StatsResponse> {
 
 async fn list_channels(State(state): State<Arc<RwLock<ApiState>>>) -> Json<Vec<ChannelInfo>> {
     let state = state.read().await;
-    Json(state.channels.clone())
+    if let Some(ref orchestrator) = *state.orchestrator.read().await {
+        let channel_names = orchestrator.list_channels().await;
+        let channels = channel_names
+            .into_iter()
+            .map(|name| ChannelInfo {
+                id: name.clone(),
+                channel_type: "webchat".to_string(),
+                name,
+                enabled: true,
+                config: None,
+            })
+            .collect();
+        Json(channels)
+    } else {
+        Json(vec![])
+    }
 }
 
 async fn create_channel(
-    State(state): State<Arc<RwLock<ApiState>>>,
+    State(_state): State<Arc<RwLock<ApiState>>>,
     Json(input): Json<ChannelInfo>,
 ) -> Json<ChannelInfo> {
     let channel = ChannelInfo {
@@ -197,23 +210,33 @@ async fn create_channel(
         enabled: input.enabled,
         config: input.config,
     };
-    let mut state = state.write().await;
-    state.channels.push(channel.clone());
     Json(channel)
 }
 
 async fn delete_channel(
-    State(state): State<Arc<RwLock<ApiState>>>,
-    Path(id): Path<String>,
+    State(_state): State<Arc<RwLock<ApiState>>>,
+    Path(_id): Path<String>,
 ) -> Json<serde_json::Value> {
-    let mut state = state.write().await;
-    state.channels.retain(|c| c.id != id);
     Json(serde_json::json!({ "success": true }))
 }
 
 async fn list_agents(State(state): State<Arc<RwLock<ApiState>>>) -> Json<Vec<AgentInfo>> {
     let state = state.read().await;
-    Json(state.agents.clone())
+    if let Some(ref orchestrator) = *state.orchestrator.read().await {
+        let agent_infos = orchestrator.list_agents().await;
+        let agents: Vec<AgentInfo> = agent_infos
+            .into_iter()
+            .map(|info| AgentInfo {
+                id: info.config.id,
+                name: info.config.name,
+                status: format!("{:?}", info.status),
+                capabilities: Some(info.config.capabilities.iter().map(|c| format!("{:?}", c)).collect()),
+            })
+            .collect();
+        Json(agents)
+    } else {
+        Json(vec![])
+    }
 }
 
 async fn get_agent(
@@ -221,11 +244,24 @@ async fn get_agent(
     Path(id): Path<String>,
 ) -> Json<Option<AgentInfo>> {
     let state = state.read().await;
-    Json(state.agents.iter().find(|a| a.id == id).cloned())
+    if let Some(ref orchestrator) = *state.orchestrator.read().await {
+        let agent_infos = orchestrator.list_agents().await;
+        let agent = agent_infos.into_iter().find(|info| info.config.id == id).map(|info| {
+            AgentInfo {
+                id: info.config.id,
+                name: info.config.name,
+                status: format!("{:?}", info.status),
+                capabilities: Some(info.config.capabilities.iter().map(|c| format!("{:?}", c)).collect()),
+            }
+        });
+        Json(agent)
+    } else {
+        Json(None)
+    }
 }
 
 async fn create_agent(
-    State(state): State<Arc<RwLock<ApiState>>>,
+    State(_state): State<Arc<RwLock<ApiState>>>,
     Json(input): Json<AgentInfo>,
 ) -> Json<AgentInfo> {
     let agent = AgentInfo {
@@ -234,8 +270,6 @@ async fn create_agent(
         status: "idle".to_string(),
         capabilities: input.capabilities,
     };
-    let mut state = state.write().await;
-    state.agents.push(agent.clone());
     Json(agent)
 }
 

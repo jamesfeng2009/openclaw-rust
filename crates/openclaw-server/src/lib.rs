@@ -7,7 +7,9 @@ pub mod canvas_api;
 pub mod channel_service;
 pub mod device_manager;
 pub mod gateway;
+pub mod memory_service;
 pub mod orchestrator;
+pub mod vector_store_registry;
 pub mod voice_service;
 pub mod websocket;
 

@@ -3,6 +3,7 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use openclaw_ai::{AIProvider, ChatRequest};
 use openclaw_core::{Content, Message, Result};
@@ -74,6 +75,23 @@ pub trait Agent: Send + Sync {
     /// 设置安全管线
     fn set_security_pipeline(&mut self, pipeline: Arc<SecurityPipeline>);
 
+    /// 注入依赖（异步）- 通过内部 RwLock 实现可变性
+    async fn inject_dependencies(
+        &self,
+        provider: Arc<dyn AIProvider>,
+        memory: Arc<MemoryManager>,
+        pipeline: Arc<SecurityPipeline>,
+    );
+
+    /// 获取 AI 提供商（异步）
+    async fn get_ai_provider(&self) -> Option<Arc<dyn AIProvider>>;
+
+    /// 获取记忆管理器（异步）
+    async fn get_memory(&self) -> Option<Arc<MemoryManager>>;
+
+    /// 获取安全管线（异步）
+    async fn get_security_pipeline(&self) -> Option<Arc<SecurityPipeline>>;
+
     /// 获取系统提示词
     fn system_prompt(&self) -> Option<&str>;
 }
@@ -83,9 +101,9 @@ pub struct BaseAgent {
     config: AgentConfig,
     status: AgentStatus,
     current_tasks: usize,
-    ai_provider: Option<Arc<dyn AIProvider>>,
-    memory: Option<Arc<MemoryManager>>,
-    security_pipeline: Option<Arc<SecurityPipeline>>,
+    ai_provider: Arc<RwLock<Option<Arc<dyn AIProvider>>>>,
+    memory: Arc<RwLock<Option<Arc<MemoryManager>>>>,
+    security_pipeline: Arc<RwLock<Option<Arc<SecurityPipeline>>>>,
 }
 
 impl BaseAgent {
@@ -94,9 +112,9 @@ impl BaseAgent {
             status: AgentStatus::Idle,
             current_tasks: 0,
             config,
-            ai_provider: None,
-            memory: None,
-            security_pipeline: None,
+            ai_provider: Arc::new(RwLock::new(None)),
+            memory: Arc::new(RwLock::new(None)),
+            security_pipeline: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -233,8 +251,11 @@ impl Agent for BaseAgent {
         let started_at = Utc::now();
         let session_id = format!("agent-{}", self.id());
 
+        let security_pipeline = self.security_pipeline.read().await.clone();
+        let ai_provider = self.ai_provider.read().await.clone();
+
         // 安全检查：输入过滤和分类
-        if let Some(pipeline) = &self.security_pipeline {
+        if let Some(pipeline) = &security_pipeline {
             // 提取输入文本进行安全检查
             let input_text = match &task.input {
                 TaskInput::Message { message } => extract_text_from_content(&message.content),
@@ -266,7 +287,7 @@ impl Agent for BaseAgent {
         }
 
         // 检查是否有 AI 提供商
-        let ai_provider = match &self.ai_provider {
+        let ai_provider = match ai_provider {
             Some(provider) => provider,
             None => {
                 return Ok(TaskResult::failure(
@@ -285,7 +306,7 @@ impl Agent for BaseAgent {
         let chat_request = ChatRequest::new(&model, messages);
 
         // 记录操作开始（用于自我修复）
-        let operation_id = if let Some(pipeline) = &self.security_pipeline {
+        let operation_id = if let Some(pipeline) = &security_pipeline {
             Some(
                 pipeline
                     .start_operation(&session_id, "agent", "process")
@@ -302,12 +323,12 @@ impl Agent for BaseAgent {
         match ai_result {
             Ok(response) => {
                 // 记录进度
-                if let (Some(pipeline), Some(op_id)) = (&self.security_pipeline, &operation_id) {
+                if let (Some(pipeline), Some(op_id)) = (&security_pipeline, &operation_id) {
                     pipeline.record_progress(op_id).await;
                 }
 
                 // 安全检查：输出验证
-                let final_output = if let Some(pipeline) = &self.security_pipeline {
+                let final_output = if let Some(pipeline) = &security_pipeline {
                     let output_text = extract_text_from_content(&response.message.content);
                     let (redacted_output, validation) =
                         pipeline.validate_output(&session_id, &output_text).await;
@@ -327,7 +348,7 @@ impl Agent for BaseAgent {
                 let tokens_used = response.usage.total_tokens;
 
                 // 完成任务
-                if let (Some(pipeline), Some(op_id)) = (&self.security_pipeline, &operation_id) {
+                if let (Some(pipeline), Some(op_id)) = (&security_pipeline, &operation_id) {
                     let duration = Utc::now().signed_duration_since(started_at);
                     pipeline
                         .complete_operation(
@@ -360,7 +381,7 @@ impl Agent for BaseAgent {
             }
             Err(e) => {
                 // 标记操作失败
-                if let (Some(pipeline), Some(op_id)) = (&self.security_pipeline, &operation_id) {
+                if let (Some(pipeline), Some(op_id)) = (&security_pipeline, &operation_id) {
                     pipeline
                         .complete_operation(&session_id, op_id, &format!("error: {}", e), 0)
                         .await;
@@ -389,15 +410,41 @@ impl Agent for BaseAgent {
     }
 
     fn set_ai_provider(&mut self, provider: Arc<dyn AIProvider>) {
-        self.ai_provider = Some(provider);
+        let mut guard = futures::executor::block_on(self.ai_provider.write());
+        *guard = Some(provider);
     }
 
     fn set_memory(&mut self, memory: Arc<MemoryManager>) {
-        self.memory = Some(memory);
+        let mut guard = futures::executor::block_on(self.memory.write());
+        *guard = Some(memory);
     }
 
     fn set_security_pipeline(&mut self, pipeline: Arc<SecurityPipeline>) {
-        self.security_pipeline = Some(pipeline);
+        let mut guard = futures::executor::block_on(self.security_pipeline.write());
+        *guard = Some(pipeline);
+    }
+
+    async fn inject_dependencies(
+        &self,
+        provider: Arc<dyn AIProvider>,
+        memory: Arc<MemoryManager>,
+        pipeline: Arc<SecurityPipeline>,
+    ) {
+        *self.ai_provider.write().await = Some(provider);
+        *self.memory.write().await = Some(memory);
+        *self.security_pipeline.write().await = Some(pipeline);
+    }
+
+    async fn get_ai_provider(&self) -> Option<Arc<dyn AIProvider>> {
+        self.ai_provider.read().await.clone()
+    }
+
+    async fn get_memory(&self) -> Option<Arc<MemoryManager>> {
+        self.memory.read().await.clone()
+    }
+
+    async fn get_security_pipeline(&self) -> Option<Arc<SecurityPipeline>> {
+        self.security_pipeline.read().await.clone()
     }
 
     fn system_prompt(&self) -> Option<&str> {
@@ -616,6 +663,9 @@ const CONVERSATIONALIST_PROMPT: &str = r#"You are a **Conversational Agent** - s
 #[cfg(test)]
 mod tests {
     use super::*;
+    use openclaw_testing::ai::MockAiProvider;
+    use crate::task::TaskType;
+    use std::sync::Arc;
 
     #[test]
     fn test_agent_creation() {
@@ -630,5 +680,67 @@ mod tests {
         let agent = BaseAgent::coder();
         assert!(agent.has_capability(&Capability::CodeGeneration));
         assert!(agent.has_capability(&Capability::CodeReview));
+    }
+
+    #[test]
+    fn test_agent_load() {
+        let agent = BaseAgent::from_type("test", "Test Agent", AgentType::Conversationalist);
+        assert_eq!(agent.load(), 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_agent_without_ai_provider() {
+        let config = AgentConfig::new("test-agent", "Test Agent", AgentType::Conversationalist);
+        let agent = BaseAgent::new(config);
+
+        let task = TaskRequest::new(
+            TaskType::Conversation,
+            TaskInput::Text {
+                content: "Hello".to_string(),
+            },
+        );
+
+        let result = agent.process(task).await;
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert_eq!(result.status, TaskStatus::Failed);
+        assert!(result.error.unwrap().contains("No AI provider"));
+    }
+
+    #[tokio::test]
+    async fn test_agent_get_dependencies() {
+        let config = AgentConfig::new("test-agent", "Test Agent", AgentType::Conversationalist);
+        let agent = BaseAgent::new(config);
+
+        let ai_provider = agent.get_ai_provider().await;
+        assert!(ai_provider.is_none());
+
+        let memory = agent.get_memory().await;
+        assert!(memory.is_none());
+
+        let security = agent.get_security_pipeline().await;
+        assert!(security.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_agent_inject_dependencies() {
+        let config = AgentConfig::new("test-agent", "Test Agent", AgentType::Conversationalist);
+        let agent = BaseAgent::new(config);
+
+        let mock_provider: Arc<dyn AIProvider> = Arc::new(MockAiProvider::new());
+        agent.inject_dependencies(
+            mock_provider.clone(),
+            Arc::new(openclaw_memory::MemoryManager::default()),
+            Arc::new(openclaw_security::SecurityPipeline::default()),
+        ).await;
+
+        let ai_provider = agent.get_ai_provider().await;
+        assert!(ai_provider.is_some());
+
+        let memory = agent.get_memory().await;
+        assert!(memory.is_some());
+
+        let security = agent.get_security_pipeline().await;
+        assert!(security.is_some());
     }
 }

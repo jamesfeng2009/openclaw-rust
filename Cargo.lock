@@ -5610,6 +5610,7 @@ dependencies = [
  "openclaw-core",
  "openclaw-memory",
  "openclaw-security",
+ "openclaw-testing",
  "openclaw-vector",
  "openclaw-voice",
  "regex",
@@ -5617,6 +5618,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-test",
  "tracing",
  "uuid",
 ]
@@ -5728,6 +5730,7 @@ dependencies = [
  "openclaw-tools",
  "openclaw-vector",
  "openclaw-voice",
+ "reqwest",
  "serde",
  "serde_json",
  "shellexpand",
@@ -5854,7 +5857,10 @@ dependencies = [
  "openclaw-core",
  "openclaw-device",
  "openclaw-memory",
+ "openclaw-security",
+ "openclaw-testing",
  "openclaw-vector",
+ "openclaw-voice",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -5872,6 +5878,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "futures",
  "mockall",
  "openclaw-agent",
  "openclaw-ai",
@@ -5882,6 +5889,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-test",
+ "uuid",
 ]
 
 [[package]]
