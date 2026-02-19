@@ -164,12 +164,18 @@ impl Gateway {
             .find(|p| p.name == self.config.ai.default_provider);
 
         let (api_key, base_url) = if let Some(config) = provider_config {
-            (
-                config.api_key.clone().unwrap_or_else(|| "dummy".to_string()),
-                config.base_url.clone(),
-            )
+            let api_key = config.api_key.clone().ok_or_else(|| {
+                openclaw_core::OpenClawError::Config(format!(
+                    "No API key provided for provider: {}",
+                    self.config.ai.default_provider
+                ))
+            })?;
+            (api_key, config.base_url.clone())
         } else {
-            ("dummy".to_string(), None)
+            return Err(openclaw_core::OpenClawError::Config(format!(
+                "No configuration found for provider: {}",
+                self.config.ai.default_provider
+            )));
         };
 
         let mut cfg = openclaw_ai::providers::ProviderConfig::new(
@@ -239,14 +245,41 @@ impl Gateway {
     }
 
     async fn init_memory_service(&self) -> openclaw_core::Result<()> {
+        use openclaw_memory::ai_adapter::AIProviderEmbeddingAdapter;
         use openclaw_vector::MemoryStore;
 
+        let ai_provider = self.create_ai_provider().await?;
+        
+        let embedding_provider = AIProviderEmbeddingAdapter::new(
+            ai_provider.clone(),
+            "text-embedding-3-small".to_string(),
+            1536,
+        );
+
         let vector_store: Arc<dyn openclaw_vector::VectorStore> = Arc::new(MemoryStore::new());
-        let memory_manager = self.create_memory_manager().await?;
+        
+        let config = openclaw_memory::types::MemoryConfig {
+            working: openclaw_memory::types::WorkingMemoryConfig::default(),
+            short_term: openclaw_memory::types::ShortTermMemoryConfig::default(),
+            long_term: openclaw_memory::types::LongTermMemoryConfig {
+                enabled: true,
+                backend: "memory".to_string(),
+                collection: "openclaw_memories".to_string(),
+                embedding_provider: self.config.ai.default_provider.clone(),
+                embedding_model: "text-embedding-3-small".to_string(),
+                custom_embedding: None,
+            },
+        };
+
+        let memory_manager = Arc::new(
+            MemoryManager::new(config)
+                .with_vector_store(vector_store.clone())
+                .with_embedding_provider(embedding_provider)
+        );
 
         self.memory_service.init(memory_manager, vector_store).await;
 
-        tracing::info!("Memory service initialized");
+        tracing::info!("Memory service initialized with embedding provider");
         Ok(())
     }
 }

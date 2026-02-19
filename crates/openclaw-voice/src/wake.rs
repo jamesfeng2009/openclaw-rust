@@ -425,19 +425,52 @@ mod tests {
     fn test_check_wake_word() {
         let detector = KeywordWakeDetector::new(WakeWordConfig::default());
 
-        // 测试精确匹配
         let result = detector.check_wake_word("hey openclaw");
-        assert!(result.is_some());
-        let (word, confidence) = result.unwrap();
-        assert_eq!(word, "hey openclaw");
-        assert_eq!(confidence, 1.0);
+        assert!(result.is_some(), "Should detect wake word 'hey openclaw'");
+        if let Some((word, confidence)) = result {
+            assert_eq!(word, "hey openclaw");
+            assert_eq!(confidence, 1.0);
+        }
 
-        // 测试包含唤醒词
         let result = detector.check_wake_word("Hey OpenClaw, what time is it?");
-        assert!(result.is_some());
+        assert!(result.is_some(), "Should detect wake word in sentence");
+        if let Some((word, confidence)) = result {
+            assert_eq!(word, "hey openclaw");
+            assert!(confidence >= 0.8);
+        }
 
-        // 测试不包含
         let result = detector.check_wake_word("hello world");
-        assert!(result.is_none());
+        assert!(result.is_none(), "Should not detect wake word in 'hello world'");
+    }
+
+    #[test]
+    fn test_check_wake_word_with_empty_config() {
+        let config = WakeWordConfig {
+            wake_words: vec![],
+            threshold: 0.5,
+            min_audio_length_ms: 500,
+            sensitivity: 0.5,
+        };
+        let detector = KeywordWakeDetector::new(config);
+
+        let result = detector.check_wake_word("hey openclaw");
+        assert!(result.is_none(), "Should not detect with empty wake words");
+    }
+
+    #[test]
+    fn test_check_wake_word_threshold() {
+        let config = WakeWordConfig {
+            wake_words: vec!["hey openclaw".to_string()],
+            threshold: 0.9,
+            min_audio_length_ms: 500,
+            sensitivity: 0.5,
+        };
+        let detector = KeywordWakeDetector::new(config);
+
+        let result = detector.check_wake_word("hey openclaw");
+        assert!(result.is_some(), "Should detect exact match");
+
+        let result = detector.check_wake_word("Hey OpenClaw, what time is it?");
+        assert!(result.is_none(), "Should not detect partial match due to high threshold");
     }
 }

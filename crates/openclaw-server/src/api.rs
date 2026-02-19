@@ -87,6 +87,8 @@ pub struct AgentInfo {
     pub name: String,
     pub status: String,
     pub capabilities: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -295,7 +297,9 @@ async fn create_channel(
     
     let state = state.read().await;
     if let Some(ref orchestrator) = *state.orchestrator.read().await {
-        let _ = orchestrator.create_channel(input.name, input.channel_type).await;
+        if let Err(e) = orchestrator.create_channel(input.name, input.channel_type).await {
+            tracing::warn!("Failed to create channel in orchestrator: {}", e);
+        }
     }
     
     Json(channel)
@@ -326,6 +330,7 @@ async fn list_agents(State(state): State<Arc<RwLock<ApiState>>>) -> Json<Vec<Age
                 name: info.config.name,
                 status: format!("{:?}", info.status),
                 capabilities: Some(info.config.capabilities.iter().map(|c| format!("{:?}", c)).collect()),
+                error: None,
             })
             .collect();
         Json(agents)
@@ -347,6 +352,7 @@ async fn get_agent(
                 name: info.config.name,
                 status: format!("{:?}", info.status),
                 capabilities: Some(info.config.capabilities.iter().map(|c| format!("{:?}", c)).collect()),
+                error: None,
             }
         });
         Json(agent)
@@ -371,16 +377,20 @@ async fn create_agent(
         .unwrap_or(AgentType::DataAnalyst);
     
     let agent = BaseAgent::from_type(agent_id.clone(), input.name.clone(), agent_type);
-    let agent_info = AgentInfo {
+    let mut agent_info = AgentInfo {
         id: agent_id.clone(),
         name: input.name,
         status: "idle".to_string(),
         capabilities: input.capabilities,
+        error: None,
     };
     
     let state = state.read().await;
     if let Some(ref orchestrator) = *state.orchestrator.read().await {
-        let _ = orchestrator.register_agent(agent_id, Arc::new(agent) as Arc<dyn Agent>).await;
+        orchestrator.register_agent(agent_id, Arc::new(agent) as Arc<dyn Agent>).await;
+    } else {
+        agent_info.error = Some("No orchestrator available".to_string());
+        agent_info.status = "failed".to_string();
     }
     
     Json(agent_info)

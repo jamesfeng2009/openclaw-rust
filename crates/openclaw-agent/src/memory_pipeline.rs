@@ -146,9 +146,12 @@ impl MemoryPipeline {
 
         if let Some(bm25) = &self.bm25_index {
             for chunk in chunks {
-                let _ = bm25
+                if let Err(e) = bm25
                     .add_document(&chunk.id, &chunk.content, source, chunk.metadata.created_at)
-                    .await;
+                    .await
+                {
+                    tracing::warn!("Failed to add document to BM25 index: {}", e);
+                }
             }
         }
 
@@ -160,8 +163,13 @@ impl MemoryPipeline {
             return Ok(Vec::new());
         }
 
-        let ws_path = self.workspace.as_ref().unwrap().workspace_path();
-        let tracker = self.file_tracker.as_mut().unwrap();
+        let ws_path = self.workspace.as_ref().map(|w| w.workspace_path());
+        let tracker = self.file_tracker.as_mut();
+
+        let (ws_path, tracker) = match (ws_path, tracker) {
+            (Some(path), Some(t)) => (path, t),
+            _ => return Ok(Vec::new()),
+        };
 
         let changed = tracker.scan_directory(ws_path)?;
 
@@ -177,14 +185,17 @@ impl MemoryPipeline {
 
         if let Some(bm25) = &self.bm25_index {
             for chunk in temp_chunks {
-                let _ = bm25
+                if let Err(e) = bm25
                     .add_document(
                         &chunk.id,
                         &chunk.content,
                         &chunk.source,
                         chunk.metadata.created_at,
                     )
-                    .await;
+                    .await
+                {
+                    tracing::warn!("Failed to add document to BM25 index: {}", e);
+                }
             }
         }
 

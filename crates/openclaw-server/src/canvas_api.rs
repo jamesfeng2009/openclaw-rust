@@ -247,7 +247,9 @@ async fn handle_canvas_ws(socket: WebSocket, state: CanvasApiState, canvas_id: C
         };
 
         if let Ok(msg) = serde_json::to_string(&sync_msg) {
-            let _ = tx.send(Message::Text(msg.into())).await;
+            if let Err(e) = tx.send(Message::Text(msg.into())).await {
+                tracing::warn!("Failed to send sync response to WebSocket: {}", e);
+            }
         }
     }
 
@@ -272,7 +274,9 @@ async fn handle_canvas_ws(socket: WebSocket, state: CanvasApiState, canvas_id: C
             event = event_rx.recv() => {
                 if let Ok(event) = event
                     && let Ok(msg) = serde_json::to_string(&CollabEventWrapper { event }) {
-                        let _ = tx.send(Message::Text(msg.into())).await;
+                        if let Err(e) = tx.send(Message::Text(msg.into())).await {
+                            tracing::warn!("Failed to send collab event to WebSocket: {}", e);
+                        }
                     }
             }
         }
@@ -309,10 +313,14 @@ async fn handle_ws_message(
                 // 应用绘图操作
                 match &action {
                     DrawAction::AddElement { element } => {
-                        let _ = CanvasOps::add_element(&canvas, element.clone()).await;
+                        if let Err(e) = CanvasOps::add_element(&canvas, element.clone()).await {
+                            tracing::warn!("Failed to add canvas element: {}", e);
+                        }
                     }
                     DrawAction::DeleteElement { element } => {
-                        let _ = CanvasOps::delete_element(&canvas, &element.id).await;
+                        if let Err(e) = CanvasOps::delete_element(&canvas, &element.id).await {
+                            tracing::warn!("Failed to delete canvas element: {}", e);
+                        }
                     }
                     _ => {}
                 }

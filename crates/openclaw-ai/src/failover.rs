@@ -354,7 +354,13 @@ impl FailoverManager {
                             .get(b.0)
                             .map(|s| s.avg_latency_ms)
                             .unwrap_or(f64::MAX);
-                        a_latency.partial_cmp(&b_latency).unwrap()
+                        match a_latency.partial_cmp(&b_latency) {
+                            Some(ord) => ord,
+                            None => {
+                                tracing::warn!("NaN latency detected, treating as MAX");
+                                std::cmp::Ordering::Greater
+                            }
+                        }
                     })
                     .map(|(name, provider)| (*name, *provider))
                     .ok_or(FailoverError::NoProviderAvailable)

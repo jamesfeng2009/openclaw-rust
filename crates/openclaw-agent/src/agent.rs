@@ -70,7 +70,7 @@ pub trait Agent: Send + Sync {
     async fn set_ai_provider(&self, provider: Arc<dyn AIProvider>);
 
     /// 设置记忆管理器（异步）
-    async fn set_memory(&self, memory: Arc<MemoryManager>);
+    async fn set_memory(&self, memory: Arc<tokio::sync::RwLock<MemoryManager>>);
 
     /// 设置安全管线（异步）
     async fn set_security_pipeline(&self, pipeline: Arc<SecurityPipeline>);
@@ -87,7 +87,7 @@ pub trait Agent: Send + Sync {
     async fn get_ai_provider(&self) -> Option<Arc<dyn AIProvider>>;
 
     /// 获取记忆管理器（异步）
-    async fn get_memory(&self) -> Option<Arc<MemoryManager>>;
+    async fn get_memory(&self) -> Arc<tokio::sync::RwLock<MemoryManager>>;
 
     /// 获取安全管线（异步）
     async fn get_security_pipeline(&self) -> Option<Arc<SecurityPipeline>>;
@@ -101,9 +101,9 @@ pub struct BaseAgent {
     config: AgentConfig,
     status: AgentStatus,
     current_tasks: usize,
-    ai_provider: Arc<RwLock<Option<Arc<dyn AIProvider>>>>,
-    memory: Arc<RwLock<Option<Arc<MemoryManager>>>>,
-    security_pipeline: Arc<RwLock<Option<Arc<SecurityPipeline>>>>,
+    ai_provider: Arc<tokio::sync::RwLock<Option<Arc<dyn AIProvider>>>>,
+    memory: Arc<tokio::sync::RwLock<MemoryManager>>,
+    security_pipeline: Arc<tokio::sync::RwLock<Option<Arc<SecurityPipeline>>>>,
 }
 
 impl BaseAgent {
@@ -113,7 +113,7 @@ impl BaseAgent {
             current_tasks: 0,
             config,
             ai_provider: Arc::new(RwLock::new(None)),
-            memory: Arc::new(RwLock::new(None)),
+            memory: Arc::new(tokio::sync::RwLock::new(MemoryManager::default())),
             security_pipeline: Arc::new(RwLock::new(None)),
         }
     }
@@ -170,8 +170,8 @@ impl BaseAgent {
         self
     }
 
-    pub fn get_memory_blocking(&self) -> Option<Arc<MemoryManager>> {
-        futures::executor::block_on(self.memory.read()).clone()
+    pub fn get_memory_blocking(&self) -> Arc<tokio::sync::RwLock<MemoryManager>> {
+        self.memory.clone()
     }
 
     /// 构建发送给 AI 的消息列表
@@ -187,11 +187,10 @@ impl BaseAgent {
         messages.extend(task.context.clone());
 
         // 从记忆获取上下文
-        if let Some(memory) = self.get_memory_blocking() {
-            let ctx = memory.get_context();
-            if !ctx.is_empty() {
-                messages.extend(ctx);
-            }
+        let memory_lock = self.get_memory_blocking();
+        let ctx = futures::executor::block_on(memory_lock.read()).get_context();
+        if !ctx.is_empty() {
+            messages.extend(ctx);
         }
 
         // 根据任务输入添加用户消息
@@ -265,7 +264,7 @@ impl Agent for BaseAgent {
 
         let security_pipeline = self.security_pipeline.read().await.clone();
         let ai_provider = self.ai_provider.read().await.clone();
-        let memory = self.memory.read().await.clone();
+        let memory = self.memory.clone();
 
         // 安全检查：输入过滤和分类
         if let Some(pipeline) = &security_pipeline {
@@ -380,7 +379,8 @@ impl Agent for BaseAgent {
                 }
 
                 // 写入对话到记忆
-                if let Some(mem) = &memory {
+                {
+                    let mut mem = memory.write().await;
                     // 写入用户消息
                     if let Some(user_msg) = &user_input_message {
                         let _ = mem.add(user_msg.clone()).await;
@@ -443,8 +443,8 @@ impl Agent for BaseAgent {
         *self.ai_provider.write().await = Some(provider);
     }
 
-    async fn set_memory(&self, memory: Arc<MemoryManager>) {
-        *self.memory.write().await = Some(memory);
+    async fn set_memory(&self, memory: Arc<tokio::sync::RwLock<MemoryManager>>) {
+        std::mem::swap(&mut *self.memory.write().await, &mut *memory.write().await);
     }
 
     async fn set_security_pipeline(&self, pipeline: Arc<SecurityPipeline>) {
@@ -458,7 +458,16 @@ impl Agent for BaseAgent {
         pipeline: Arc<SecurityPipeline>,
     ) {
         *self.ai_provider.write().await = Some(provider);
-        *self.memory.write().await = Some(memory);
+        
+        let memory_inner = match Arc::try_unwrap(memory) {
+            Ok(m) => m,
+            Err(_) => {
+                unreachable!("inject_dependencies requires unique ownership of Arc<MemoryManager>")
+            }
+        };
+        let memory_lock = Arc::new(tokio::sync::RwLock::new(memory_inner));
+        self.set_memory(memory_lock).await;
+        
         *self.security_pipeline.write().await = Some(pipeline);
     }
 
@@ -466,8 +475,8 @@ impl Agent for BaseAgent {
         self.ai_provider.read().await.clone()
     }
 
-    async fn get_memory(&self) -> Option<Arc<MemoryManager>> {
-        self.memory.read().await.clone()
+    async fn get_memory(&self) -> Arc<tokio::sync::RwLock<MemoryManager>> {
+        self.memory.clone()
     }
 
     async fn get_security_pipeline(&self) -> Option<Arc<SecurityPipeline>> {
@@ -743,7 +752,7 @@ mod tests {
         assert!(ai_provider.is_none());
 
         let memory = agent.get_memory().await;
-        assert!(memory.is_none());
+        assert!(memory.try_read().is_ok());
 
         let security = agent.get_security_pipeline().await;
         assert!(security.is_none());
@@ -765,7 +774,7 @@ mod tests {
         assert!(ai_provider.is_some());
 
         let memory = agent.get_memory().await;
-        assert!(memory.is_some());
+        assert!(memory.try_read().is_ok());
 
         let security = agent.get_security_pipeline().await;
         assert!(security.is_some());

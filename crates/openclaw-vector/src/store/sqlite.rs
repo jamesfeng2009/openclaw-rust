@@ -170,7 +170,8 @@ impl SqliteStore {
         for row in rows {
             let (id, vector_blob, payload_str) =
                 row.map_err(|e| OpenClawError::Config(e.to_string()))?;
-            let stored_vector = deserialize_vector(&vector_blob);
+            let stored_vector = deserialize_vector(&vector_blob)
+                .map_err(|e| OpenClawError::VectorStore(e.to_string()))?;
             let score = cosine_similarity(query_vector, &stored_vector);
 
             if let Some(min_score) = query.min_score
@@ -351,7 +352,8 @@ impl SqliteStore {
 
             Ok(Some(VectorItem {
                 id: id.to_string(),
-                vector: deserialize_vector(&vector_blob),
+                vector: deserialize_vector(&vector_blob)
+                    .map_err(|e| OpenClawError::VectorStore(e.to_string()))?,
                 payload,
                 created_at,
             }))
@@ -446,7 +448,14 @@ fn serialize_vector(vector: &[f32]) -> Vec<u8> {
     bytes
 }
 
-fn deserialize_vector(blob: &[u8]) -> Vec<f32> {
+fn deserialize_vector(blob: &[u8]) -> Result<Vec<f32>> {
+    if blob.len() % 4 != 0 {
+        return Err(OpenClawError::VectorStore(format!(
+            "Invalid blob length: {}, expected multiple of 4",
+            blob.len()
+        )));
+    }
+    
     let f32_count = blob.len() / 4;
     let mut vector = vec![0.0f32; f32_count];
     for i in 0..f32_count {
@@ -458,7 +467,7 @@ fn deserialize_vector(blob: &[u8]) -> Vec<f32> {
         ];
         vector[i] = f32::from_le_bytes(bytes);
     }
-    vector
+    Ok(vector)
 }
 
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
@@ -489,7 +498,7 @@ mod tests {
     fn test_serialize_deserialize() {
         let vector = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let blob = serialize_vector(&vector);
-        let restored = deserialize_vector(&blob);
+        let restored = deserialize_vector(&blob).unwrap();
         assert_eq!(vector, restored);
     }
 }

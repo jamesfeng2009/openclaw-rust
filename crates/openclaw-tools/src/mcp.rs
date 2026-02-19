@@ -301,7 +301,9 @@ impl McpServer {
             let _ = self
                 .send_notification("notifications/initialized", serde_json::Value::Null)
                 .await;
-            let _ = self.list_tools_internal().await;
+            if let Err(e) = self.list_tools_internal().await {
+                tracing::warn!("Failed to list tools during initialization: {}", e);
+            }
 
             Ok(init_result)
         } else {

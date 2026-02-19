@@ -189,7 +189,9 @@ impl SandboxManager {
 
         // 清理
         if config.auto_remove {
-            let _ = self.docker.remove_sandbox(&sandbox_id).await;
+            if let Err(e) = self.docker.remove_sandbox(&sandbox_id).await {
+                tracing::warn!("Failed to remove sandbox {}: {}", sandbox_id, e);
+            }
         }
 
         let duration = start_time.elapsed().as_secs_f64();
