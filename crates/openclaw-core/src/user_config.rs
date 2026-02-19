@@ -168,7 +168,7 @@ impl UserConfig {
     /// 获取默认配置路径
     pub fn default_config_path() -> PathBuf {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-        home.join(".openclaw").join("user_config.json")
+        home.join(".openclaw-rust").join("user_config.json")
     }
 
     /// 添加或更新提供商配置

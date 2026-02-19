@@ -77,15 +77,15 @@ impl Gateway {
                 orchestrator.init_agents_from_config(&self.config).await?;
             }
 
-            self.inject_dependencies_to_agents(orchestrator).await?;
+            let (ai_provider, memory_manager) = self.inject_dependencies_to_agents(orchestrator).await?;
+
+            if self.config.server.enable_agents {
+                self.init_memory_service(memory_manager).await?;
+            }
         }
 
         if self.config.server.enable_voice {
             self.init_voice_service().await?;
-        }
-
-        if self.config.server.enable_agents {
-            self.init_memory_service().await?;
         }
 
         let mut app = Router::new()
@@ -129,22 +129,23 @@ impl Gateway {
     async fn inject_dependencies_to_agents(
         &self,
         orchestrator: &ServiceOrchestrator,
-    ) -> openclaw_core::Result<()> {
+    ) -> openclaw_core::Result<(Arc<dyn AIProvider>, Arc<MemoryManager>)> {
         let ai_provider = self.create_ai_provider().await?;
         tracing::info!("AI Provider created: {}", self.config.ai.default_provider);
 
-        let memory_manager = self.create_memory_manager().await?;
-        tracing::info!("Memory Manager created");
+        let memory_manager = self.create_memory_manager_with_embedding().await?;
+        tracing::info!("Memory Manager created with embedding provider");
 
         let security_pipeline = self.create_security_pipeline();
         tracing::info!("Security Pipeline created");
 
         orchestrator
-            .inject_dependencies(ai_provider, memory_manager, security_pipeline)
+            .inject_dependencies(ai_provider.clone(), memory_manager.clone(), security_pipeline)
             .await;
 
         tracing::info!("Dependencies injected to all agents");
-        Ok(())
+        
+        Ok((ai_provider, memory_manager))
     }
 
     async fn create_ai_provider(&self) -> openclaw_core::Result<Arc<dyn AIProvider>> {
@@ -213,6 +214,40 @@ impl Gateway {
         Ok(Arc::new(manager))
     }
 
+    async fn create_memory_manager_with_embedding(&self) -> openclaw_core::Result<Arc<MemoryManager>> {
+        use openclaw_memory::ai_adapter::AIProviderEmbeddingAdapter;
+
+        let ai_provider = self.create_ai_provider().await?;
+        
+        let embedding_provider = AIProviderEmbeddingAdapter::new(
+            ai_provider.clone(),
+            "text-embedding-3-small".to_string(),
+            1536,
+        );
+
+        let vector_store: Arc<dyn openclaw_vector::VectorStore> = 
+            Arc::new(openclaw_vector::MemoryStore::new());
+
+        let config = openclaw_memory::types::MemoryConfig {
+            working: openclaw_memory::types::WorkingMemoryConfig::default(),
+            short_term: openclaw_memory::types::ShortTermMemoryConfig::default(),
+            long_term: openclaw_memory::types::LongTermMemoryConfig {
+                enabled: true,
+                backend: "memory".to_string(),
+                collection: "openclaw_memories".to_string(),
+                embedding_provider: self.config.ai.default_provider.clone(),
+                embedding_model: "text-embedding-3-small".to_string(),
+                custom_embedding: None,
+            },
+        };
+
+        let manager = MemoryManager::new(config)
+            .with_vector_store(vector_store)
+            .with_embedding_provider(embedding_provider);
+
+        Ok(Arc::new(manager))
+    }
+
     fn create_security_pipeline(&self) -> Arc<SecurityPipeline> {
         let config = openclaw_security::pipeline::PipelineConfig::default();
         Arc::new(SecurityPipeline::new(config))
@@ -244,42 +279,14 @@ impl Gateway {
         Ok(())
     }
 
-    async fn init_memory_service(&self) -> openclaw_core::Result<()> {
-        use openclaw_memory::ai_adapter::AIProviderEmbeddingAdapter;
+    async fn init_memory_service(&self, memory_manager: Arc<MemoryManager>) -> openclaw_core::Result<()> {
         use openclaw_vector::MemoryStore;
 
-        let ai_provider = self.create_ai_provider().await?;
-        
-        let embedding_provider = AIProviderEmbeddingAdapter::new(
-            ai_provider.clone(),
-            "text-embedding-3-small".to_string(),
-            1536,
-        );
-
         let vector_store: Arc<dyn openclaw_vector::VectorStore> = Arc::new(MemoryStore::new());
-        
-        let config = openclaw_memory::types::MemoryConfig {
-            working: openclaw_memory::types::WorkingMemoryConfig::default(),
-            short_term: openclaw_memory::types::ShortTermMemoryConfig::default(),
-            long_term: openclaw_memory::types::LongTermMemoryConfig {
-                enabled: true,
-                backend: "memory".to_string(),
-                collection: "openclaw_memories".to_string(),
-                embedding_provider: self.config.ai.default_provider.clone(),
-                embedding_model: "text-embedding-3-small".to_string(),
-                custom_embedding: None,
-            },
-        };
-
-        let memory_manager = Arc::new(
-            MemoryManager::new(config)
-                .with_vector_store(vector_store.clone())
-                .with_embedding_provider(embedding_provider)
-        );
 
         self.memory_service.init(memory_manager, vector_store).await;
 
-        tracing::info!("Memory service initialized with embedding provider");
+        tracing::info!("Memory service initialized (reusing agent's MemoryManager)");
         Ok(())
     }
 }

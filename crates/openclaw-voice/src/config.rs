@@ -19,7 +19,7 @@ impl VoiceConfigManager {
         let home = std::env::var("HOME")
             .or_else(|_| std::env::var("USERPROFILE"))
             .unwrap_or_else(|_| ".".to_string());
-        PathBuf::from(home).join(".openclaw").join("voice.json")
+        PathBuf::from(home).join(".openclaw-rust").join("voice.json")
     }
 
     /// 加载配置

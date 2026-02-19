@@ -133,7 +133,7 @@ impl LocalWhisperStt {
             .or_else(|_| std::env::var("USERPROFILE"))
             .unwrap_or_else(|_| ".".to_string());
         Ok(std::path::PathBuf::from(home)
-            .join(".openclaw")
+            .join(".openclaw-rust")
             .join("models"))
     }
 

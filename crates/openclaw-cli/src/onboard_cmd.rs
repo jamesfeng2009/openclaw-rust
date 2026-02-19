@@ -537,7 +537,7 @@ fn get_env_var_name(provider: &str) -> String {
 
 fn get_config_path() -> Result<PathBuf> {
     let home = dirs::home_dir().context("Cannot find home directory")?;
-    let config_dir = home.join(".openclaw");
+    let config_dir = home.join(".openclaw-rust");
     Ok(config_dir.join("config.json"))
 }
 

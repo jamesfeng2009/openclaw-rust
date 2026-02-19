@@ -11,7 +11,7 @@ use std::path::PathBuf;
 /// 通道配置文件路径
 fn get_channel_config_path() -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-    home.join(".openclaw").join("channels.json")
+    home.join(".openclaw-rust").join("channels.json")
 }
 
 /// 通道配置管理器

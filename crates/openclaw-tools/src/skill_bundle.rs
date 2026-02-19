@@ -321,7 +321,7 @@ pub struct SkillOverride {
 impl WorkspaceSkillsConfig {
     /// 加载工作区配置
     pub fn load(workspace_path: &Path) -> Result<Self, BundleError> {
-        let config_path = workspace_path.join(".openclaw").join("skills.json");
+        let config_path = workspace_path.join(".openclaw-rust").join("skills.json");
 
         if config_path.exists() {
             let content = std::fs::read_to_string(&config_path)?;
@@ -340,7 +340,7 @@ impl WorkspaceSkillsConfig {
 
     /// 保存工作区配置
     pub fn save(&self) -> Result<(), BundleError> {
-        let config_dir = self.workspace_path.join(".openclaw");
+        let config_dir = self.workspace_path.join(".openclaw-rust");
         std::fs::create_dir_all(&config_dir)?;
 
         let config_path = config_dir.join("skills.json");

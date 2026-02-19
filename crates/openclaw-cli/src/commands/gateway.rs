@@ -6,7 +6,7 @@ use openclaw_core::Config;
 use openclaw_server::Gateway;
 
 fn get_config_path() -> Option<PathBuf> {
-    dirs::config_dir().map(|p| p.join("openclaw-rust").join("openclaw.json"))
+    dirs::home_dir().map(|p| p.join(".openclaw-rust").join("openclaw.json"))
 }
 
 pub async fn run(

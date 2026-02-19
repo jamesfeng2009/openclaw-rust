@@ -201,7 +201,7 @@ pub async fn run(quick: bool, force: bool) -> Result<()> {
 /// 获取配置路径
 fn get_config_path() -> Result<PathBuf> {
     let home = dirs::home_dir().context("无法获取用户主目录")?;
-    Ok(home.join(".openclaw").join("openclaw.json"))
+    Ok(home.join(".openclaw-rust").join("openclaw.json"))
 }
 
 /// 保存配置
