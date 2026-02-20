@@ -166,56 +166,68 @@ impl ServiceOrchestrator {
     }
 
     pub async fn register_agent(&self, id: String, agent: Arc<dyn Agent>) {
-        let mut agents = self.agent_service.agents.write().await;
-        
-        let should_inject = {
-            let provider = self.ai_provider.read().await;
-            let memory = self.memory_manager.read().await;
-            let pipeline = self.security_pipeline.read().await;
-            provider.is_some() && memory.is_some() && pipeline.is_some()
+        let (should_inject, agent_to_inject) = {
+            let mut agents = self.agent_service.agents.write().await;
+            
+            let should_inject = {
+                let provider = self.ai_provider.read().await;
+                let memory = self.memory_manager.read().await;
+                let pipeline = self.security_pipeline.read().await;
+                provider.is_some() && memory.is_some() && pipeline.is_some()
+            };
+            
+            let agent_to_inject = if should_inject {
+                Some(agent.clone())
+            } else {
+                None
+            };
+            
+            agents.insert(id.clone(), agent);
+            
+            (should_inject, agent_to_inject)
         };
         
         if should_inject {
-            let agent_clone = agent.clone();
-            let ai_provider = self.ai_provider.clone();
-            let memory_manager = self.memory_manager.clone();
-            let security_pipeline = self.security_pipeline.clone();
-            tokio::spawn(async move {
-                let ai = {
-                    let p = ai_provider.read().await;
-                    p.clone()
-                };
-                let mem = {
-                    let m = memory_manager.read().await;
-                    m.clone()
-                };
-                let sec = {
-                    let s = security_pipeline.read().await;
-                    s.clone()
-                };
-                if let (Some(ai), Some(mem), Some(sec)) = (ai, mem, sec) {
-                    agent_clone.inject_dependencies(ai, mem, sec).await;
-                }
-            });
+            if let Some(agent_to_inject) = agent_to_inject {
+                let ai_provider = self.ai_provider.clone();
+                let memory_manager = self.memory_manager.clone();
+                let security_pipeline = self.security_pipeline.clone();
+                tokio::spawn(async move {
+                    let ai = {
+                        let p = ai_provider.read().await;
+                        p.clone()
+                    };
+                    let mem = {
+                        let m = memory_manager.read().await;
+                        m.clone()
+                    };
+                    let sec = {
+                        let s = security_pipeline.read().await;
+                        s.clone()
+                    };
+                    if let (Some(ai), Some(sec)) = (ai, sec) {
+                        if let Some(m) = mem {
+                            agent_to_inject.inject_dependencies(ai, Some(m), sec).await;
+                        }
+                    }
+                });
+            }
         }
-        
-        agents.insert(id, agent);
     }
 
     pub async fn inject_dependencies(
         &self,
         ai_provider: Arc<dyn AIProvider>,
-        memory_manager: Arc<MemoryManager>,
+        memory_manager: Option<Arc<MemoryManager>>,
         security_pipeline: Arc<SecurityPipeline>,
     ) {
-        // 保存依赖供 register_agent 使用
         {
             let mut provider = self.ai_provider.write().await;
             *provider = Some(ai_provider.clone());
         }
         {
             let mut memory = self.memory_manager.write().await;
-            *memory = Some(memory_manager.clone());
+            *memory = memory_manager.clone();
         }
         {
             let mut pipeline = self.security_pipeline.write().await;
@@ -227,10 +239,11 @@ impl ServiceOrchestrator {
             agents.values().cloned().collect()
         };
 
+        let mem_lock = memory_manager.clone();
         for agent in agents {
             agent.inject_dependencies(
                 ai_provider.clone(),
-                memory_manager.clone(),
+                mem_lock.clone(),
                 security_pipeline.clone(),
             ).await;
         }

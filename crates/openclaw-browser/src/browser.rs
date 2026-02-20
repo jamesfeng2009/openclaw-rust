@@ -39,6 +39,7 @@ pub enum BrowserError {
 pub struct Browser {
     pub id: BrowserId,
     inner: ChromiumBrowser,
+    #[allow(dead_code)]
     config: BrowserConfig,
     pages: Arc<RwLock<HashMap<PageId, Arc<Page>>>>,
 }

@@ -237,25 +237,33 @@ impl SessionPruner {
         let protected = 0;
         let mut space = 0;
 
-        // 按原始顺序遍历，删除非保护消息直到达到目标数量
-        for (idx, msg) in messages.iter().enumerate() {
-            if self.config.protect_important && msg.should_protect() {
-                continue;
-            }
+        let mut candidates: Vec<(usize, &T)> = messages
+            .iter()
+            .enumerate()
+            .filter(|(_, msg)| {
+                if self.config.protect_important && msg.should_protect() {
+                    return false;
+                }
+                if msg.importance() >= self.config.importance_threshold {
+                    return false;
+                }
+                true
+            })
+            .collect();
 
-            if msg.importance() >= self.config.importance_threshold {
-                continue;
-            }
+        candidates.sort_by(|a, b| {
+            a.1.importance()
+                .partial_cmp(&b.1.importance())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
+        let to_remove_count = excess.min(candidates.len());
+        for i in 0..to_remove_count {
+            let (idx, msg) = candidates[i];
             to_remove.push(idx);
             space += msg.size_estimate();
-
-            if to_remove.len() >= excess {
-                break;
-            }
         }
 
-        // 从后往前删除以保持索引正确
         to_remove.sort();
         to_remove.reverse();
 

@@ -80,7 +80,8 @@ impl Gateway {
             let (ai_provider, memory_manager) = self.inject_dependencies_to_agents(orchestrator).await?;
 
             if self.config.server.enable_agents {
-                self.init_memory_service(memory_manager).await?;
+                let inner_memory = memory_manager.read().await.clone();
+                self.init_memory_service(inner_memory).await?;
             }
         }
 
@@ -129,7 +130,7 @@ impl Gateway {
     async fn inject_dependencies_to_agents(
         &self,
         orchestrator: &ServiceOrchestrator,
-    ) -> openclaw_core::Result<(Arc<dyn AIProvider>, Arc<MemoryManager>)> {
+    ) -> openclaw_core::Result<(Arc<dyn AIProvider>, Arc<tokio::sync::RwLock<Arc<MemoryManager>>>)> {
         let ai_provider = self.create_ai_provider().await?;
         tracing::info!("AI Provider created: {}", self.config.ai.default_provider);
 
@@ -139,13 +140,15 @@ impl Gateway {
         let security_pipeline = self.create_security_pipeline();
         tracing::info!("Security Pipeline created");
 
+        let memory_lock: Arc<tokio::sync::RwLock<Arc<MemoryManager>>> = Arc::new(tokio::sync::RwLock::new(memory_manager));
+        let memory_for_orchestrator = Some(memory_lock.read().await.clone());
         orchestrator
-            .inject_dependencies(ai_provider.clone(), memory_manager.clone(), security_pipeline)
+            .inject_dependencies(ai_provider.clone(), memory_for_orchestrator, security_pipeline)
             .await;
 
         tracing::info!("Dependencies injected to all agents");
         
-        Ok((ai_provider, memory_manager))
+        Ok((ai_provider, memory_lock))
     }
 
     async fn create_ai_provider(&self) -> openclaw_core::Result<Arc<dyn AIProvider>> {

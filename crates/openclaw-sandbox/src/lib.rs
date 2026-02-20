@@ -14,6 +14,6 @@ pub use docker::*;
 pub use manager::*;
 pub use permission::*;
 pub use podman::*;
-pub use sandbox::*;
+pub use sandbox::SandboxManager as SandboxManagerImpl;
 pub use types::*;
 pub use wasm::*;

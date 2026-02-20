@@ -26,7 +26,6 @@ pub struct FilterResult {
 pub struct InputFilter {
     keyword_blacklist: Arc<RwLock<HashSet<String>>>,
     regex_patterns: Arc<RwLock<Vec<Regex>>>,
-    default_action: FilterAction,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -96,7 +95,6 @@ impl InputFilter {
         Self {
             keyword_blacklist: Arc::new(RwLock::new(blacklist)),
             regex_patterns: Arc::new(RwLock::new(patterns)),
-            default_action: FilterAction::Sanitize,
         }
     }
 
@@ -142,7 +140,7 @@ impl InputFilter {
             matched_patterns, threat_level
         );
 
-        let allowed = threat_level < ThreatLevel::High;
+        let allowed = threat_level < ThreatLevel::Medium;
 
         FilterResult {
             allowed,

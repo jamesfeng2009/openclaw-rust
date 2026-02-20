@@ -389,12 +389,7 @@ impl SessionManager {
         channel_type: Option<String>,
         peer_id: Option<String>,
     ) -> crate::Result<Session> {
-        let key = format!(
-            "{}:{}:{}",
-            session_scope_to_string(&scope),
-            channel_type.as_deref().unwrap_or("unknown"),
-            peer_id.as_deref().unwrap_or("unknown")
-        );
+        let key = session_scope_to_key(&scope, channel_type.as_deref(), peer_id.as_deref(), None);
 
         if let Some(session) = self.storage.find_by_key(&key, &agent_id).await?
             && session.is_active()
@@ -523,6 +518,40 @@ pub fn session_scope_to_string(scope: &SessionScope) -> &'static str {
         SessionScope::PerPeer => "per_peer",
         SessionScope::PerChannelPeer => "per_channel_peer",
         SessionScope::PerAccountChannelPeer => "per_account_channel_peer",
+    }
+}
+
+pub fn session_scope_to_key(
+    scope: &SessionScope,
+    channel_type: Option<&str>,
+    peer_id: Option<&str>,
+    account_id: Option<&str>,
+) -> String {
+    match scope {
+        SessionScope::Main => "main".to_string(),
+        SessionScope::PerPeer => {
+            format!(
+                "{}:{}",
+                channel_type.unwrap_or("unknown"),
+                peer_id.unwrap_or("unknown")
+            )
+        }
+        SessionScope::PerChannelPeer => {
+            format!(
+                "{}:{}:{}",
+                channel_type.unwrap_or("unknown"),
+                account_id.unwrap_or("unknown"),
+                peer_id.unwrap_or("unknown")
+            )
+        }
+        SessionScope::PerAccountChannelPeer => {
+            format!(
+                "{}:{}:{}",
+                channel_type.unwrap_or("unknown"),
+                account_id.unwrap_or("unknown"),
+                peer_id.unwrap_or("unknown")
+            )
+        }
     }
 }
 

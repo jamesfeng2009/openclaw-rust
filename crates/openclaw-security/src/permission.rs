@@ -60,8 +60,6 @@ pub enum GrantResult {
 
 pub struct PermissionManager {
     tool_permissions: Arc<RwLock<HashMap<String, ToolPermission>>>,
-    roles: Arc<RwLock<HashMap<String, Role>>>,
-    user_roles: Arc<RwLock<HashMap<String, Vec<String>>>>,
     global_deny_list: Arc<RwLock<Vec<String>>>,
 }
 
@@ -214,8 +212,6 @@ impl PermissionManager {
 
         Self {
             tool_permissions: Arc::new(RwLock::new(tool_perms)),
-            roles: Arc::new(RwLock::new(HashMap::new())),
-            user_roles: Arc::new(RwLock::new(HashMap::new())),
             global_deny_list: Arc::new(RwLock::new(vec![])),
         }
     }

@@ -53,6 +53,7 @@ pub struct DockerClient {
 #[derive(Debug, Clone)]
 struct ContainerInfo {
     container_id: ContainerId,
+    #[allow(dead_code)]
     config: SandboxConfig,
     status: SandboxStatus,
 }
