@@ -2,16 +2,45 @@
 
 use std::sync::Arc;
 
+use chrono::Utc;
 use openclaw_core::{Message, OpenClawError, Result};
 use openclaw_vector::VectorStore;
 
 use crate::compressor::MemoryCompressor;
+use crate::conflict_resolver::{ConflictResolver, ResolutionMethod};
 use crate::embedding::EmbeddingProvider;
+use crate::fact_extractor::AtomicFact;
 use crate::hybrid_search::{HybridSearchConfig, HybridSearchManager};
 use crate::recall::{MemoryRecall, RecallResult, SimpleMemoryRecall};
 use crate::scorer::ImportanceScorer;
 use crate::types::{MemoryConfig, MemoryContent, MemoryItem, MemoryLevel, MemoryRetrieval};
 use crate::working::WorkingMemory;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActiveLearningTrigger {
+    OnError,
+    OnSuccess,
+    OnUncertainty,
+    OnUserFeedback,
+    OnTimeInterval,
+}
+
+#[derive(Debug, Clone)]
+pub struct ActiveLearningConfig {
+    pub enabled_triggers: Vec<ActiveLearningTrigger>,
+    pub auto_interval_minutes: u32,
+    pub min_importance_for_learning: f32,
+}
+
+impl Default for ActiveLearningConfig {
+    fn default() -> Self {
+        Self {
+            enabled_triggers: vec![ActiveLearningTrigger::OnError, ActiveLearningTrigger::OnTimeInterval],
+            auto_interval_minutes: 30,
+            min_importance_for_learning: 0.7,
+        }
+    }
+}
 
 /// 记忆管理器 - 统一管理三层记忆
 pub struct MemoryManager {
@@ -23,6 +52,8 @@ pub struct MemoryManager {
     scorer: ImportanceScorer,
     compressor: MemoryCompressor,
     embedding_provider: Option<Arc<dyn EmbeddingProvider>>,
+    conflict_resolver: ConflictResolver,
+    extracted_facts: Vec<AtomicFact>,
 }
 
 impl MemoryManager {
@@ -36,6 +67,8 @@ impl MemoryManager {
             compressor: MemoryCompressor::new(config.short_term.clone()),
             config,
             embedding_provider: None,
+            conflict_resolver: ConflictResolver::new(),
+            extracted_facts: Vec::new(),
         }
     }
 
@@ -59,13 +92,13 @@ impl MemoryManager {
 
     /// 自动召回相关记忆
     pub async fn recall(&self, query: &str) -> Result<RecallResult> {
-        if let Some(provider) = &self.embedding_provider {
-            let recall_tool = SimpleMemoryRecall::new(provider.clone());
+        if let (Some(provider), Some(store)) = (&self.embedding_provider, &self.long_term) {
+            let recall_tool = SimpleMemoryRecall::new(provider.clone(), store.clone());
             let result = recall_tool.recall(query, None).await?;
             Ok(result)
         } else {
             Err(OpenClawError::Memory(
-                "Embedding provider not configured".to_string(),
+                "Embedding provider or VectorStore not configured".to_string(),
             ))
         }
     }
@@ -98,6 +131,183 @@ impl MemoryManager {
         }
 
         Ok(())
+    }
+
+    /// 从消息中提取原子事实并检测冲突
+    pub async fn extract_and_resolve_facts(&mut self, message: &Message) -> Result<Vec<AtomicFact>> {
+        let text = message.text_content().unwrap_or_default().to_string();
+        let category = crate::fact_extractor::FactCategory::from_text(&text);
+        
+        let new_fact = AtomicFact::new(text, category)
+            .with_source(message.id.to_string());
+
+        let mut all_facts = self.extracted_facts.clone();
+        all_facts.push(new_fact);
+
+        let conflicts = self.conflict_resolver.detect_conflicts(&all_facts);
+        
+        if !conflicts.is_empty() {
+            let resolved = self.conflict_resolver.resolve_facts(&all_facts, ResolutionMethod::Latest);
+            self.extracted_facts = resolved;
+        } else {
+            self.extracted_facts = all_facts;
+        }
+
+        Ok(self.extracted_facts.clone())
+    }
+
+    /// 检测记忆中的冲突
+    pub fn detect_conflicts(&self) -> Vec<crate::conflict_resolver::Conflict> {
+        self.conflict_resolver.detect_conflicts(&self.extracted_facts)
+    }
+
+    /// 解决所有冲突
+    pub fn resolve_all_conflicts(&mut self, method: ResolutionMethod) -> Vec<AtomicFact> {
+        let resolved = self.conflict_resolver.resolve_facts(&self.extracted_facts, method);
+        self.extracted_facts = resolved.clone();
+        resolved
+    }
+
+    /// 获取已提取的事实
+    pub fn get_facts(&self) -> &[AtomicFact] {
+        &self.extracted_facts
+    }
+
+    /// 清除所有提取的事实
+    pub fn clear_facts(&mut self) {
+        self.extracted_facts.clear();
+    }
+
+    /// 主动记录错误信息
+    pub fn record_error(&mut self, error: &str, solution: &str) -> Result<()> {
+        if !self.extracted_facts.is_empty() {
+            let fact = AtomicFact::new(
+                format!("错误: {} -> 解决方案: {}", error, solution),
+                crate::fact_extractor::FactCategory::Error,
+            );
+            self.extracted_facts.push(fact);
+        }
+        Ok(())
+    }
+
+    /// 主动记录成功经验
+    pub fn record_success(&mut self, action: &str, outcome: &str) -> Result<()> {
+        let fact = AtomicFact::new(
+            format!("成功: {} -> {}", action, outcome),
+            crate::fact_extractor::FactCategory::Action,
+        );
+        self.extracted_facts.push(fact);
+        Ok(())
+    }
+
+    /// 主动记录用户反馈
+    pub fn record_feedback(&mut self, feedback: &str, adjustment: &str) -> Result<()> {
+        let fact = AtomicFact::new(
+            format!("反馈: {} -> 调整: {}", feedback, adjustment),
+            crate::fact_extractor::FactCategory::Feedback,
+        );
+        self.extracted_facts.push(fact);
+        Ok(())
+    }
+
+    /// 检查是否应该触发主动学习
+    pub fn should_trigger_learning(&self, trigger: ActiveLearningTrigger, config: &ActiveLearningConfig) -> bool {
+        config.enabled_triggers.contains(&trigger)
+    }
+
+    /// 周期性主动总结
+    pub async fn periodic_summary(&mut self) -> Result<String> {
+        let mut summary_parts = Vec::new();
+        
+        summary_parts.push(format!("=== {} 记忆总结 ===", chrono::Utc::now().format("%Y-%m-%d %H:%M")));
+        
+        if !self.extracted_facts.is_empty() {
+            summary_parts.push("\n## 关键事实:".to_string());
+            for fact in &self.extracted_facts {
+                summary_parts.push(format!("- {}", fact.content));
+            }
+        }
+
+        if !self.short_term.is_empty() {
+            summary_parts.push(format!("\n## 短期记忆 ({}) 项:", self.short_term.len()));
+        }
+
+        let result = summary_parts.join("\n");
+        
+        if !result.is_empty() {
+            let fact = AtomicFact::new(
+                result.clone(),
+                crate::fact_extractor::FactCategory::Summary,
+            );
+            self.extracted_facts.push(fact);
+        }
+
+        Ok(result)
+    }
+
+    /// 导出所有记忆为 Markdown 格式
+    pub fn export_to_markdown(&self) -> String {
+        let mut md = String::new();
+        
+        md.push_str("# 记忆导出\n\n");
+        md.push_str(&format!("导出时间: {}\n\n", Utc::now().format("%Y-%m-%d %H:%M:%S UTC")));
+        
+        md.push_str("## 工作记忆\n\n");
+        let working_items = self.working.get_all();
+        if working_items.is_empty() {
+            md.push_str("*空*\n\n");
+        } else {
+            for item in &working_items {
+                md.push_str(&format!("### {}\n", item.id));
+                md.push_str(&format!("- 层级: {:?}\n", item.level));
+                md.push_str(&format!("- 访问次数: {}\n", item.access_count));
+                md.push_str(&format!("- 重要性: {:.2}\n", item.importance_score));
+                md.push_str(&format!("- 创建时间: {}\n", item.created_at.format("%Y-%m-%d %H:%M")));
+                md.push_str(&format!("- 内容: {}\n\n", item.content.to_text()));
+            }
+        }
+        
+        md.push_str("## 短期记忆\n\n");
+        if self.short_term.is_empty() {
+            md.push_str("*空*\n\n");
+        } else {
+            for item in &self.short_term {
+                md.push_str(&format!("### {}\n", item.id));
+                md.push_str(&format!("- 访问次数: {}\n", item.access_count));
+                md.push_str(&format!("- 重要性: {:.2}\n", item.importance_score));
+                md.push_str(&format!("- 内容: {}\n\n", item.content.to_text()));
+            }
+        }
+        
+        md.push_str("## 提取的事实\n\n");
+        if self.extracted_facts.is_empty() {
+            md.push_str("*空*\n\n");
+        } else {
+            for fact in &self.extracted_facts {
+                md.push_str(&format!("- **[{:?}]** {}\n", fact.category, fact.content));
+            }
+            md.push('\n');
+        }
+        
+        md
+    }
+
+    /// 导出记忆为带元数据的 Markdown 文件
+    pub fn export_with_metadata(&self, include_stats: bool) -> String {
+        let mut md = self.export_to_markdown();
+        
+        if include_stats {
+            md.push_str("## 统计信息\n\n");
+            let stats = self.stats();
+            md.push_str(&format!("- 工作记忆项: {}\n", stats.working_count));
+            md.push_str(&format!("- 工作记忆Token: {}\n", stats.working_tokens));
+            md.push_str(&format!("- 短期记忆项: {}\n", stats.short_term_count));
+            md.push_str(&format!("- 短期记忆Token: {}\n", stats.short_term_tokens));
+            md.push_str(&format!("- 长期记忆启用: {}\n", stats.long_term_enabled));
+            md.push_str(&format!("- 已提取事实: {}\n", self.extracted_facts.len()));
+        }
+        
+        md
     }
 
     /// 检索相关记忆
@@ -288,5 +498,100 @@ mod tests {
             preview: "Preview text".to_string(),
         };
         assert_eq!(vector_ref.to_text(), "Preview text");
+    }
+
+    #[test]
+    fn test_active_learning_config_default() {
+        let config = ActiveLearningConfig::default();
+        assert!(config.enabled_triggers.contains(&ActiveLearningTrigger::OnError));
+        assert!(config.enabled_triggers.contains(&ActiveLearningTrigger::OnTimeInterval));
+        assert_eq!(config.auto_interval_minutes, 30);
+    }
+
+    #[test]
+    fn test_active_learning_trigger_equality() {
+        let trigger1 = ActiveLearningTrigger::OnError;
+        let trigger2 = ActiveLearningTrigger::OnError;
+        let trigger3 = ActiveLearningTrigger::OnSuccess;
+        
+        assert_eq!(trigger1, trigger2);
+        assert_ne!(trigger1, trigger3);
+    }
+
+    #[test]
+    fn test_active_learning_config_custom() {
+        let config = ActiveLearningConfig {
+            enabled_triggers: vec![ActiveLearningTrigger::OnSuccess, ActiveLearningTrigger::OnUserFeedback],
+            auto_interval_minutes: 60,
+            min_importance_for_learning: 0.8,
+        };
+        
+        assert!(config.enabled_triggers.contains(&ActiveLearningTrigger::OnSuccess));
+        assert!(!config.enabled_triggers.contains(&ActiveLearningTrigger::OnError));
+        assert_eq!(config.auto_interval_minutes, 60);
+    }
+
+    #[tokio::test]
+    async fn test_record_error() {
+        let mut manager = MemoryManager::default();
+        manager.extract_and_resolve_facts(&Message::user("test")).await.unwrap();
+        
+        let result = manager.record_error("test error", "fix solution");
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_record_success() {
+        let mut manager = MemoryManager::default();
+        
+        let result = manager.record_success("did something", "got good result");
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_record_feedback() {
+        let mut manager = MemoryManager::default();
+        
+        let result = manager.record_feedback("user feedback", "adjustment");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_trigger_learning() {
+        let manager = MemoryManager::default();
+        let config = ActiveLearningConfig::default();
+        
+        assert!(manager.should_trigger_learning(ActiveLearningTrigger::OnError, &config));
+        assert!(manager.should_trigger_learning(ActiveLearningTrigger::OnTimeInterval, &config));
+        assert!(!manager.should_trigger_learning(ActiveLearningTrigger::OnSuccess, &config));
+    }
+
+    #[test]
+    fn test_export_to_markdown() {
+        let manager = MemoryManager::default();
+        let md = manager.export_to_markdown();
+        
+        assert!(md.contains("# 记忆导出"));
+        assert!(md.contains("## 工作记忆"));
+        assert!(md.contains("## 短期记忆"));
+        assert!(md.contains("## 提取的事实"));
+    }
+
+    #[test]
+    fn test_export_with_metadata() {
+        let manager = MemoryManager::default();
+        let md = manager.export_with_metadata(true);
+        
+        assert!(md.contains("## 统计信息"));
+        assert!(md.contains("工作记忆项:"));
+        assert!(md.contains("短期记忆项:"));
+    }
+
+    #[test]
+    fn test_export_empty_memory() {
+        let manager = MemoryManager::default();
+        let md = manager.export_to_markdown();
+        
+        assert!(md.contains("*空*"));
     }
 }

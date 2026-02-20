@@ -2,6 +2,20 @@ use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum DecayFunction {
+    Exponential,
+    Linear,
+    Logarithmic,
+    Step,
+}
+
+impl Default for DecayFunction {
+    fn default() -> Self {
+        DecayFunction::Exponential
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecallItem {
     pub id: String,
@@ -21,6 +35,7 @@ pub struct RecallConfig {
     pub recency_weight: f32,
     pub importance_weight: f32,
     pub decay_half_life_days: f32,
+    pub decay_function: DecayFunction,
     pub min_score: f32,
     pub max_results: usize,
 }
@@ -33,6 +48,7 @@ impl Default for RecallConfig {
             recency_weight: 0.15,
             importance_weight: 0.15,
             decay_half_life_days: 7.0,
+            decay_function: DecayFunction::Exponential,
             min_score: 0.1,
             max_results: 10,
         }
@@ -233,6 +249,79 @@ mod tests {
         let old = strategy.calculate_recency_score(now - 7 * 24 * 60 * 60, now);
 
         assert!(recent > old);
+    }
+
+    #[test]
+    fn test_decay_function_exponential() {
+        let config = RecallConfig {
+            decay_function: DecayFunction::Exponential,
+            ..Default::default()
+        };
+        let strategy = RecallStrategy::new(config);
+
+        let now = Utc::now().timestamp();
+        let score = strategy.calculate_recency_score(now, now);
+        assert_eq!(score, 1.0);
+    }
+
+    #[test]
+    fn test_decay_function_linear() {
+        let config = RecallConfig {
+            decay_function: DecayFunction::Linear,
+            decay_half_life_days: 7.0,
+            ..Default::default()
+        };
+        let strategy = RecallStrategy::new(config);
+
+        let now = Utc::now().timestamp();
+        let recent = strategy.calculate_recency_score(now, now);
+        let old = strategy.calculate_recency_score(now - 14 * 24 * 60 * 60, now);
+
+        assert!(recent > old);
+    }
+
+    #[test]
+    fn test_decay_function_logarithmic() {
+        let config = RecallConfig {
+            decay_function: DecayFunction::Logarithmic,
+            decay_half_life_days: 7.0,
+            ..Default::default()
+        };
+        let strategy = RecallStrategy::new(config);
+
+        let now = Utc::now().timestamp();
+        let score = strategy.calculate_recency_score(now, now);
+        assert_eq!(score, 1.0);
+    }
+
+    #[test]
+    fn test_decay_function_step() {
+        let config = RecallConfig {
+            decay_function: DecayFunction::Step,
+            decay_half_life_days: 7.0,
+            ..Default::default()
+        };
+        let strategy = RecallStrategy::new(config);
+
+        let now = Utc::now().timestamp();
+        
+        let recent = strategy.calculate_recency_score(now, now);
+        assert_eq!(recent, 1.0);
+
+        let old = strategy.calculate_recency_score(now - 14 * 24 * 60 * 60, now);
+        assert!(old < recent);
+    }
+
+    #[test]
+    fn test_decay_function_default() {
+        let config = RecallConfig::default();
+        assert_eq!(config.decay_function, DecayFunction::Exponential);
+    }
+
+    #[test]
+    fn test_recall_config_weights() {
+        let config = RecallConfig::default();
+        assert!((config.vector_weight + config.bm25_weight + config.recency_weight + config.importance_weight - 1.0).abs() < 0.001);
     }
 
     #[test]

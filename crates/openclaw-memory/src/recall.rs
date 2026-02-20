@@ -4,11 +4,11 @@
 
 use async_trait::async_trait;
 use openclaw_core::{Message, Result};
-use openclaw_vector::{SearchQuery, VectorItem};
+use openclaw_vector::SearchQuery;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::embedding::{Embedding, Embeddings, EmbeddingProvider};
+use crate::embedding::EmbeddingProvider;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecallConfig {
@@ -69,7 +69,7 @@ impl SimpleMemoryRecall {
 
 #[async_trait]
 impl MemoryRecall for SimpleMemoryRecall {
-    async fn recall(&self, query: &str, context: Option<&[Message]>) -> Result<RecallResult> {
+    async fn recall(&self, query: &str, _context: Option<&[Message]>) -> Result<RecallResult> {
         let query_embedding = self.embedding.embed(query).await?;
 
         let search_query = SearchQuery {
@@ -107,6 +107,8 @@ impl MemoryRecall for SimpleMemoryRecall {
 mod tests {
     use super::*;
     use openclaw_vector::{VectorStore, MemoryStore};
+    use crate::embedding::{Embedding, Embeddings};
+    use openclaw_vector::VectorItem;
 
     struct MockEmbeddingProvider;
 
