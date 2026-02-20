@@ -32,6 +32,13 @@ pub mod scorer;
 pub mod store;
 pub mod types;
 pub mod unified_search;
+pub mod checkpoint;
+pub mod checkpoint_store;
+pub mod file_watcher;
+
+pub use checkpoint::*;
+pub use checkpoint_store::*;
+pub use file_watcher::*;
 pub mod working;
 pub mod workspace;
 
