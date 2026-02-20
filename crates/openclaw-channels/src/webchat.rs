@@ -4,6 +4,7 @@
 
 use async_trait::async_trait;
 use futures::Stream;
+use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 
@@ -11,6 +12,8 @@ use openclaw_core::{OpenClawError, Result};
 
 use crate::base::Channel;
 use crate::types::{ChannelMessage, ChannelType, SendMessage};
+
+type HmacSha256 = Hmac<sha2::Sha256>;
 
 /// WebChat 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,14 +93,18 @@ impl WebChatClient {
     /// 验证 Webhook 签名
     pub fn verify_signature(&self, payload: &str, signature: &str) -> bool {
         if let Some(secret) = &self.config.webhook_secret {
-            use hmac::{Hmac, Mac};
-            type HmacSha256 = Hmac<sha2::Sha256>;
-
-            let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
-            mac.update(payload.as_bytes());
-            let result = mac.finalize();
-            let expected = hex::encode(result.into_bytes());
-            signature == expected
+            match HmacSha256::new_from_slice(secret.as_bytes()) {
+                Ok(mut mac) => {
+                    mac.update(payload.as_bytes());
+                    let result = mac.finalize();
+                    let expected = hex::encode(result.into_bytes());
+                    signature == expected
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to create HMAC: {}", e);
+                    false
+                }
+            }
         } else {
             true
         }

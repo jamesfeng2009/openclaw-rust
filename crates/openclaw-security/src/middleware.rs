@@ -17,7 +17,7 @@ impl<T> SecureToolExecutor<T> {
     pub fn new(inner: T, tool_id: &str) -> Self {
         Self {
             inner,
-            input_filter: InputFilter::new(),
+            input_filter: InputFilter::new().expect("Failed to create InputFilter"),
             permission_manager: Arc::new(PermissionManager::new()),
             network_whitelist: Arc::new(NetworkWhitelist::new()),
             tool_id: tool_id.to_string(),
@@ -89,7 +89,7 @@ impl Default for SecurityMiddleware {
 impl SecurityMiddleware {
     pub fn new() -> Self {
         Self {
-            input_filter: InputFilter::new(),
+            input_filter: InputFilter::new().expect("Failed to create InputFilter"),
             permission_manager: Arc::new(PermissionManager::new()),
             network_whitelist: Arc::new(NetworkWhitelist::new()),
         }

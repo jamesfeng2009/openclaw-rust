@@ -61,7 +61,7 @@ impl SecurityPipeline {
 
         Self {
             config,
-            input_filter: InputFilter::new(),
+            input_filter: InputFilter::new().expect("Failed to create InputFilter"),
             classifier: PromptClassifier::new(),
             output_validator: OutputValidator::new(),
             audit_logger,

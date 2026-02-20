@@ -29,10 +29,34 @@ impl WorkingMemory {
         let should_compress = self.should_compress_internal(&items);
 
         if should_compress {
-            // 返回需要压缩的旧消息
-            let overflow = items.len().saturating_sub(self.config.max_messages / 2);
-            if overflow > 0 {
-                let drained: Vec<MemoryItem> = items.drain(..overflow).collect();
+            // 计算需要移除的条数：同时考虑条数和 token 数
+            let count_overflow = items.len().saturating_sub(self.config.max_messages);
+            let current_tokens = self.total_tokens_internal(&items);
+            let token_overflow = current_tokens.saturating_sub(self.config.max_tokens);
+            
+            // 估算每条消息的平均 token 数
+            let avg_tokens_per_item = if !items.is_empty() {
+                current_tokens / items.len()
+            } else {
+                1
+            };
+            
+            // 计算按 token 需要移除的条数
+            let token_based_overflow = if avg_tokens_per_item > 0 {
+                (token_overflow + avg_tokens_per_item - 1) / avg_tokens_per_item
+            } else {
+                0
+            };
+            
+            // 取两者的最大值
+            let overflow = count_overflow.max(token_based_overflow);
+            
+            // 确保不会移除过多，至少保留一半的 max_messages
+            let min_keep = self.config.max_messages / 2;
+            let actual_overflow = overflow.min(items.len().saturating_sub(min_keep));
+            
+            if actual_overflow > 0 {
+                let drained: Vec<MemoryItem> = items.drain(..actual_overflow).collect();
                 return Some(drained);
             }
         }

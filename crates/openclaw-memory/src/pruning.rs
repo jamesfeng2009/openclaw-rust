@@ -166,39 +166,37 @@ impl SessionPruner {
             return 0;
         }
 
-        // 收集所有会话并按最后访问时间排序
-        let keys_to_remove: Vec<String> = {
-            let mut session_list: Vec<_> = sessions.iter().collect();
-            session_list.sort_by_key(|(_, s)| s.last_accessed());
+        // 按最后访问时间升序排序，遍历直到删满 excess 个可删会话
+        let mut session_list: Vec<_> = sessions.iter().collect();
+        session_list.sort_by_key(|(_, s)| s.last_accessed());
 
-            let mut result: Vec<String> = Vec::new();
+        let mut keys_to_remove: Vec<String> = Vec::new();
 
-            for (id, session) in &session_list {
-                if result.len() >= excess {
+        for (id, session) in &session_list {
+            if keys_to_remove.len() >= excess {
+                break;
+            }
+            // 检查是否可以删除
+            if self.config.protect_important && session.should_protect() {
+                continue;
+            }
+            if session.importance() >= self.config.importance_threshold {
+                continue;
+            }
+            keys_to_remove.push(id.to_string());
+        }
+
+        // 如果保护机制导致无法删除足够会话，强制删除最旧会话直到满足数量
+        if sessions.len() > self.config.max_sessions && keys_to_remove.len() < excess {
+            for (id, _) in &session_list {
+                if sessions.len() - keys_to_remove.len() <= self.config.max_sessions {
                     break;
                 }
-                if self.config.protect_important && session.should_protect() {
-                    continue;
-                }
-                if session.importance() >= self.config.importance_threshold {
-                    continue;
-                }
-                result.push(id.to_string());
-            }
-
-            // 如果保护机制导致无法删除足够会话，强制删除最旧会话
-            if sessions.len() > self.config.max_sessions && result.len() < excess {
-                result.clear();
-                for (id, _) in session_list.iter() {
-                    if sessions.len() <= self.config.max_sessions {
-                        break;
-                    }
-                    result.push(id.to_string());
+                if !keys_to_remove.contains(id) {
+                    keys_to_remove.push(id.to_string());
                 }
             }
-
-            result
-        };
+        }
 
         let space: usize = keys_to_remove.iter()
             .filter_map(|id: &String| sessions.get(id))
@@ -232,51 +230,47 @@ impl SessionPruner {
         }
 
         let excess = messages.len() - self.config.max_messages_per_session;
-        let mut to_remove = Vec::new();
-        let mut pruned = 0;
-        let protected = 0;
-        let mut space = 0;
-
-        let mut candidates: Vec<(usize, &T)> = messages
-            .iter()
-            .enumerate()
-            .filter(|(_, msg)| {
-                if self.config.protect_important && msg.should_protect() {
-                    return false;
-                }
-                if msg.importance() >= self.config.importance_threshold {
-                    return false;
-                }
-                true
-            })
-            .collect();
-
-        candidates.sort_by(|a, b| {
-            a.1.importance()
-                .partial_cmp(&b.1.importance())
-                .unwrap_or(std::cmp::Ordering::Equal)
+        
+        // 按重要性升序排序（最不重要的在前），便于优先删除
+        let mut indexed_messages: Vec<(usize, &T)> = messages.iter().enumerate().collect();
+        indexed_messages.sort_by(|a, b| {
+            let importance_a = a.1.importance();
+            let importance_b = b.1.importance();
+            importance_a.partial_cmp(&importance_b).unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        let to_remove_count = excess.min(candidates.len());
-        for i in 0..to_remove_count {
-            let (idx, msg) = candidates[i];
-            to_remove.push(idx);
+        let mut to_remove = Vec::new();
+        let mut space = 0;
+
+        // 从低重要性开始选择可删除的消息
+        for (original_idx, msg) in indexed_messages {
+            if to_remove.len() >= excess {
+                break;
+            }
+            // 检查是否可以删除
+            if self.config.protect_important && msg.should_protect() {
+                continue;
+            }
+            if msg.importance() >= self.config.importance_threshold {
+                continue;
+            }
+            to_remove.push(original_idx);
             space += msg.size_estimate();
         }
 
+        // 从后往前删除以保持索引有效
         to_remove.sort();
         to_remove.reverse();
 
+        let pruned = to_remove.len();
         for idx in to_remove {
             messages.remove(idx);
-            pruned += 1;
         }
 
         // 更新统计
         {
             let mut stats = self.stats.write().await;
             stats.messages_pruned += pruned;
-            stats.messages_protected += protected;
             stats.space_freed += space;
         }
 

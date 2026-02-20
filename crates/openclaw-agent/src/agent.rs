@@ -383,15 +383,13 @@ impl Agent for BaseAgent {
 
                 // 写入对话到记忆
                 {
-                    let mut mem_guard = memory.write().await;
-                    if let Some(ref mut mem) = mem_guard.as_mut() {
-                        Arc::get_mut(mem).map(|mm| {
-                            if let Some(user_msg) = &user_input_message {
-                                let _ = futures::executor::block_on(mm.add(user_msg.clone()));
-                            }
-                            let assistant_message = openclaw_core::Message::assistant(final_output.clone());
-                            let _ = futures::executor::block_on(mm.add(assistant_message));
-                        });
+                    let mem_guard = memory.read().await;
+                    if let Some(mem) = mem_guard.as_ref() {
+                        if let Some(user_msg) = &user_input_message {
+                            let _ = mem.add(user_msg.clone()).await;
+                        }
+                        let assistant_message = openclaw_core::Message::assistant(final_output.clone());
+                        let _ = mem.add(assistant_message).await;
                     }
                 }
 
