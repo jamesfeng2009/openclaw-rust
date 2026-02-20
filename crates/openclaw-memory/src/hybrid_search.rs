@@ -1,35 +1,59 @@
-//! 混合搜索管理器 - 结合向量搜索和 FTS5 全文搜索
+//! 混合搜索管理器 - 结合向量搜索、BM25 全文搜索和知识图谱
+//!
+//! 支持三种搜索模式的灵活组合：
+//! - 向量搜索：语义相似度匹配
+//! - BM25 搜索：词频相关性匹配
+//! - 知识图谱搜索：实体关系推理
 
 use openclaw_core::Result;
 use openclaw_vector::{SearchQuery, SearchResult, VectorItem, VectorStore};
+use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
+use tokio::sync::RwLock;
+
+use crate::bm25::Bm25Index;
+use crate::knowledge_graph::KnowledgeGraph;
+use crate::unified_search::config::UnifiedSearchConfig;
+use crate::unified_search::fusion::{FusionStrategy, ResultFusion};
+use crate::unified_search::result::{SearchSource, UnifiedSearchResult};
 
 pub struct HybridSearchManager {
     vector_store: Arc<dyn VectorStore>,
-    #[allow(dead_code)]
     vector_weight: f32,
-    #[allow(dead_code)]
     keyword_weight: f32,
     embedding_dimension: usize,
+    bm25_index: Option<Arc<Bm25Index>>,
+    knowledge_graph: Option<Arc<RwLock<KnowledgeGraph>>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct HybridSearchConfig {
     pub vector_weight: f32,
     pub keyword_weight: f32,
+    pub bm25_weight: f32,
+    pub knowledge_graph_weight: f32,
     pub min_score: Option<f32>,
     pub limit: usize,
     pub embedding_dimension: Option<usize>,
+    pub enable_vector: bool,
+    pub enable_bm25: bool,
+    pub enable_knowledge_graph: bool,
 }
 
 impl Default for HybridSearchConfig {
     fn default() -> Self {
         Self {
-            vector_weight: 0.7,
+            vector_weight: 0.5,
             keyword_weight: 0.3,
+            bm25_weight: 0.3,
+            knowledge_graph_weight: 0.2,
             min_score: Some(0.0),
             limit: 10,
             embedding_dimension: None,
+            enable_vector: true,
+            enable_bm25: true,
+            enable_knowledge_graph: true,
         }
     }
 }
@@ -42,7 +66,19 @@ impl HybridSearchManager {
             vector_weight: config.vector_weight,
             keyword_weight: config.keyword_weight,
             embedding_dimension,
+            bm25_index: None,
+            knowledge_graph: None,
         }
+    }
+
+    pub fn with_bm25(mut self, bm25_index: Arc<Bm25Index>) -> Self {
+        self.bm25_index = Some(bm25_index);
+        self
+    }
+
+    pub fn with_knowledge_graph(mut self, kg: Arc<RwLock<KnowledgeGraph>>) -> Self {
+        self.knowledge_graph = Some(kg);
+        self
     }
 
     pub async fn search(
@@ -174,5 +210,99 @@ impl HybridSearchManager {
 
     pub async fn stats(&self) -> Result<openclaw_vector::StoreStats> {
         self.vector_store.stats().await
+    }
+
+    pub async fn unified_search(
+        &self,
+        query_text: &str,
+        query_vector: Option<Vec<f32>>,
+        config: &HybridSearchConfig,
+    ) -> Result<Vec<UnifiedSearchResult>> {
+        let mut vector_results: Vec<UnifiedSearchResult> = Vec::new();
+        let mut bm25_results: Vec<UnifiedSearchResult> = Vec::new();
+        let mut kg_results: Vec<UnifiedSearchResult> = Vec::new();
+
+        if config.enable_vector && config.vector_weight > 0.0 {
+            if let Some(vector) = query_vector {
+                let mut query = SearchQuery::new(vector);
+                query.limit = config.limit;
+                query.min_score = config.min_score;
+
+                let results = self.vector_store.search(query).await?;
+                vector_results = results
+                    .into_iter()
+                    .map(|r| {
+                        let content = r
+                            .payload
+                            .get("content")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        UnifiedSearchResult::new(r.id, content, r.score, SearchSource::Vector)
+                    })
+                    .collect();
+            }
+        }
+
+        if config.enable_bm25 && config.bm25_weight > 0.0 {
+            if let Some(ref bm25) = self.bm25_index {
+                let results = bm25.search(query_text, config.limit);
+                if let Ok(results) = results {
+                    bm25_results = results
+                        .into_iter()
+                        .map(|r| {
+                            UnifiedSearchResult::new(r.id, r.content, r.score, SearchSource::Bm25)
+                        })
+                        .collect();
+                }
+            }
+        }
+
+        if config.enable_knowledge_graph && config.knowledge_graph_weight > 0.0 {
+            if let Some(ref kg) = self.knowledge_graph {
+                let kg_guard = kg.read().await;
+                let query_lower = query_text.to_lowercase();
+                let query_terms: Vec<&str> = query_lower.split_whitespace().collect();
+                kg_results = self.knowledge_graph_search(&kg_guard, &query_terms);
+            }
+        }
+
+        let unified_config = UnifiedSearchConfig {
+            vector_weight: config.vector_weight,
+            bm25_weight: config.bm25_weight,
+            knowledge_graph_weight: config.knowledge_graph_weight,
+            min_score: config.min_score.unwrap_or(0.0),
+            max_results: config.limit,
+            enable_vector: config.enable_vector,
+            enable_bm25: config.enable_bm25,
+            enable_knowledge_graph: config.enable_knowledge_graph,
+        };
+
+        let fusion = ResultFusion::new(unified_config, FusionStrategy::Weighted);
+        let fused = fusion.fuse(&[vector_results, bm25_results, kg_results]);
+
+        Ok(fused)
+    }
+
+    fn knowledge_graph_search(
+        &self,
+        kg: &KnowledgeGraph,
+        query_terms: &[&str],
+    ) -> Vec<UnifiedSearchResult> {
+        let entities = kg.search_entities(query_terms);
+        let mut results: Vec<UnifiedSearchResult> = Vec::new();
+
+        for entity in entities {
+            let content = format!("{}: {:?}", entity.name, entity.properties);
+            results.push(UnifiedSearchResult::new(
+                entity.id,
+                content,
+                entity.confidence,
+                SearchSource::KnowledgeGraph,
+            ));
+        }
+
+        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        results
     }
 }
