@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::Duration;
 
 /// 主配置
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -17,6 +18,8 @@ pub struct Config {
     pub vector: VectorConfig,
     /// 通道配置
     pub channels: ChannelsConfig,
+    /// 安全配置
+    pub security: SecurityConfig,
     /// 智能体配置
     pub agents: AgentsConfig,
     /// 设备配置
@@ -241,8 +244,14 @@ pub struct LongTermMemoryConfig {
     pub enabled: bool,
     /// 向量存储后端
     pub backend: String,
+    /// Collection name
+    pub collection: String,
+    /// Embedding provider
+    pub embedding_provider: String,
     /// 嵌入模型
     pub embedding_model: String,
+    /// Custom embedding config
+    pub custom_embedding: Option<CustomEmbeddingConfig>,
 }
 
 impl Default for LongTermMemoryConfig {
@@ -250,9 +259,19 @@ impl Default for LongTermMemoryConfig {
         Self {
             enabled: true,
             backend: "lancedb".to_string(),
+            collection: "openclaw_memories".to_string(),
+            embedding_provider: "openai".to_string(),
             embedding_model: "text-embedding-3-small".to_string(),
+            custom_embedding: None,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomEmbeddingConfig {
+    pub base_url: String,
+    pub api_key: String,
+    pub model: Option<String>,
 }
 
 /// 向量存储配置
@@ -327,6 +346,32 @@ pub struct ChannelsConfig {
     pub discord: Option<DiscordConfig>,
     pub whatsapp: Option<WhatsAppConfig>,
     pub slack: Option<SlackConfig>,
+}
+
+/// 安全配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityConfig {
+    pub enable_input_filter: bool,
+    pub enable_classifier: bool,
+    pub enable_output_validation: bool,
+    pub enable_audit: bool,
+    pub enable_self_healer: bool,
+    pub classifier_strict_mode: bool,
+    pub stuck_timeout: Duration,
+}
+
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self {
+            enable_input_filter: true,
+            enable_classifier: true,
+            enable_output_validation: true,
+            enable_audit: true,
+            enable_self_healer: true,
+            classifier_strict_mode: false,
+            stuck_timeout: Duration::from_secs(30),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

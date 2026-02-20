@@ -304,12 +304,23 @@ impl UnifiedConfig {
             enable_canvas: false,
         };
 
+        let security_config = crate::config::SecurityConfig {
+            enable_input_filter: self.security.enable_input_filter,
+            enable_classifier: true,
+            enable_output_validation: true,
+            enable_audit: self.security.enable_audit,
+            enable_self_healer: self.security.enable_self_healer,
+            classifier_strict_mode: false,
+            stuck_timeout: std::time::Duration::from_secs(300),
+        };
+
         crate::config::Config {
             server: server_config,
             ai: ai_config,
             memory: crate::config::MemoryConfig::default(),
             vector: crate::config::VectorConfig::default(),
             channels: crate::config::ChannelsConfig::default(),
+            security: security_config,
             agents: crate::config::AgentsConfig::default(),
             devices: crate::config::DevicesConfig::default(),
             workspaces: crate::config::WorkspacesConfig::default(),

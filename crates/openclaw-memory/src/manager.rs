@@ -2,9 +2,10 @@
 
 use std::sync::Arc;
 
+use tokio::sync::RwLock as TokioRwLock;
+
 use openclaw_core::{Message, OpenClawError, Result};
 use openclaw_vector::VectorStore;
-use tokio::sync::RwLock;
 
 use crate::compressor::MemoryCompressor;
 use crate::embedding::EmbeddingProvider;
@@ -17,7 +18,7 @@ use crate::working::WorkingMemory;
 /// 记忆管理器 - 统一管理三层记忆
 pub struct MemoryManager {
     working: WorkingMemory,
-    short_term: RwLock<Vec<MemoryItem>>,
+    short_term: TokioRwLock<Vec<MemoryItem>>,
     long_term: Option<Arc<dyn VectorStore>>,
     hybrid_search: Option<Arc<HybridSearchManager>>,
     config: MemoryConfig,
@@ -30,7 +31,7 @@ impl MemoryManager {
     pub fn new(config: MemoryConfig) -> Self {
         Self {
             working: WorkingMemory::new(config.working.clone()),
-            short_term: RwLock::new(Vec::new()),
+            short_term: TokioRwLock::new(Vec::new()),
             long_term: None,
             hybrid_search: None,
             scorer: ImportanceScorer::new(),
@@ -79,37 +80,31 @@ impl MemoryManager {
 
     /// 添加消息到记忆
     pub async fn add(&self, message: Message) -> Result<()> {
+        // 计算重要性分数
         let score = self.scorer.score(&message);
         let item = MemoryItem::from_message(message, score);
 
+        // 添加到工作记忆
         if let Some(overflow) = self.working.add(item) {
+            // 压缩溢出的消息到短期记忆
             let summary = self.compressor.compress(overflow).await?;
             
-            let should_archive = {
+            // 检查短期记忆是否需要清理
+            {
                 let mut short_term = self.short_term.write().await;
-                short_term.push(summary.clone());
-                short_term.len() > self.config.short_term.max_summaries
-            };
-            
-            if should_archive {
-                let old_summary = {
-                    let mut short_term = self.short_term.write().await;
-                    if short_term.len() > self.config.short_term.max_summaries {
-                        short_term.first().cloned()
-                    } else {
-                        None
-                    }
-                };
+                short_term.push(summary);
                 
-                if let Some(old_summary) = old_summary {
-                    if self.config.long_term.enabled
-                        && let Some(store) = &self.long_term
-                    {
-                        self.archive_to_long_term(store.as_ref(), old_summary).await?;
-                    }
-                    let mut short_term = self.short_term.write().await;
-                    if !short_term.is_empty() {
-                        short_term.remove(0);
+                if short_term.len() > self.config.short_term.max_summaries {
+                    if let Some(old_summary) = short_term.first().cloned() {
+                        // 将最旧的摘要移到长期记忆
+                        if self.config.long_term.enabled
+                            && let Some(store) = &self.long_term
+                        {
+                            let archive_result = self.archive_to_long_term(store.as_ref(), old_summary).await;
+                            if archive_result.is_ok() {
+                                short_term.remove(0);
+                            }
+                        }
                     }
                 }
             }
@@ -134,15 +129,16 @@ impl MemoryManager {
         }
 
         // 2. 添加短期记忆摘要
-        let short_term_items = self.short_term.read().await;
-        for item in short_term_items.iter().rev() {
-            if current_tokens + item.token_count > max_tokens {
-                break;
+        {
+            let short_term = self.short_term.read().await;
+            for item in short_term.iter().rev() {
+                if current_tokens + item.token_count > max_tokens {
+                    break;
+                }
+                retrieval.add(item.clone());
+                current_tokens += item.token_count;
             }
-            retrieval.add(item.clone());
-            current_tokens += item.token_count;
         }
-        drop(short_term_items);
 
         // 3. 从长期记忆检索相关内容
         if self.config.long_term.enabled
@@ -190,36 +186,8 @@ impl MemoryManager {
         self.working.to_messages()
     }
 
-    /// 获取统计信息（异步版本）
-    pub async fn stats_async(&self) -> MemoryStats {
-        let short_term = self.short_term.read().await;
-        let short_term_count = short_term.len();
-        let short_term_tokens = short_term.iter().map(|i| i.token_count).sum();
-        drop(short_term);
-        
-        MemoryStats {
-            working_count: self.working.len(),
-            working_tokens: self.working.total_tokens(),
-            short_term_count,
-            short_term_tokens,
-            long_term_enabled: self.long_term.is_some(),
-        }
-    }
-
-    /// 获取统计信息
+    /// 获取统计信息（同步版本）
     pub fn stats(&self) -> MemoryStats {
-        if let Some(short_term) = self.short_term.try_read().ok() {
-            let short_term_count = short_term.len();
-            let short_term_tokens = short_term.iter().map(|i| i.token_count).sum();
-            return MemoryStats {
-                working_count: self.working.len(),
-                working_tokens: self.working.total_tokens(),
-                short_term_count,
-                short_term_tokens,
-                long_term_enabled: self.long_term.is_some(),
-            };
-        }
-        
         MemoryStats {
             working_count: self.working.len(),
             working_tokens: self.working.total_tokens(),
@@ -227,6 +195,22 @@ impl MemoryManager {
             short_term_tokens: 0,
             long_term_enabled: self.long_term.is_some(),
         }
+    }
+
+    /// 获取统计信息（异步版本）
+    pub async fn stats_async(&self) -> MemoryStats {
+        MemoryStats {
+            working_count: self.working.len(),
+            working_tokens: self.working.total_tokens(),
+            short_term_count: self.short_term.read().await.len(),
+            short_term_tokens: self.short_term.read().await.iter().map(|i| i.token_count).sum(),
+            long_term_enabled: self.long_term.is_some(),
+        }
+    }
+
+    /// 获取长期记忆向量存储
+    pub fn get_vector_store(&self) -> Option<Arc<dyn VectorStore>> {
+        self.long_term.clone()
     }
 
     /// 清空所有记忆
@@ -306,7 +290,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_memory_manager() {
-        let manager = MemoryManager::default();
+        let mut manager = MemoryManager::default();
 
         // 添加消息
         manager.add(Message::user("你好")).await.unwrap();

@@ -39,7 +39,7 @@ pub struct ChannelServiceState {
 
 #[derive(Clone)]
 pub struct CanvasServiceState {
-    manager: Arc<CanvasManager>,
+    pub manager: Arc<CanvasManager>,
 }
 
 impl Default for CanvasServiceState {
@@ -394,24 +394,63 @@ impl ServiceOrchestrator {
     }
 
     pub async fn create_channel(&self, name: String, channel_type: String) -> openclaw_core::Result<()> {
-        use openclaw_channels::{Channel, WebChatClient, WebChatConfig};
+        use openclaw_channels::Channel;
         
         let manager = self.channel_service.manager.read().await;
         
-        let config = WebChatConfig {
-            webhook_url: None,
-            webhook_secret: None,
-            server_url: None,
-            enabled: true,
-        };
-        
         let channel: Arc<RwLock<dyn Channel>> = match channel_type.as_str() {
             "webchat" => {
+                use openclaw_channels::{WebChatClient, WebChatConfig};
+                let config = WebChatConfig {
+                    webhook_url: None,
+                    webhook_secret: None,
+                    server_url: None,
+                    enabled: true,
+                };
                 let web_channel = WebChatClient::new(config);
                 Arc::new(RwLock::new(web_channel))
             }
+            "telegram" => {
+                use openclaw_channels::telegram::TelegramBot;
+                let bot_token = std::env::var("TELEGRAM_BOT_TOKEN")
+                    .map_err(|_| openclaw_core::OpenClawError::Config("TELEGRAM_BOT_TOKEN not set".to_string()))?;
+                let config = openclaw_channels::telegram::TelegramConfig {
+                    bot_token,
+                    enabled: true,
+                };
+                let telegram_bot = TelegramBot::new(config);
+                Arc::new(RwLock::new(telegram_bot))
+            }
+            "discord" => {
+                use openclaw_channels::discord::DiscordChannel;
+                let bot_token = std::env::var("DISCORD_BOT_TOKEN")
+                    .map_err(|_| openclaw_core::OpenClawError::Config("DISCORD_BOT_TOKEN not set".to_string()))?;
+                let config = openclaw_channels::discord::DiscordConfig {
+                    bot_token,
+                    webhook_url: None,
+                    enabled: true,
+                };
+                let discord_channel = DiscordChannel::new(config);
+                Arc::new(RwLock::new(discord_channel))
+            }
+            "slack" => {
+                use openclaw_channels::slack::SlackChannel;
+                let bot_token = std::env::var("SLACK_BOT_TOKEN").ok();
+                let webhook_url = std::env::var("SLACK_WEBHOOK_URL").ok();
+                let config = openclaw_channels::slack::SlackConfig {
+                    bot_token,
+                    webhook_url,
+                    app_token: None,
+                    enabled: true,
+                };
+                let slack_channel = SlackChannel::new(config);
+                Arc::new(RwLock::new(slack_channel))
+            }
             _ => {
-                return Err(openclaw_core::OpenClawError::Config(format!("Unsupported channel type: {}", channel_type)));
+                return Err(openclaw_core::OpenClawError::Config(format!(
+                    "Unsupported channel type: {}. Supported types: webchat, telegram, discord, slack", 
+                    channel_type
+                )));
             }
         };
         
@@ -456,6 +495,10 @@ impl ServiceOrchestrator {
 
     pub fn canvas_manager(&self) -> Arc<CanvasManager> {
         self.canvas_service.manager.clone()
+    }
+
+    pub fn canvas_service(&self) -> &CanvasServiceState {
+        &self.canvas_service
     }
 
     pub async fn create_canvas(&self, name: String, width: f64, height: f64) -> Result<String> {

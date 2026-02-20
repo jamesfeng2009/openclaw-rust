@@ -6,6 +6,7 @@ use axum::{
     routing::{delete, get, post},
 };
 use openclaw_agent::{Agent, AgentType, BaseAgent};
+use openclaw_canvas::CanvasManager;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -18,8 +19,14 @@ use crate::voice_service::VoiceService;
 pub fn create_router(
     orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
     voice_service: Arc<VoiceService>,
+    canvas_manager: Option<Arc<CanvasManager>>,
 ) -> Router {
     let state = Arc::new(RwLock::new(ApiState::new(orchestrator, voice_service)));
+
+    let canvas_state = match canvas_manager {
+        Some(manager) => CanvasApiState::with_manager(manager),
+        None => CanvasApiState::new(),
+    };
 
     Router::new()
         .route("/health", get(health_check))
@@ -38,7 +45,7 @@ pub fn create_router(
         .route("/api/agent/message", post(send_agent_message))
         .route("/api/presence", get(get_presence).post(set_presence))
         .with_state(state)
-        .merge(create_canvas_router(CanvasApiState::new()))
+        .merge(create_canvas_router(canvas_state))
         .merge(create_browser_router(BrowserApiState::new()))
 }
 

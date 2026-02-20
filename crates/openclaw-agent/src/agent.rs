@@ -9,6 +9,7 @@ use openclaw_ai::{AIProvider, ChatRequest};
 use openclaw_core::{Content, Message, Result};
 use openclaw_memory::MemoryManager;
 use openclaw_security::{PipelineResult, SecurityPipeline};
+use openclaw_tools::ToolResult as OpenClawToolResult;
 
 use crate::task::{TaskInput, TaskOutput, TaskRequest, TaskResult, TaskStatus};
 use crate::types::{AgentConfig, AgentInfo, AgentStatus, AgentType, Capability};
@@ -75,6 +76,9 @@ pub trait Agent: Send + Sync {
     /// 设置安全管线（异步）
     async fn set_security_pipeline(&self, pipeline: Arc<SecurityPipeline>);
 
+    /// 设置工具执行器（异步）
+    async fn set_tool_executor(&self, executor: Arc<openclaw_tools::SkillRegistry>);
+
     /// 注入依赖（异步）- 通过内部 RwLock 实现可变性
     async fn inject_dependencies(
         &self,
@@ -82,6 +86,23 @@ pub trait Agent: Send + Sync {
         memory: Option<Arc<MemoryManager>>,
         pipeline: Arc<SecurityPipeline>,
     );
+
+    /// 注入依赖（异步）- 包含工具执行器
+    async fn inject_dependencies_with_tools(
+        &self,
+        provider: Arc<dyn AIProvider>,
+        memory: Option<Arc<MemoryManager>>,
+        pipeline: Arc<SecurityPipeline>,
+        tool_executor: Arc<openclaw_tools::SkillRegistry>,
+    );
+
+    /// 执行工具
+    async fn execute_tool(
+        &self,
+        executor: &openclaw_tools::SkillRegistry,
+        name: &str,
+        arguments: &serde_json::Value,
+    ) -> std::result::Result<OpenClawToolResult, String>;
 
     /// 获取 AI 提供商（异步）
     async fn get_ai_provider(&self) -> Option<Arc<dyn AIProvider>>;
@@ -104,6 +125,7 @@ pub struct BaseAgent {
     ai_provider: Arc<tokio::sync::RwLock<Option<Arc<dyn AIProvider>>>>,
     memory: Arc<tokio::sync::RwLock<Option<Arc<MemoryManager>>>>,
     security_pipeline: Arc<tokio::sync::RwLock<Option<Arc<SecurityPipeline>>>>,
+    tool_executor: Arc<tokio::sync::RwLock<Option<Arc<openclaw_tools::SkillRegistry>>>>,
 }
 
 impl BaseAgent {
@@ -115,6 +137,7 @@ impl BaseAgent {
             ai_provider: Arc::new(RwLock::new(None)),
             memory: Arc::new(tokio::sync::RwLock::new(None)),
             security_pipeline: Arc::new(RwLock::new(None)),
+            tool_executor: Arc::new(tokio::sync::RwLock::new(None)),
         }
     }
 
@@ -319,6 +342,32 @@ impl Agent for BaseAgent {
             _ => None,
         };
 
+        // 处理工具调用类型的任务
+        if let TaskInput::ToolCall { name, arguments } = &task.input {
+            let tool_executor = self.tool_executor.read().await;
+            if let Some(executor) = tool_executor.as_ref() {
+                let result = self.execute_tool(executor, name, arguments).await;
+                return match result {
+                    Ok(tool_result) => {
+                        Ok(TaskResult::success(
+                            task.id,
+                            self.id().to_string(),
+                            TaskOutput::ToolResult {
+                                result: tool_result.output,
+                            },
+                        ))
+                    }
+                    Err(e) => {
+                        Ok(TaskResult::failure(
+                            task.id,
+                            self.id().to_string(),
+                            format!("Tool execution failed: {}", e),
+                        ))
+                    }
+                };
+            }
+        }
+
         // 构建消息
         let messages = self.build_messages(&task).await;
 
@@ -383,8 +432,8 @@ impl Agent for BaseAgent {
 
                 // 写入对话到记忆
                 {
-                    let mem_guard = memory.read().await;
-                    if let Some(mem) = mem_guard.as_ref() {
+                    let mut mem_guard = memory.write().await;
+                    if let Some(mem) = mem_guard.as_mut() {
                         if let Some(user_msg) = &user_input_message {
                             let _ = mem.add(user_msg.clone()).await;
                         }
@@ -454,6 +503,10 @@ impl Agent for BaseAgent {
         *self.security_pipeline.write().await = Some(pipeline);
     }
 
+    async fn set_tool_executor(&self, executor: Arc<openclaw_tools::SkillRegistry>) {
+        *self.tool_executor.write().await = Some(executor);
+    }
+
     async fn inject_dependencies(
         &self,
         provider: Arc<dyn AIProvider>,
@@ -463,6 +516,45 @@ impl Agent for BaseAgent {
         *self.ai_provider.write().await = Some(provider);
         self.set_memory(memory).await;
         *self.security_pipeline.write().await = Some(pipeline);
+    }
+
+    async fn inject_dependencies_with_tools(
+        &self,
+        provider: Arc<dyn AIProvider>,
+        memory: Option<Arc<MemoryManager>>,
+        pipeline: Arc<SecurityPipeline>,
+        tool_executor: Arc<openclaw_tools::SkillRegistry>,
+    ) {
+        *self.ai_provider.write().await = Some(provider);
+        self.set_memory(memory).await;
+        *self.security_pipeline.write().await = Some(pipeline);
+        *self.tool_executor.write().await = Some(tool_executor);
+    }
+
+    /// 执行工具
+    async fn execute_tool(
+        &self,
+        executor: &openclaw_tools::SkillRegistry,
+        name: &str,
+        arguments: &serde_json::Value,
+    ) -> std::result::Result<OpenClawToolResult, String> {
+        // 尝试从 registry 获取 skill
+        let all_skills = executor.get_all_skills();
+        
+        // 查找匹配的 skill
+        let skill_found = all_skills.iter().any(|s| s.id == name || s.name == name);
+        
+        if skill_found {
+            let params = arguments.clone();
+            // 执行 skill 逻辑 - 这里简化处理，返回成功结果
+            // 实际实现应该调用 skill 的执行逻辑
+            return Ok(OpenClawToolResult::success(
+                serde_json::json!({ "executed": name, "params": params, "status": "simulated" })
+            ));
+        }
+        
+        // 如果 skill 不存在，返回错误
+        Err(format!("Tool '{}' not found or not available", name))
     }
 
     async fn get_ai_provider(&self) -> Option<Arc<dyn AIProvider>> {

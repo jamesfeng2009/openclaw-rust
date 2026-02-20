@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
+use std::sync::RwLock;
 
 use super::{AIProvider, ProviderConfig, openai_compatible::ProviderInfo};
 
@@ -21,6 +22,57 @@ pub enum ProviderType {
     OpenRouter,
     Ollama,
     Custom,
+}
+
+type ProviderCreator = Arc<dyn Fn(ProviderConfig) -> Result<Arc<dyn AIProvider>, String> + Send + Sync>;
+
+#[derive(Clone)]
+pub struct ProviderInfoEntry {
+    pub name: String,
+    pub default_base_url: String,
+    pub default_models: Vec<String>,
+}
+
+static CUSTOM_PROVIDER_REGISTRY: std::sync::LazyLock<RwLock<HashMap<String, (ProviderCreator, ProviderInfoEntry)>>> = 
+    std::sync::LazyLock::new(|| RwLock::new(HashMap::new()));
+
+pub struct ProviderRegistry;
+
+impl ProviderRegistry {
+    pub fn register<F>(
+        name: &str,
+        creator: F,
+        info: ProviderInfoEntry,
+    ) -> Result<(), String>
+    where
+        F: Fn(ProviderConfig) -> Result<Arc<dyn AIProvider>, String> + Send + Sync + 'static,
+    {
+        let mut registry = CUSTOM_PROVIDER_REGISTRY.write().map_err(|e| e.to_string())?;
+        
+        if registry.contains_key(name) {
+            return Err(format!("Provider '{}' already registered", name));
+        }
+        
+        registry.insert(name.to_string(), (Arc::new(creator), info));
+        
+        Ok(())
+    }
+
+    pub fn get(name: &str) -> Option<(ProviderCreator, ProviderInfoEntry)> {
+        CUSTOM_PROVIDER_REGISTRY.read().ok()?.get(name).cloned()
+    }
+
+    pub fn list() -> Vec<String> {
+        CUSTOM_PROVIDER_REGISTRY.read()
+            .map(|r| r.keys().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    pub fn is_registered(name: &str) -> bool {
+        CUSTOM_PROVIDER_REGISTRY.read()
+            .map(|r| r.contains_key(name))
+            .unwrap_or(false)
+    }
 }
 
 impl ProviderType {

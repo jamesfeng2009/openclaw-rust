@@ -389,8 +389,12 @@ impl SessionManager {
         channel_type: Option<String>,
         peer_id: Option<String>,
     ) -> crate::Result<Session> {
-        // 先尝试查找现有会话
-        let key = Self::generate_session_key(&scope, channel_type.as_deref(), peer_id.as_deref());
+        let key = format!(
+            "{}:{}:{}",
+            session_scope_to_string(&scope),
+            channel_type.as_deref().unwrap_or("unknown"),
+            peer_id.as_deref().unwrap_or("unknown")
+        );
 
         if let Some(session) = self.storage.find_by_key(&key, &agent_id).await?
             && session.is_active()
@@ -400,37 +404,8 @@ impl SessionManager {
             return Ok(session);
         }
 
-        // 不存在则创建新会话
         self.create_session(name, agent_id, scope, channel_type, peer_id)
             .await
-    }
-
-    /// 生成会话 key，与 Session.key() 保持一致
-    fn generate_session_key(scope: &SessionScope, channel_type: Option<&str>, peer_id: Option<&str>) -> String {
-        match scope {
-            SessionScope::Main => "main".to_string(),
-            SessionScope::PerPeer => {
-                format!(
-                    "{}:{}",
-                    channel_type.unwrap_or("unknown"),
-                    peer_id.unwrap_or("unknown")
-                )
-            }
-            SessionScope::PerChannelPeer => {
-                format!(
-                    "{}:unknown:{}",
-                    channel_type.unwrap_or("unknown"),
-                    peer_id.unwrap_or("unknown")
-                )
-            }
-            SessionScope::PerAccountChannelPeer => {
-                format!(
-                    "{}:unknown:{}",
-                    channel_type.unwrap_or("unknown"),
-                    peer_id.unwrap_or("unknown")
-                )
-            }
-        }
     }
 
     /// 更新会话

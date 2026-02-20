@@ -34,6 +34,14 @@ impl CanvasApiState {
             color_generator: Arc::new(UserColorGenerator::new()),
         }
     }
+
+    pub fn with_manager(manager: Arc<CanvasManager>) -> Self {
+        Self {
+            canvas_manager: manager,
+            collab_manager: Arc::new(CollabManager::new()),
+            color_generator: Arc::new(UserColorGenerator::new()),
+        }
+    }
 }
 
 impl Default for CanvasApiState {

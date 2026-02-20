@@ -19,6 +19,7 @@ use crate::orchestrator::{OrchestratorConfig, ServiceOrchestrator};
 use crate::voice_service::VoiceService;
 use crate::memory_service::MemoryService;
 use crate::websocket::websocket_router;
+use crate::vector_store_registry::VectorStoreRegistry;
 
 pub struct Gateway {
     config: Config,
@@ -26,6 +27,7 @@ pub struct Gateway {
     device_manager: Arc<DeviceManager>,
     voice_service: Arc<VoiceService>,
     memory_service: Arc<MemoryService>,
+    vector_store_registry: Arc<VectorStoreRegistry>,
 }
 
 impl Gateway {
@@ -57,17 +59,22 @@ impl Gateway {
 
         let memory_service = Arc::new(MemoryService::new());
 
+        let vector_store_registry = Arc::new(VectorStoreRegistry::new());
+
         Self {
             config,
             orchestrator,
             device_manager,
             voice_service,
             memory_service,
+            vector_store_registry,
         }
     }
 
     /// 启动服务
     pub async fn start(&self) -> openclaw_core::Result<()> {
+        self.vector_store_registry.register_defaults().await;
+
         self.device_manager.init().await?;
 
         if let Some(ref orchestrator) = *self.orchestrator.read().await {
@@ -89,8 +96,14 @@ impl Gateway {
             self.init_voice_service().await?;
         }
 
+        let canvas_manager = if let Some(ref orchestrator) = *self.orchestrator.read().await {
+            Some(orchestrator.canvas_manager())
+        } else {
+            None
+        };
+
         let mut app = Router::new()
-            .merge(create_router(self.orchestrator.clone(), self.voice_service.clone()))
+            .merge(create_router(self.orchestrator.clone(), self.voice_service.clone(), canvas_manager))
             .merge(websocket_router())
             .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any))
             .layer(TraceLayer::new_for_http());
@@ -195,21 +208,52 @@ impl Gateway {
     }
 
     async fn create_memory_manager(&self) -> openclaw_core::Result<Arc<MemoryManager>> {
-        let config = openclaw_memory::types::MemoryConfig {
-            working: openclaw_memory::types::WorkingMemoryConfig::default(),
-            short_term: openclaw_memory::types::ShortTermMemoryConfig::default(),
-            long_term: openclaw_memory::types::LongTermMemoryConfig {
-                enabled: true,
-                backend: "memory".to_string(),
-                collection: "openclaw_memories".to_string(),
-                embedding_provider: "openai".to_string(),
-                embedding_model: "text-embedding-3-small".to_string(),
-                custom_embedding: None,
+        use openclaw_memory::types::{
+            MemoryConfig as MemoryConfigType,
+            WorkingMemoryConfig as WorkingMemoryConfigType,
+            ShortTermMemoryConfig as ShortTermMemoryConfigType,
+            LongTermMemoryConfig as LongTermMemoryConfigType,
+            CustomEmbeddingConfig as CustomEmbeddingConfigType,
+        };
+        
+        let custom_embedding: Option<CustomEmbeddingConfigType> = self.config.memory.long_term
+            .custom_embedding
+            .as_ref()
+            .map(|c| CustomEmbeddingConfigType {
+                base_url: c.base_url.clone(),
+                api_key: c.api_key.clone(),
+                model: c.model.clone(),
+            });
+
+        let config = MemoryConfigType {
+            working: WorkingMemoryConfigType {
+                max_messages: self.config.memory.working.max_messages,
+                max_tokens: self.config.memory.working.max_tokens,
+            },
+            short_term: ShortTermMemoryConfigType {
+                compress_after: self.config.memory.short_term.compress_after,
+                max_summaries: self.config.memory.short_term.max_summaries,
+            },
+            long_term: LongTermMemoryConfigType {
+                enabled: self.config.memory.long_term.enabled,
+                backend: self.config.memory.long_term.backend.clone(),
+                collection: self.config.memory.long_term.collection.clone(),
+                embedding_provider: self.config.memory.long_term.embedding_provider.clone(),
+                embedding_model: self.config.memory.long_term.embedding_model.clone(),
+                custom_embedding,
             },
         };
 
-        let vector_store: Arc<dyn openclaw_vector::VectorStore> = 
-            Arc::new(openclaw_vector::MemoryStore::new());
+        let vector_store = self.vector_store_registry
+            .create(&self.config.memory.long_term.backend)
+            .await
+            .unwrap_or_else(|| {
+                tracing::warn!(
+                    "Vector store backend '{}' not found, falling back to memory store",
+                    self.config.memory.long_term.backend
+                );
+                Arc::new(openclaw_vector::MemoryStore::new()) as Arc<dyn openclaw_vector::VectorStore>
+            });
 
         let manager = MemoryManager::new(config)
             .with_vector_store(vector_store);
@@ -219,40 +263,97 @@ impl Gateway {
 
     async fn create_memory_manager_with_embedding(&self) -> openclaw_core::Result<Arc<MemoryManager>> {
         use openclaw_memory::ai_adapter::AIProviderEmbeddingAdapter;
+        use openclaw_memory::hybrid_search::{HybridSearchConfig, HybridSearchManager};
+        use openclaw_memory::types::{
+            MemoryConfig as MemoryConfigType,
+            WorkingMemoryConfig as WorkingMemoryConfigType,
+            ShortTermMemoryConfig as ShortTermMemoryConfigType,
+            LongTermMemoryConfig as LongTermMemoryConfigType,
+            CustomEmbeddingConfig as CustomEmbeddingConfigType,
+        };
 
         let ai_provider = self.create_ai_provider().await?;
         
         let embedding_provider = AIProviderEmbeddingAdapter::new(
             ai_provider.clone(),
-            "text-embedding-3-small".to_string(),
+            self.config.memory.long_term.embedding_model.clone(),
             1536,
         );
 
-        let vector_store: Arc<dyn openclaw_vector::VectorStore> = 
-            Arc::new(openclaw_vector::MemoryStore::new());
+        let vector_store = self.vector_store_registry
+            .create(&self.config.memory.long_term.backend)
+            .await
+            .unwrap_or_else(|| {
+                tracing::warn!(
+                    "Vector store backend '{}' not found, falling back to memory store",
+                    self.config.memory.long_term.backend
+                );
+                Arc::new(openclaw_vector::MemoryStore::new()) as Arc<dyn openclaw_vector::VectorStore>
+            });
 
-        let config = openclaw_memory::types::MemoryConfig {
-            working: openclaw_memory::types::WorkingMemoryConfig::default(),
-            short_term: openclaw_memory::types::ShortTermMemoryConfig::default(),
-            long_term: openclaw_memory::types::LongTermMemoryConfig {
-                enabled: true,
-                backend: "memory".to_string(),
-                collection: "openclaw_memories".to_string(),
-                embedding_provider: self.config.ai.default_provider.clone(),
-                embedding_model: "text-embedding-3-small".to_string(),
-                custom_embedding: None,
+        let custom_embedding: Option<CustomEmbeddingConfigType> = self.config.memory.long_term
+            .custom_embedding
+            .as_ref()
+            .map(|c| CustomEmbeddingConfigType {
+                base_url: c.base_url.clone(),
+                api_key: c.api_key.clone(),
+                model: c.model.clone(),
+            });
+
+        let config = MemoryConfigType {
+            working: WorkingMemoryConfigType {
+                max_messages: self.config.memory.working.max_messages,
+                max_tokens: self.config.memory.working.max_tokens,
+            },
+            short_term: ShortTermMemoryConfigType {
+                compress_after: self.config.memory.short_term.compress_after,
+                max_summaries: self.config.memory.short_term.max_summaries,
+            },
+            long_term: LongTermMemoryConfigType {
+                enabled: self.config.memory.long_term.enabled,
+                backend: self.config.memory.long_term.backend.clone(),
+                collection: self.config.memory.long_term.collection.clone(),
+                embedding_provider: self.config.memory.long_term.embedding_provider.clone(),
+                embedding_model: self.config.memory.long_term.embedding_model.clone(),
+                custom_embedding,
             },
         };
 
+        let hybrid_config = HybridSearchConfig {
+            vector_weight: 0.5,
+            keyword_weight: 0.3,
+            bm25_weight: 0.2,
+            knowledge_graph_weight: 0.1,
+            min_score: Some(0.0),
+            limit: 10,
+            embedding_dimension: Some(1536),
+            enable_vector: true,
+            enable_bm25: true,
+            enable_knowledge_graph: false,
+        };
+
+        let hybrid_search = HybridSearchManager::new(vector_store.clone(), hybrid_config);
+
         let manager = MemoryManager::new(config)
             .with_vector_store(vector_store)
-            .with_embedding_provider(embedding_provider);
+            .with_embedding_provider(embedding_provider)
+            .with_hybrid_search(Arc::new(hybrid_search));
 
         Ok(Arc::new(manager))
     }
 
     fn create_security_pipeline(&self) -> Arc<SecurityPipeline> {
-        let config = openclaw_security::pipeline::PipelineConfig::default();
+        use openclaw_security::pipeline::PipelineConfig;
+        
+        let config = PipelineConfig {
+            enable_input_filter: self.config.security.enable_input_filter,
+            enable_classifier: self.config.security.enable_classifier,
+            enable_output_validation: self.config.security.enable_output_validation,
+            enable_audit: self.config.security.enable_audit,
+            enable_self_healer: self.config.security.enable_self_healer,
+            classifier_strict_mode: self.config.security.classifier_strict_mode,
+            stuck_timeout: self.config.security.stuck_timeout,
+        };
         Arc::new(SecurityPipeline::new(config))
     }
 
@@ -283,13 +384,12 @@ impl Gateway {
     }
 
     async fn init_memory_service(&self, memory_manager: Arc<MemoryManager>) -> openclaw_core::Result<()> {
-        use openclaw_vector::MemoryStore;
-
-        let vector_store: Arc<dyn openclaw_vector::VectorStore> = Arc::new(MemoryStore::new());
+        let vector_store = memory_manager.get_vector_store()
+            .ok_or_else(|| openclaw_core::OpenClawError::Config("MemoryManager has no VectorStore configured".to_string()))?;
 
         self.memory_service.init(memory_manager, vector_store).await;
 
-        tracing::info!("Memory service initialized (reusing agent's MemoryManager)");
+        tracing::info!("Memory service initialized (reusing agent's MemoryManager and VectorStore)");
         Ok(())
     }
 }
