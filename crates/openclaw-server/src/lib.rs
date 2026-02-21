@@ -2,10 +2,12 @@
 
 pub mod agent_service;
 pub mod api;
+pub mod app_context;
 pub mod browser_api;
 pub mod canvas_api;
 pub mod channel_service;
 pub mod config_adapter;
+pub mod device_api;
 pub mod device_manager;
 pub mod gateway;
 pub mod hardware_tools;

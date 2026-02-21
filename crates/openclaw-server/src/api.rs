@@ -11,17 +11,18 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::app_context::AppContext;
 use crate::browser_api::{BrowserApiState, create_browser_router};
 use crate::canvas_api::{CanvasApiState, create_canvas_router};
+use crate::device_api::create_device_router;
 use crate::orchestrator::ServiceOrchestrator;
 use crate::voice_service::VoiceService;
 
 pub fn create_router(
-    orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
-    voice_service: Arc<VoiceService>,
+    context: Arc<AppContext>,
     canvas_manager: Option<Arc<CanvasManager>>,
 ) -> Router {
-    let state = Arc::new(RwLock::new(ApiState::new(orchestrator, voice_service)));
+    let state = Arc::new(RwLock::new(ApiState::new(context)));
 
     let canvas_state = match canvas_manager {
         Some(manager) => CanvasApiState::with_manager(manager),
@@ -47,6 +48,7 @@ pub fn create_router(
         .with_state(state)
         .merge(create_canvas_router(canvas_state))
         .merge(create_browser_router(BrowserApiState::new()))
+        .merge(create_device_router())
 }
 
 #[derive(Clone)]
@@ -54,27 +56,23 @@ pub struct ApiState {
     pub orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
     pub presence: String,
     pub voice_service: Arc<VoiceService>,
+    pub context: Arc<AppContext>,
 }
 
 impl ApiState {
-    pub fn new(
-        orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
-        voice_service: Arc<VoiceService>,
-    ) -> Self {
+    pub fn new(context: Arc<AppContext>) -> Self {
         Self {
-            orchestrator,
+            orchestrator: context.orchestrator.clone(),
             presence: "online".to_string(),
-            voice_service,
+            voice_service: context.voice_service.clone(),
+            context,
         }
     }
 }
 
 impl Default for ApiState {
     fn default() -> Self {
-        Self::new(
-            Arc::new(RwLock::new(None)),
-            Arc::new(VoiceService::new()),
-        )
+        panic!("ApiState::default() is not supported, use ApiState::new() with AppContext");
     }
 }
 
@@ -196,7 +194,7 @@ async fn chat_handler(
     }
     
     Json(ChatResponse {
-        reply: format!("Error: No orchestrator available"),
+        reply: "Error: No orchestrator available".to_string(),
         session_id,
         model: request.model.unwrap_or_else(|| "gpt-4".to_string()),
         usage: TokenUsage {
@@ -221,8 +219,8 @@ pub struct ModelInfo {
 async fn list_models(State(state): State<Arc<RwLock<ApiState>>>) -> Json<ModelsResponse> {
     let state = state.read().await;
     
-    if let Some(ref orchestrator) = *state.orchestrator.read().await {
-        if let Some(provider) = orchestrator.get_ai_provider().await {
+    if let Some(ref orchestrator) = *state.orchestrator.read().await
+        && let Some(provider) = orchestrator.get_ai_provider().await {
             match provider.models().await {
                 Ok(models) => {
                     let model_infos: Vec<ModelInfo> = models.into_iter().map(|id| ModelInfo {
@@ -237,7 +235,6 @@ async fn list_models(State(state): State<Arc<RwLock<ApiState>>>) -> Json<ModelsR
                 }
             }
         }
-    }
     
     Json(ModelsResponse {
         models: vec![
@@ -303,11 +300,10 @@ async fn create_channel(
     };
     
     let state = state.read().await;
-    if let Some(ref orchestrator) = *state.orchestrator.read().await {
-        if let Err(e) = orchestrator.create_channel(input.name, input.channel_type).await {
+    if let Some(ref orchestrator) = *state.orchestrator.read().await
+        && let Err(e) = orchestrator.create_channel(input.name, input.channel_type).await {
             tracing::warn!("Failed to create channel in orchestrator: {}", e);
         }
-    }
     
     Json(channel)
 }
@@ -403,7 +399,6 @@ async fn create_agent(
     Json(agent_info)
 }
 
-use openclaw_core::session::SessionScope as CoreSessionScope;
 
 async fn list_sessions(State(state): State<Arc<RwLock<ApiState>>>) -> Json<Vec<SessionInfo>> {
     let state = state.read().await;
@@ -429,9 +424,9 @@ async fn get_session(
 ) -> Json<Option<SessionInfo>> {
     let state = state.read().await;
     
-    if let Some(ref orchestrator) = *state.orchestrator.read().await {
-        if let Ok(sessions) = orchestrator.list_sessions(None, None).await {
-            if let Some(s) = sessions.into_iter().find(|s| s.id.to_string() == id) {
+    if let Some(ref orchestrator) = *state.orchestrator.read().await
+        && let Ok(sessions) = orchestrator.list_sessions(None, None).await
+            && let Some(s) = sessions.into_iter().find(|s| s.id.to_string() == id) {
                 return Json(Some(SessionInfo {
                     id: s.id.to_string(),
                     name: s.name,
@@ -440,8 +435,6 @@ async fn get_session(
                     state: format!("{:?}", s.state),
                 }));
             }
-        }
-    }
     
     Json(None)
 }
@@ -623,7 +616,7 @@ async fn stt_handler(
     State(state): State<Arc<RwLock<ApiState>>>,
     Json(input): Json<SttRequest>,
 ) -> Json<serde_json::Value> {
-    let voice_service = &state.read().await.voice_service;
+    let _voice_service = &state.read().await.voice_service;
     
     if input.audio.is_empty() {
         return Json(serde_json::json!({

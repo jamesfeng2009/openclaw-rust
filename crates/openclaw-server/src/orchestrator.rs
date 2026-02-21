@@ -5,7 +5,6 @@ use tokio::sync::RwLock;
 use openclaw_ai::AIProvider;
 use openclaw_agent::aieos::{AIEOSParser, AIEOSPromptGenerator};
 use openclaw_agent::sessions::{MemorySessionStorage, SessionManager};
-use openclaw_core::session::SessionScope;
 use openclaw_agent::task::TaskOutput;
 use openclaw_agent::task::{TaskInput, TaskRequest, TaskType};
 use openclaw_agent::{Agent, AgentConfig as OpenclawAgentConfig, AgentInfo, AgentType, BaseAgent};
@@ -191,8 +190,8 @@ impl ServiceOrchestrator {
             (should_inject, agent_to_inject)
         };
         
-        if should_inject {
-            if let Some(agent_to_inject) = agent_to_inject {
+        if should_inject
+            && let Some(agent_to_inject) = agent_to_inject {
                 let ai_provider = self.ai_provider.clone();
                 let memory_manager = self.memory_manager.clone();
                 let security_pipeline = self.security_pipeline.clone();
@@ -209,14 +208,12 @@ impl ServiceOrchestrator {
                         let s = security_pipeline.read().await;
                         s.clone()
                     };
-                    if let (Some(ai), Some(sec)) = (ai, sec) {
-                        if let Some(m) = mem {
+                    if let (Some(ai), Some(sec)) = (ai, sec)
+                        && let Some(m) = mem {
                             agent_to_inject.inject_dependencies(ai, Some(m), sec).await;
                         }
-                    }
                 });
             }
-        }
     }
 
     pub async fn inject_dependencies(

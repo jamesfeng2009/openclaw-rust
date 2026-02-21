@@ -79,7 +79,9 @@ impl ConfigAdapter {
     pub fn ai_provider(&self) -> openclaw_core::config::ProviderConfig {
         let core = &self.core.ai;
         
-        let provider_config = core.providers.iter()
+        
+        
+        core.providers.iter()
             .find(|p| p.name == core.default_provider)
             .cloned()
             .unwrap_or_else(|| openclaw_core::config::ProviderConfig {
@@ -90,9 +92,7 @@ impl ConfigAdapter {
                 default_model: "gpt-4o".to_string(),
                 models: vec![],
                 auth: Default::default(),
-            });
-        
-        provider_config
+            })
     }
     
     /// 获取语音配置 (STT/TTS)

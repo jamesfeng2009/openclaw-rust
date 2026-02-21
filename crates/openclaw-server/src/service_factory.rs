@@ -4,12 +4,18 @@
 
 use std::sync::Arc;
 use async_trait::async_trait;
+use tokio::sync::RwLock;
 
-use openclaw_core::Result;
+use openclaw_core::{Config, Result};
 use openclaw_ai::AIProvider;
 use openclaw_memory::MemoryManager;
 use openclaw_security::pipeline::SecurityPipeline;
 use openclaw_tools::ToolRegistry;
+
+use crate::app_context::AppContext;
+use crate::orchestrator::OrchestratorConfig;
+use crate::orchestrator::ServiceOrchestrator;
+use crate::voice_service::VoiceService;
 
 #[async_trait]
 pub trait ServiceFactory: Send + Sync {
@@ -18,6 +24,7 @@ pub trait ServiceFactory: Send + Sync {
     fn create_security_pipeline(&self) -> Arc<SecurityPipeline>;
     fn create_tool_registry(&self) -> Arc<ToolRegistry>;
     async fn create_voice_providers(&self) -> Result<(Arc<dyn openclaw_voice::SpeechToText>, Arc<dyn openclaw_voice::TextToSpeech>)>;
+    async fn create_app_context(&self, config: Config) -> Result<Arc<AppContext>>;
 }
 
 /// 默认服务工厂实现
@@ -68,14 +75,14 @@ impl ServiceFactory for DefaultServiceFactory {
         };
         
         let provider = ProviderFactory::create(provider_type, ai_config)
-            .map_err(|e| openclaw_core::OpenClawError::AIProvider(e))?;
+            .map_err(openclaw_core::OpenClawError::AIProvider)?;
         Ok(provider)
     }
     
     async fn create_memory_manager(&self) -> Result<Arc<MemoryManager>> {
         use openclaw_memory::ai_adapter::AIProviderEmbeddingAdapter;
         use openclaw_memory::hybrid_search::{HybridSearchConfig, HybridSearchManager};
-        use openclaw_memory::types::*;
+        
         
         let ai_provider = self.create_ai_provider().await?;
         let memory_config = self.config.memory();
@@ -108,11 +115,10 @@ impl ServiceFactory for DefaultServiceFactory {
         
         let mut hybrid_search = HybridSearchManager::new(vector_store.clone(), hybrid_config.clone());
         
-        if hybrid_config.enable_bm25 {
-            if let Ok(bm25_index) = openclaw_memory::bm25::Bm25Index::new(std::path::Path::new("data/bm25")) {
+        if hybrid_config.enable_bm25
+            && let Ok(bm25_index) = openclaw_memory::bm25::Bm25Index::new(std::path::Path::new("data/bm25")) {
                 hybrid_search = hybrid_search.with_bm25(Arc::new(bm25_index));
             }
-        }
         
         if hybrid_config.enable_knowledge_graph {
             let kg = openclaw_memory::knowledge_graph::KnowledgeGraph::new();
@@ -128,7 +134,7 @@ impl ServiceFactory for DefaultServiceFactory {
     }
     
     fn create_security_pipeline(&self) -> Arc<SecurityPipeline> {
-        use openclaw_security::pipeline::PipelineConfig;
+        
         
         let config = self.config.security();
         Arc::new(SecurityPipeline::new(config))
@@ -189,5 +195,48 @@ impl ServiceFactory for DefaultServiceFactory {
         let tts: Arc<dyn openclaw_voice::TextToSpeech> = create_tts(tts_provider, tts_config).into();
         
         Ok((stt, tts))
+    }
+    
+    async fn create_app_context(&self, config: Config) -> Result<Arc<AppContext>> {
+        let orchestrator_config = OrchestratorConfig {
+            enable_agents: config.server.enable_agents,
+            enable_channels: config.server.enable_channels,
+            enable_voice: config.server.enable_voice,
+            enable_canvas: config.server.enable_canvas,
+            default_agent: Some("orchestrator".to_string()),
+            channel_to_agent_map: std::collections::HashMap::new(),
+            agent_to_canvas_map: std::collections::HashMap::new(),
+        };
+
+        let orchestrator = Arc::new(RwLock::new(
+            if config.server.enable_agents
+                || config.server.enable_channels
+                || config.server.enable_canvas
+            {
+                Some(ServiceOrchestrator::new(orchestrator_config))
+            } else {
+                None
+            },
+        ));
+
+        let ai_provider = self.create_ai_provider().await?;
+        let memory_manager = self.create_memory_manager().await?;
+        let security_pipeline = self.create_security_pipeline();
+        let tool_registry = self.create_tool_registry();
+        let voice_service = Arc::new(VoiceService::new());
+
+        let context = AppContext::new(
+            config,
+            ai_provider,
+            memory_manager,
+            security_pipeline,
+            tool_registry,
+            orchestrator,
+            self.device_manager.clone(),
+            voice_service,
+            self.vector_store_registry.clone(),
+        );
+
+        Ok(Arc::new(context))
     }
 }

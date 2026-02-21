@@ -254,11 +254,10 @@ async fn handle_canvas_ws(socket: WebSocket, state: CanvasApiState, canvas_id: C
             cursors,
         };
 
-        if let Ok(msg) = serde_json::to_string(&sync_msg) {
-            if let Err(e) = tx.send(Message::Text(msg.into())).await {
+        if let Ok(msg) = serde_json::to_string(&sync_msg)
+            && let Err(e) = tx.send(Message::Text(msg.into())).await {
                 tracing::warn!("Failed to send sync response to WebSocket: {}", e);
             }
-        }
     }
 
     // 处理消息循环
@@ -281,11 +280,10 @@ async fn handle_canvas_ws(socket: WebSocket, state: CanvasApiState, canvas_id: C
             // 接收协作事件
             event = event_rx.recv() => {
                 if let Ok(event) = event
-                    && let Ok(msg) = serde_json::to_string(&CollabEventWrapper { event }) {
-                        if let Err(e) = tx.send(Message::Text(msg.into())).await {
+                    && let Ok(msg) = serde_json::to_string(&CollabEventWrapper { event })
+                        && let Err(e) = tx.send(Message::Text(msg.into())).await {
                             tracing::warn!("Failed to send collab event to WebSocket: {}", e);
                         }
-                    }
             }
         }
     }
