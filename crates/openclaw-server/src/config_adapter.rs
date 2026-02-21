@@ -6,7 +6,6 @@ use std::sync::Arc;
 use openclaw_core::Config as CoreConfig;
 use openclaw_memory::types::MemoryConfig;
 use openclaw_security::pipeline::PipelineConfig;
-use openclaw_ai::providers::ProviderConfig;
 
 /// 统一配置适配器 - 将 Core Config 转换为各模块配置
 pub struct ConfigAdapter {

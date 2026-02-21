@@ -12,7 +12,7 @@ use openclaw_ai::AIProvider;
 use openclaw_memory::MemoryManager;
 use openclaw_security::pipeline::SecurityPipeline;
 use openclaw_core::Config;
-use openclaw_device::{CameraManager, DeviceCapabilities, ScreenManager};
+use openclaw_device::{CameraManager, ScreenManager};
 
 use crate::api::create_router;
 use crate::device_manager::DeviceManager;

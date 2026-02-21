@@ -135,7 +135,7 @@ impl ServiceFactory for DefaultServiceFactory {
     }
     
     fn create_tool_registry(&self) -> Arc<ToolRegistry> {
-        use crate::hardware_tools::{CameraTool, ScreenTool};
+        use crate::hardware_tools::CameraTool;
         
         let mut registry = ToolRegistry::new();
         
