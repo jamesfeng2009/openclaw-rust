@@ -5,6 +5,7 @@ use tokio::sync::RwLock;
 
 use openclaw_ai::AIProvider;
 use openclaw_core::Config;
+use openclaw_device::UnifiedDeviceManager;
 use openclaw_memory::MemoryManager;
 use openclaw_security::pipeline::SecurityPipeline;
 use openclaw_tools::ToolRegistry;
@@ -23,6 +24,7 @@ pub struct AppContext {
     pub tool_registry: Arc<ToolRegistry>,
     pub orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
     pub device_manager: Arc<DeviceManager>,
+    pub unified_device_manager: Arc<UnifiedDeviceManager>,
     pub voice_service: Arc<VoiceService>,
     pub vector_store_registry: Arc<VectorStoreRegistry>,
 }
@@ -36,6 +38,7 @@ impl AppContext {
         tool_registry: Arc<ToolRegistry>,
         orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
         device_manager: Arc<DeviceManager>,
+        unified_device_manager: Arc<UnifiedDeviceManager>,
         voice_service: Arc<VoiceService>,
         vector_store_registry: Arc<VectorStoreRegistry>,
     ) -> Self {
@@ -47,6 +50,7 @@ impl AppContext {
             tool_registry,
             orchestrator,
             device_manager,
+            unified_device_manager,
             voice_service,
             vector_store_registry,
         }

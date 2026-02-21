@@ -47,6 +47,10 @@ pub struct Orchestrator {
     ai_provider: Option<Arc<dyn AIProvider>>,
     /// 记忆管理器
     memory: Option<Arc<MemoryManager>>,
+    /// 设备管理器
+    device_manager: Option<Arc<openclaw_device::UnifiedDeviceManager>>,
+    /// 设备工具注册中心
+    device_tool_registry: Option<Arc<crate::DeviceToolRegistry>>,
     /// 配置
     config: OrchestratorConfig,
     /// 活跃任务
@@ -59,6 +63,8 @@ impl Orchestrator {
             team: AgentTeam::new(team_config),
             ai_provider: None,
             memory: None,
+            device_manager: None,
+            device_tool_registry: None,
             config: OrchestratorConfig::default(),
             active_tasks: RwLock::new(HashMap::new()),
         }
@@ -81,10 +87,54 @@ impl Orchestrator {
         self
     }
 
+    /// 设置设备管理器
+    pub fn with_device_manager(mut self, manager: Arc<openclaw_device::UnifiedDeviceManager>) -> Self {
+        self.device_manager = Some(manager);
+        self
+    }
+
+    /// 设置设备工具注册中心
+    pub fn with_device_tool_registry(mut self, registry: Arc<crate::DeviceToolRegistry>) -> Self {
+        self.device_tool_registry = Some(registry);
+        self
+    }
+
     /// 设置配置
     pub fn with_config(mut self, config: OrchestratorConfig) -> Self {
         self.config = config;
         self
+    }
+
+    /// 注入设备工具到所有 Agent
+    pub async fn inject_device_tools(&self) -> Result<()> {
+        let registry = match &self.device_tool_registry {
+            Some(r) => r.clone(),
+            None => {
+                warn!("No device tool registry configured");
+                return Ok(());
+            }
+        };
+
+        let agent_ids = self.team.agent_ids();
+        let count = agent_ids.len();
+        for agent_id in agent_ids {
+            if let Some(agent) = self.team.get_agent(&agent_id) {
+                agent.set_device_tool_registry(registry.clone()).await;
+            }
+        }
+        
+        info!("Device tools injected to {} agents", count);
+        Ok(())
+    }
+
+    /// 获取设备管理器
+    pub fn get_device_manager(&self) -> Option<Arc<openclaw_device::UnifiedDeviceManager>> {
+        self.device_manager.clone()
+    }
+
+    /// 获取设备工具注册中心
+    pub fn get_device_tool_registry(&self) -> Option<Arc<crate::DeviceToolRegistry>> {
+        self.device_tool_registry.clone()
     }
 
     /// 处理任务

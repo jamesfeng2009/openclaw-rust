@@ -8,6 +8,7 @@ use tokio::sync::RwLock;
 
 use openclaw_core::{Config, Result};
 use openclaw_ai::AIProvider;
+use openclaw_device::UnifiedDeviceManager;
 use openclaw_memory::MemoryManager;
 use openclaw_security::pipeline::SecurityPipeline;
 use openclaw_tools::ToolRegistry;
@@ -25,6 +26,11 @@ pub trait ServiceFactory: Send + Sync {
     fn create_tool_registry(&self) -> Arc<ToolRegistry>;
     async fn create_voice_providers(&self) -> Result<(Arc<dyn openclaw_voice::SpeechToText>, Arc<dyn openclaw_voice::TextToSpeech>)>;
     async fn create_app_context(&self, config: Config) -> Result<Arc<AppContext>>;
+    async fn create_agentic_rag_engine(
+        &self,
+        ai_provider: Arc<dyn AIProvider>,
+        memory_manager: Option<Arc<MemoryManager>>,
+    ) -> Result<Arc<crate::agentic_rag::AgenticRAGEngine>>;
 }
 
 /// 默认服务工厂实现
@@ -32,6 +38,7 @@ pub struct DefaultServiceFactory {
     config: Arc<super::config_adapter::ConfigAdapter>,
     vector_store_registry: Arc<super::vector_store_registry::VectorStoreRegistry>,
     device_manager: Arc<super::device_manager::DeviceManager>,
+    unified_device_manager: Arc<UnifiedDeviceManager>,
 }
 
 impl DefaultServiceFactory {
@@ -40,10 +47,14 @@ impl DefaultServiceFactory {
         vector_store_registry: Arc<super::vector_store_registry::VectorStoreRegistry>,
         device_manager: Arc<super::device_manager::DeviceManager>,
     ) -> Self {
+        let registry = device_manager.registry().clone();
+        let unified_device_manager = Arc::new(UnifiedDeviceManager::new(registry));
+        
         Self {
             config,
             vector_store_registry,
             device_manager,
+            unified_device_manager,
         }
     }
 }
@@ -233,10 +244,31 @@ impl ServiceFactory for DefaultServiceFactory {
             tool_registry,
             orchestrator,
             self.device_manager.clone(),
+            self.unified_device_manager.clone(),
             voice_service,
             self.vector_store_registry.clone(),
         );
 
         Ok(Arc::new(context))
+    }
+
+    async fn create_agentic_rag_engine(
+        &self,
+        ai_provider: Arc<dyn openclaw_ai::AIProvider>,
+        memory_manager: Option<Arc<MemoryManager>>,
+    ) -> Result<Arc<crate::agentic_rag::AgenticRAGEngine>> {
+        use crate::agentic_rag::{AgenticRAGConfig, AgenticRAGEngine};
+
+        let config = AgenticRAGConfig::default();
+        
+        let engine = AgenticRAGEngine::new(
+            config,
+            ai_provider,
+            memory_manager,
+            None,
+            None,
+        ).await?;
+
+        Ok(Arc::new(engine))
     }
 }

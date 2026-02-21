@@ -82,6 +82,12 @@ pub trait Agent: Send + Sync {
     /// 设置工具注册中心（异步）- 统一工具接口
     async fn set_tool_registry(&self, registry: Arc<openclaw_tools::ToolRegistry>);
 
+    /// 设置设备工具注册中心（异步）
+    async fn set_device_tool_registry(&self, registry: Arc<crate::DeviceToolRegistry>);
+
+    /// 获取设备工具注册中心（异步）
+    async fn get_device_tool_registry(&self) -> Option<Arc<crate::DeviceToolRegistry>>;
+
     /// 注入依赖（异步）- 通过内部 RwLock 实现可变性
     async fn inject_dependencies(
         &self,
@@ -139,6 +145,7 @@ pub struct BaseAgent {
     security_pipeline: Arc<tokio::sync::RwLock<Option<Arc<SecurityPipeline>>>>,
     tool_executor: Arc<tokio::sync::RwLock<Option<Arc<openclaw_tools::SkillRegistry>>>>,
     tool_registry: Arc<tokio::sync::RwLock<Option<Arc<openclaw_tools::ToolRegistry>>>>,
+    device_tool_registry: Arc<tokio::sync::RwLock<Option<Arc<crate::DeviceToolRegistry>>>>,
 }
 
 impl BaseAgent {
@@ -152,6 +159,7 @@ impl BaseAgent {
             security_pipeline: Arc::new(RwLock::new(None)),
             tool_executor: Arc::new(tokio::sync::RwLock::new(None)),
             tool_registry: Arc::new(tokio::sync::RwLock::new(None)),
+            device_tool_registry: Arc::new(tokio::sync::RwLock::new(None)),
         }
     }
 
@@ -508,6 +516,14 @@ impl Agent for BaseAgent {
 
     async fn set_tool_registry(&self, registry: Arc<openclaw_tools::ToolRegistry>) {
         *self.tool_registry.write().await = Some(registry);
+    }
+
+    async fn set_device_tool_registry(&self, registry: Arc<crate::DeviceToolRegistry>) {
+        *self.device_tool_registry.write().await = Some(registry);
+    }
+
+    async fn get_device_tool_registry(&self) -> Option<Arc<crate::DeviceToolRegistry>> {
+        self.device_tool_registry.read().await.clone()
     }
 
     async fn inject_dependencies(

@@ -37,7 +37,11 @@ pub mod framework;
 // 模块管理器
 pub mod modules;
 
+// 统一设备管理器
+pub mod unified_manager;
+
 pub use camera::*;
+pub use unified_manager::*;
 pub use location::*;
 pub use nodes::*;
 pub use notification::*;

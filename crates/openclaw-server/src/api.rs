@@ -15,6 +15,7 @@ use crate::app_context::AppContext;
 use crate::browser_api::{BrowserApiState, create_browser_router};
 use crate::canvas_api::{CanvasApiState, create_canvas_router};
 use crate::device_api::create_device_router;
+use openclaw_device::UnifiedDeviceManager;
 use crate::orchestrator::ServiceOrchestrator;
 use crate::voice_service::VoiceService;
 use crate::agentic_rag_api::create_agentic_rag_router;
@@ -23,7 +24,7 @@ pub fn create_router(
     context: Arc<AppContext>,
     canvas_manager: Option<Arc<CanvasManager>>,
 ) -> Router {
-    let state = Arc::new(RwLock::new(ApiState::new(context)));
+    let state = Arc::new(RwLock::new(ApiState::new(context.clone())));
 
     let canvas_state = match canvas_manager {
         Some(manager) => CanvasApiState::with_manager(manager),
@@ -49,7 +50,7 @@ pub fn create_router(
         .with_state(state)
         .merge(create_canvas_router(canvas_state))
         .merge(create_browser_router(BrowserApiState::new()))
-        .merge(create_device_router())
+        .merge(create_device_router(context.unified_device_manager.clone()))
         .merge(create_agentic_rag_router())
 }
 
