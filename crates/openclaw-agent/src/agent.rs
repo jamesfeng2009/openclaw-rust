@@ -79,6 +79,9 @@ pub trait Agent: Send + Sync {
     /// 设置工具执行器（异步）
     async fn set_tool_executor(&self, executor: Arc<openclaw_tools::SkillRegistry>);
 
+    /// 设置工具注册中心（异步）- 统一工具接口
+    async fn set_tool_registry(&self, registry: Arc<openclaw_tools::ToolRegistry>);
+
     /// 注入依赖（异步）- 通过内部 RwLock 实现可变性
     async fn inject_dependencies(
         &self,
@@ -94,6 +97,15 @@ pub trait Agent: Send + Sync {
         memory: Option<Arc<MemoryManager>>,
         pipeline: Arc<SecurityPipeline>,
         tool_executor: Arc<openclaw_tools::SkillRegistry>,
+    );
+
+    /// 注入依赖（异步）- 使用统一 ToolRegistry
+    async fn inject_dependencies_with_tool_registry(
+        &self,
+        provider: Arc<dyn AIProvider>,
+        memory: Option<Arc<MemoryManager>>,
+        pipeline: Arc<SecurityPipeline>,
+        tool_registry: Arc<openclaw_tools::ToolRegistry>,
     );
 
     /// 执行工具
@@ -126,6 +138,7 @@ pub struct BaseAgent {
     memory: Arc<tokio::sync::Mutex<Option<Arc<MemoryManager>>>>,
     security_pipeline: Arc<tokio::sync::RwLock<Option<Arc<SecurityPipeline>>>>,
     tool_executor: Arc<tokio::sync::RwLock<Option<Arc<openclaw_tools::SkillRegistry>>>>,
+    tool_registry: Arc<tokio::sync::RwLock<Option<Arc<openclaw_tools::ToolRegistry>>>>,
 }
 
 impl BaseAgent {
@@ -138,6 +151,7 @@ impl BaseAgent {
             memory: Arc::new(tokio::sync::Mutex::new(None)),
             security_pipeline: Arc::new(RwLock::new(None)),
             tool_executor: Arc::new(tokio::sync::RwLock::new(None)),
+            tool_registry: Arc::new(tokio::sync::RwLock::new(None)),
         }
     }
 
@@ -492,6 +506,10 @@ impl Agent for BaseAgent {
         *self.tool_executor.write().await = Some(executor);
     }
 
+    async fn set_tool_registry(&self, registry: Arc<openclaw_tools::ToolRegistry>) {
+        *self.tool_registry.write().await = Some(registry);
+    }
+
     async fn inject_dependencies(
         &self,
         provider: Arc<dyn AIProvider>,
@@ -514,6 +532,19 @@ impl Agent for BaseAgent {
         self.set_memory(memory).await;
         *self.security_pipeline.write().await = Some(pipeline);
         *self.tool_executor.write().await = Some(tool_executor);
+    }
+
+    async fn inject_dependencies_with_tool_registry(
+        &self,
+        provider: Arc<dyn AIProvider>,
+        memory: Option<Arc<MemoryManager>>,
+        pipeline: Arc<SecurityPipeline>,
+        tool_registry: Arc<openclaw_tools::ToolRegistry>,
+    ) {
+        *self.ai_provider.write().await = Some(provider);
+        self.set_memory(memory).await;
+        *self.security_pipeline.write().await = Some(pipeline);
+        *self.tool_registry.write().await = Some(tool_registry);
     }
 
     /// 执行工具

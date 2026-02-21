@@ -12,9 +12,11 @@ use openclaw_ai::AIProvider;
 use openclaw_memory::MemoryManager;
 use openclaw_security::pipeline::SecurityPipeline;
 use openclaw_core::Config;
+use openclaw_device::{CameraManager, DeviceCapabilities, ScreenManager};
 
 use crate::api::create_router;
 use crate::device_manager::DeviceManager;
+use crate::hardware_tools::{CameraTool, ScreenTool};
 use crate::orchestrator::{OrchestratorConfig, ServiceOrchestrator};
 use crate::voice_service::VoiceService;
 use crate::memory_service::MemoryService;
@@ -153,13 +155,13 @@ impl Gateway {
         let security_pipeline = self.create_security_pipeline();
         tracing::info!("Security Pipeline created");
 
-        let tool_executor = self.create_tool_executor();
-        tracing::info!("Tool Executor created");
+        let tool_registry = self.create_tool_executor();
+        tracing::info!("Tool Registry created with hardware tools");
 
         let memory_lock: Arc<tokio::sync::RwLock<Arc<MemoryManager>>> = Arc::new(tokio::sync::RwLock::new(memory_manager));
         let memory_for_orchestrator = Some(memory_lock.read().await.clone());
         orchestrator
-            .inject_dependencies_with_tools(ai_provider.clone(), memory_for_orchestrator, security_pipeline, tool_executor)
+            .inject_dependencies_with_tool_registry(ai_provider.clone(), memory_for_orchestrator, security_pipeline, tool_registry)
             .await;
 
         tracing::info!("Dependencies injected to all agents");
@@ -167,8 +169,29 @@ impl Gateway {
         Ok((ai_provider, memory_lock))
     }
 
-    fn create_tool_executor(&self) -> Arc<openclaw_tools::SkillRegistry> {
-        let registry = openclaw_tools::SkillRegistry::new();
+    fn create_tool_executor(&self) -> Arc<openclaw_tools::ToolRegistry> {
+        let mut registry = openclaw_tools::ToolRegistry::new();
+
+        if self.config.devices.enabled {
+            let capabilities = self.device_manager.get_capabilities();
+            
+            let camera_manager = Arc::new(CameraManager::new());
+            let camera_tool = Arc::new(CameraTool::new(
+                Some(camera_manager),
+                capabilities.clone(),
+            ));
+            registry.register("hardware_camera".to_string(), camera_tool);
+
+            let screen_manager = Arc::new(ScreenManager::new());
+            let screen_tool = Arc::new(ScreenTool::new(
+                Some(screen_manager),
+                capabilities,
+            ));
+            registry.register("hardware_screenshot".to_string(), screen_tool);
+            
+            tracing::info!("Hardware tools registered: hardware_camera, hardware_screenshot");
+        }
+
         Arc::new(registry)
     }
 
@@ -440,12 +463,9 @@ impl Gateway {
     }
 
     async fn init_memory_service(&self, memory_manager: Arc<MemoryManager>) -> openclaw_core::Result<()> {
-        let vector_store = memory_manager.get_vector_store()
-            .ok_or_else(|| openclaw_core::OpenClawError::Config("MemoryManager has no VectorStore configured".to_string()))?;
+        self.memory_service.init(memory_manager).await;
 
-        self.memory_service.init(memory_manager, vector_store).await;
-
-        tracing::info!("Memory service initialized (reusing agent's MemoryManager and VectorStore)");
+        tracing::info!("Memory service initialized");
         Ok(())
     }
 }

@@ -13,6 +13,7 @@ pub mod skills;
 pub mod types;
 pub mod wasm_executor;
 pub mod webhook;
+pub mod tool_registry;
 
 pub use browser_tools::*;
 pub use cron_scheduler::*;
@@ -25,3 +26,4 @@ pub use skills::*;
 pub use types::*;
 pub use wasm_executor::*;
 pub use webhook::*;
+pub use tool_registry::*;

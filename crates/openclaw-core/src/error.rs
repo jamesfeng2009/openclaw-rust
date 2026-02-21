@@ -49,6 +49,9 @@ pub enum OpenClawError {
     #[error("平台不支持: {0}")]
     Platform(String),
 
+    #[error("工具错误: {0}")]
+    Tool(String),
+
     #[error("未知错误: {0}")]
     Unknown(String),
 }

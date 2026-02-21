@@ -9,14 +9,14 @@ use openclaw_core::Result;
 use openclaw_ai::AIProvider;
 use openclaw_memory::MemoryManager;
 use openclaw_security::pipeline::SecurityPipeline;
-use openclaw_tools::SkillRegistry;
+use openclaw_tools::ToolRegistry;
 
 #[async_trait]
 pub trait ServiceFactory: Send + Sync {
     async fn create_ai_provider(&self) -> Result<Arc<dyn AIProvider>>;
     async fn create_memory_manager(&self) -> Result<Arc<MemoryManager>>;
     fn create_security_pipeline(&self) -> Arc<SecurityPipeline>;
-    fn create_tool_executor(&self) -> Arc<SkillRegistry>;
+    fn create_tool_registry(&self) -> Arc<ToolRegistry>;
     async fn create_voice_providers(&self) -> Result<(Arc<dyn openclaw_voice::SpeechToText>, Arc<dyn openclaw_voice::TextToSpeech>)>;
 }
 
@@ -24,16 +24,19 @@ pub trait ServiceFactory: Send + Sync {
 pub struct DefaultServiceFactory {
     config: Arc<super::config_adapter::ConfigAdapter>,
     vector_store_registry: Arc<super::vector_store_registry::VectorStoreRegistry>,
+    device_manager: Arc<super::device_manager::DeviceManager>,
 }
 
 impl DefaultServiceFactory {
     pub fn new(
         config: Arc<super::config_adapter::ConfigAdapter>,
         vector_store_registry: Arc<super::vector_store_registry::VectorStoreRegistry>,
+        device_manager: Arc<super::device_manager::DeviceManager>,
     ) -> Self {
         Self {
             config,
             vector_store_registry,
+            device_manager,
         }
     }
 }
@@ -131,8 +134,27 @@ impl ServiceFactory for DefaultServiceFactory {
         Arc::new(SecurityPipeline::new(config))
     }
     
-    fn create_tool_executor(&self) -> Arc<SkillRegistry> {
-        Arc::new(SkillRegistry::new())
+    fn create_tool_registry(&self) -> Arc<ToolRegistry> {
+        use crate::hardware_tools::{CameraTool, ScreenTool};
+        
+        let mut registry = ToolRegistry::new();
+        
+        let capabilities = self.device_manager.get_capabilities();
+        
+        if capabilities.sensors.contains(&openclaw_device::SensorType::Camera) {
+            let camera_manager = Arc::new(openclaw_device::CameraManager::new());
+            let camera_tool = Arc::new(CameraTool::new(Some(camera_manager), capabilities.clone()));
+            registry.register("hardware_camera".to_string(), camera_tool);
+            tracing::info!("Hardware camera tool registered");
+        }
+        
+        if capabilities.sensors.contains(&openclaw_device::SensorType::Microphone) {
+            tracing::info!("Microphone available - microphone tool can be added");
+        }
+        
+        tracing::info!("Tool registry created with hardware tools based on device capabilities");
+        
+        Arc::new(registry)
     }
     
     async fn create_voice_providers(&self) -> Result<(Arc<dyn openclaw_voice::SpeechToText>, Arc<dyn openclaw_voice::TextToSpeech>)> {

@@ -211,6 +211,10 @@ pub fn get_device_registry() -> Option<Arc<registry::DeviceRegistry>> {
     DEVICE_REGISTRY.get().cloned()
 }
 
+pub fn get_or_init_global_registry() -> &'static Arc<registry::DeviceRegistry> {
+    DEVICE_REGISTRY.get_or_init(|| Arc::new(registry::DeviceRegistry::new()))
+}
+
 pub async fn get_adapter_config() -> anyhow::Result<adapter::AdapterConfig> {
     let registry = DEVICE_REGISTRY
         .get()

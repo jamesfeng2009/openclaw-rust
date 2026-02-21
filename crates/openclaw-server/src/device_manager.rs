@@ -8,7 +8,7 @@ pub struct DeviceManager {
 
 impl DeviceManager {
     pub fn new(config: Config) -> Self {
-        let registry = Arc::new(openclaw_device::DeviceRegistry::new());
+        let registry = openclaw_device::get_or_init_global_registry().clone();
         Self {
             registry,
             config: Arc::new(config),
@@ -176,5 +176,9 @@ impl DeviceManager {
 
     pub fn registry(&self) -> &Arc<openclaw_device::DeviceRegistry> {
         &self.registry
+    }
+
+    pub fn get_capabilities(&self) -> openclaw_device::DeviceCapabilities {
+        self.registry.capabilities().clone()
     }
 }

@@ -297,6 +297,44 @@ impl ServiceOrchestrator {
         tracing::info!("Dependencies with tools injected to all agents");
     }
 
+    pub async fn inject_dependencies_with_tool_registry(
+        &self,
+        ai_provider: Arc<dyn AIProvider>,
+        memory_manager: Option<Arc<MemoryManager>>,
+        security_pipeline: Arc<SecurityPipeline>,
+        tool_registry: Arc<openclaw_tools::ToolRegistry>,
+    ) {
+        {
+            let mut provider = self.ai_provider.write().await;
+            *provider = Some(ai_provider.clone());
+        }
+        {
+            let mut memory = self.memory_manager.write().await;
+            *memory = memory_manager.clone();
+        }
+        {
+            let mut pipeline = self.security_pipeline.write().await;
+            *pipeline = Some(security_pipeline.clone());
+        }
+        
+        let agents: Vec<Arc<dyn Agent>> = {
+            let agents = self.agent_service.agents.read().await;
+            agents.values().cloned().collect()
+        };
+
+        let mem_lock = memory_manager.clone();
+        for agent in agents {
+            agent.inject_dependencies_with_tool_registry(
+                ai_provider.clone(),
+                mem_lock.clone(),
+                security_pipeline.clone(),
+                tool_registry.clone(),
+            ).await;
+        }
+
+        tracing::info!("Dependencies with tool registry injected to all agents");
+    }
+
     pub async fn get_agent(&self, id: &str) -> Option<Arc<dyn Agent>> {
         let agents = self.agent_service.agents.read().await;
         agents.get(id).cloned()

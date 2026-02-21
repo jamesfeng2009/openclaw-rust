@@ -168,6 +168,7 @@ pub mod config {
                 ..Default::default()
             },
             workspaces: Default::default(),
+            voice: Default::default(),
         }
     }
 }
