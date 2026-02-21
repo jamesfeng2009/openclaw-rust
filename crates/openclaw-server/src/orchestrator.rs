@@ -14,6 +14,8 @@ use openclaw_core::{Config, Content, Message, OpenClawError, Result, Role};
 use openclaw_memory::MemoryManager;
 use openclaw_security::SecurityPipeline;
 
+use crate::agentic_rag::AgenticRAGEngine;
+
 pub struct ServiceOrchestrator {
     agent_service: AgentServiceState,
     channel_service: ChannelServiceState,
@@ -26,6 +28,7 @@ pub struct ServiceOrchestrator {
     security_pipeline: Arc<RwLock<Option<Arc<SecurityPipeline>>>>,
     tool_executor: Arc<RwLock<Option<Arc<openclaw_tools::SkillRegistry>>>>,
     channel_factory: Arc<openclaw_channels::ChannelFactoryRegistry>,
+    agentic_rag_engine: Arc<RwLock<Option<Arc<AgenticRAGEngine>>>>,
 }
 
 #[derive(Clone, Default)]
@@ -112,6 +115,7 @@ impl ServiceOrchestrator {
             security_pipeline: Arc::new(RwLock::new(None)),
             tool_executor: Arc::new(RwLock::new(None)),
             channel_factory: Arc::new(openclaw_channels::ChannelFactoryRegistry::new()),
+            agentic_rag_engine: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -345,6 +349,16 @@ impl ServiceOrchestrator {
     pub async fn get_ai_provider(&self) -> Option<Arc<dyn AIProvider>> {
         let provider = self.ai_provider.read().await;
         provider.clone()
+    }
+
+    pub async fn get_agentic_rag_engine(&self) -> Option<Arc<AgenticRAGEngine>> {
+        let engine = self.agentic_rag_engine.read().await;
+        engine.clone()
+    }
+
+    pub async fn set_agentic_rag_engine(&self, engine: Arc<AgenticRAGEngine>) {
+        let mut e = self.agentic_rag_engine.write().await;
+        *e = Some(engine);
     }
 
     pub async fn list_sessions(

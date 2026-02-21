@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::sync::RwLock;
 use std::sync::Arc;
@@ -129,6 +128,7 @@ impl CheckpointStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::checkpoint::AgentState;
 
     #[tokio::test]
     async fn test_save_and_load_checkpoint() {

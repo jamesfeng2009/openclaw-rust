@@ -21,6 +21,7 @@ pub mod conflict_resolver;
 pub mod embedding;
 pub mod fact_extractor;
 pub mod file_tracker;
+pub mod graph_context;
 pub mod hybrid_search;
 pub mod knowledge_graph;
 pub mod manager;

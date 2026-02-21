@@ -17,6 +17,7 @@ use crate::canvas_api::{CanvasApiState, create_canvas_router};
 use crate::device_api::create_device_router;
 use crate::orchestrator::ServiceOrchestrator;
 use crate::voice_service::VoiceService;
+use crate::agentic_rag_api::create_agentic_rag_router;
 
 pub fn create_router(
     context: Arc<AppContext>,
@@ -49,6 +50,7 @@ pub fn create_router(
         .merge(create_canvas_router(canvas_state))
         .merge(create_browser_router(BrowserApiState::new()))
         .merge(create_device_router())
+        .merge(create_agentic_rag_router())
 }
 
 #[derive(Clone)]

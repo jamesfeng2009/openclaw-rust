@@ -338,6 +338,41 @@ impl Orchestrator {
     pub fn team(&self) -> &AgentTeam {
         &self.team
     }
+
+    /// 使用 Graph 执行任务
+    pub async fn run_with_graph(
+        &self,
+        graph: crate::graph::GraphDef,
+        input: serde_json::Value,
+    ) -> Result<crate::graph::GraphResponse> {
+        use crate::graph::ParallelGraphExecutor;
+
+        let executor = ParallelGraphExecutor::new(graph);
+        let result = executor
+            .execute(uuid::Uuid::new_v4().to_string(), input)
+            .await
+            .map_err(|e| OpenClawError::Execution(e))?;
+
+        Ok(result)
+    }
+
+    /// 使用 Graph 执行任务（带上下文）
+    pub async fn run_with_graph_with_context(
+        &self,
+        graph: crate::graph::GraphDef,
+        input: serde_json::Value,
+        context: serde_json::Value,
+    ) -> Result<crate::graph::GraphResponse> {
+        use crate::graph::ParallelGraphExecutor;
+
+        let executor = ParallelGraphExecutor::new(graph);
+        let result = executor
+            .execute_with_context(uuid::Uuid::new_v4().to_string(), input, context)
+            .await
+            .map_err(|e| OpenClawError::Execution(e))?;
+
+        Ok(result)
+    }
 }
 
 use chrono::Utc;
@@ -402,5 +437,94 @@ mod tests {
 
         // 应该选择一个可用的 agent
         assert!(agent_id.is_some());
+    }
+    
+    #[tokio::test]
+    async fn test_orchestrator_run_with_graph() {
+        use crate::graph::{GraphPatterns, ExecutionStatus};
+        
+        let orchestrator = Orchestrator::with_default_team();
+        
+        // 使用预定义的并行模式创建图
+        let graph = GraphPatterns::parallel(&["agent_1", "agent_2"]);
+        
+        // 使用 Graph 执行任务
+        let result = orchestrator
+            .run_with_graph(graph, serde_json::json!({"query": "test"}))
+            .await;
+        
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.status, ExecutionStatus::Completed);
+    }
+    
+    #[tokio::test]
+    async fn test_orchestrator_run_with_sequential_graph() {
+        use crate::graph::{GraphPatterns, ExecutionStatus};
+        
+        let orchestrator = Orchestrator::with_default_team();
+        
+        // 使用顺序模式创建图
+        let graph = GraphPatterns::sequential(&["agent_1", "agent_2", "agent_3"]);
+        
+        let result = orchestrator
+            .run_with_graph(graph, serde_json::json!({"query": "test"}))
+            .await;
+        
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.status, ExecutionStatus::Completed);
+    }
+    
+    #[tokio::test]
+    async fn test_orchestrator_run_with_custom_graph() {
+        use crate::graph::{EdgeDef, GraphDef, NodeDef, NodeType, ExecutionStatus};
+        
+        let orchestrator = Orchestrator::with_default_team();
+        
+        let graph = GraphDef::new("custom", "Custom Graph")
+            .with_node(NodeDef::new("start", NodeType::Router))
+            .with_node(NodeDef::new("process", NodeType::Executor).with_agent("agent_1"))
+            .with_node(NodeDef::new("end", NodeType::Terminal))
+            .with_edge(EdgeDef::new("start", "process"))
+            .with_edge(EdgeDef::new("process", "end"))
+            .with_end("end");
+        
+        let result = orchestrator
+            .run_with_graph(graph, serde_json::json!({"data": "test"}))
+            .await;
+        
+        assert!(result.is_ok());
+    }
+    
+    #[tokio::test]
+    async fn test_orchestrator_run_with_graph_with_context() {
+        use crate::graph::{EdgeDef, GraphDef, NodeDef, NodeType, ExecutionStatus};
+        
+        let orchestrator = Orchestrator::with_default_team();
+        
+        let graph = GraphDef::new("context_test", "Context Test Graph")
+            .with_node(NodeDef::new("start", NodeType::Router))
+            .with_node(NodeDef::new("process", NodeType::Executor).with_agent("agent_1"))
+            .with_node(NodeDef::new("end", NodeType::Terminal))
+            .with_edge(EdgeDef::new("start", "process"))
+            .with_edge(EdgeDef::new("process", "end"))
+            .with_end("end");
+        
+        let context = serde_json::json!({
+            "working": {
+                "current_agent": "test_agent",
+                "current_task": "context_test_task"
+            },
+            "knowledge": []
+        });
+        
+        let result = orchestrator
+            .run_with_graph_with_context(graph, serde_json::json!({"data": "test"}), context)
+            .await;
+        
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert!(!response.events.is_empty());
     }
 }

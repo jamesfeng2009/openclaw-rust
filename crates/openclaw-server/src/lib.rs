@@ -1,6 +1,8 @@
 //! OpenClaw Server - HTTP/WebSocket 服务
 
 pub mod agent_service;
+pub mod agentic_rag;
+pub mod agentic_rag_api;
 pub mod api;
 pub mod app_context;
 pub mod browser_api;
@@ -19,6 +21,8 @@ pub mod voice_service;
 pub mod websocket;
 
 pub use agent_service::*;
+pub use agentic_rag::*;
+pub use agentic_rag_api::*;
 pub use api::*;
 pub use browser_api::*;
 pub use canvas_api::*;
