@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use uuid::Uuid;
+
+#[cfg(feature = "per_session_memory")]
+use std::collections::VecDeque;
 
 use openclaw_ai::AIProvider;
 use openclaw_agent::aieos::{AIEOSParser, AIEOSPromptGenerator};
@@ -11,10 +15,72 @@ use openclaw_agent::{Agent, AgentConfig as OpenclawAgentConfig, AgentInfo, Agent
 use openclaw_canvas::CanvasManager;
 use openclaw_channels::{ChannelManager, ChannelMessage, SendMessage};
 use openclaw_core::{Config, Content, Message, OpenClawError, Result, Role};
+#[cfg(feature = "per_session_memory")]
+use openclaw_memory::MemoryConfig;
 use openclaw_memory::MemoryManager;
 use openclaw_security::SecurityPipeline;
 
 use crate::agentic_rag::AgenticRAGEngine;
+
+#[cfg(feature = "per_session_memory")]
+const DEFAULT_MAX_SESSION_MEMORIES: usize = 100;
+
+#[cfg(feature = "per_session_memory")]
+struct SessionMemoryCache {
+    map: HashMap<Uuid, Arc<MemoryManager>>,
+    order: VecDeque<Uuid>,
+    max_size: usize,
+}
+
+#[cfg(feature = "per_session_memory")]
+impl SessionMemoryCache {
+    fn new(max_size: usize) -> Self {
+        Self {
+            map: HashMap::new(),
+            order: VecDeque::new(),
+            max_size,
+        }
+    }
+
+    fn get(&self, session_id: &Uuid) -> Option<Arc<MemoryManager>> {
+        self.map.get(session_id).cloned()
+    }
+
+    fn insert(&mut self, session_id: Uuid, memory: Arc<MemoryManager>) {
+        if self.map.contains_key(&session_id) {
+            return;
+        }
+
+        if self.map.len() >= self.max_size {
+            if let Some(oldest) = self.order.pop_front() {
+                self.map.remove(&oldest);
+            }
+        }
+
+        self.map.insert(session_id, memory);
+        self.order.push_back(session_id);
+    }
+
+    fn remove(&mut self, session_id: &Uuid) -> Option<Arc<MemoryManager>> {
+        if let Some(memory) = self.map.remove(session_id) {
+            self.order.retain(|id| id != session_id);
+            Some(memory)
+        } else {
+            None
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.map.len()
+    }
+}
+
+#[cfg(feature = "per_session_memory")]
+impl Default for SessionMemoryCache {
+    fn default() -> Self {
+        Self::new(DEFAULT_MAX_SESSION_MEMORIES)
+    }
+}
 
 pub struct ServiceOrchestrator {
     agent_service: AgentServiceState,
@@ -29,6 +95,8 @@ pub struct ServiceOrchestrator {
     tool_executor: Arc<RwLock<Option<Arc<openclaw_tools::SkillRegistry>>>>,
     channel_factory: Arc<openclaw_channels::ChannelFactoryRegistry>,
     agentic_rag_engine: Arc<RwLock<Option<Arc<AgenticRAGEngine>>>>,
+    #[cfg(feature = "per_session_memory")]
+    session_memory_cache: Arc<tokio::sync::RwLock<SessionMemoryCache>>,
 }
 
 #[derive(Clone, Default)]
@@ -82,6 +150,12 @@ pub struct OrchestratorConfig {
     pub default_agent: Option<String>,
     pub channel_to_agent_map: HashMap<String, String>,
     pub agent_to_canvas_map: HashMap<String, String>,
+    #[cfg(feature = "per_session_memory")]
+    pub enable_per_session_memory: bool,
+    #[cfg(feature = "per_session_memory")]
+    pub memory_config: Option<MemoryConfig>,
+    #[cfg(feature = "per_session_memory")]
+    pub max_session_memories: usize,
 }
 
 impl Default for OrchestratorConfig {
@@ -94,6 +168,12 @@ impl Default for OrchestratorConfig {
             default_agent: Some("orchestrator".to_string()),
             channel_to_agent_map: HashMap::new(),
             agent_to_canvas_map: HashMap::new(),
+            #[cfg(feature = "per_session_memory")]
+            enable_per_session_memory: false,
+            #[cfg(feature = "per_session_memory")]
+            memory_config: None,
+            #[cfg(feature = "per_session_memory")]
+            max_session_memories: DEFAULT_MAX_SESSION_MEMORIES,
         }
     }
 }
@@ -108,7 +188,7 @@ impl ServiceOrchestrator {
             channel_service: ChannelServiceState::default(),
             canvas_service: CanvasServiceState::default(),
             session_service: SessionServiceState::new(session_manager),
-            config,
+            config: config.clone(),
             running: Arc::new(RwLock::new(false)),
             ai_provider: Arc::new(RwLock::new(None)),
             memory_manager: Arc::new(RwLock::new(None)),
@@ -116,6 +196,10 @@ impl ServiceOrchestrator {
             tool_executor: Arc::new(RwLock::new(None)),
             channel_factory: Arc::new(openclaw_channels::ChannelFactoryRegistry::new()),
             agentic_rag_engine: Arc::new(RwLock::new(None)),
+            #[cfg(feature = "per_session_memory")]
+            session_memory_cache: Arc::new(tokio::sync::RwLock::new(
+                SessionMemoryCache::new(config.max_session_memories)
+            )),
         }
     }
 
@@ -386,7 +470,45 @@ impl ServiceOrchestrator {
     pub async fn close_session(&self, session_id: &str) -> openclaw_agent::Result<()> {
         let uuid = uuid::Uuid::parse_str(session_id)
             .map_err(|_| openclaw_agent::OpenClawError::Config(format!("Invalid session ID: {}", session_id)))?;
+        
+        #[cfg(feature = "per_session_memory")]
+        {
+            self.cleanup_session_memory(&uuid).await;
+        }
+        
         self.session_service.manager.close_session(&uuid).await
+    }
+
+    #[cfg(feature = "per_session_memory")]
+    pub async fn get_session_memory(&self, session_id: &Uuid) -> Option<Arc<MemoryManager>> {
+        if !self.config.enable_per_session_memory {
+            return None;
+        }
+        
+        let mut cache = self.session_memory_cache.write().await;
+        
+        if let Some(memory) = cache.get(session_id) {
+            return Some(memory);
+        }
+        
+        let config = self.config.memory_config.clone()
+            .unwrap_or_else(|| MemoryConfig::default());
+        
+        let session_memory = Arc::new(MemoryManager::new(config));
+        
+        cache.insert(*session_id, session_memory.clone());
+        
+        tracing::debug!("Created new session memory for session: {}", session_id);
+        Some(session_memory)
+    }
+
+    #[cfg(feature = "per_session_memory")]
+    async fn cleanup_session_memory(&self, session_id: &Uuid) {
+        let mut cache = self.session_memory_cache.write().await;
+        
+        if let Some(memory) = cache.remove(session_id) {
+            tracing::debug!("Cleaning up session memory for session: {}", session_id);
+        }
     }
 
     pub async fn get_session(&self, session_id: &str) -> openclaw_agent::Result<Option<openclaw_agent::sessions::Session>> {
@@ -418,7 +540,24 @@ impl ServiceOrchestrator {
         let msg = Message::new(Role::User, vec![Content::Text { text: message }]);
 
         let task = TaskRequest::new(TaskType::Conversation, TaskInput::Message { message: msg })
-            .with_session_id(session_id.unwrap_or_else(|| format!("agent-{}", agent_id)));
+            .with_session_id(session_id.clone().unwrap_or_else(|| format!("agent-{}", agent_id)));
+
+        #[cfg(feature = "per_session_memory")]
+        {
+            if self.config.enable_per_session_memory {
+                if let Some(ref sid) = session_id {
+                    if let Ok(uuid) = uuid::Uuid::parse_str(sid) {
+                        if let Some(session_memory) = self.get_session_memory(&uuid).await {
+                            agent.inject_dependencies(
+                                self.ai_provider.read().await.clone().unwrap(),
+                                Some(session_memory),
+                                self.security_pipeline.read().await.clone().unwrap(),
+                            ).await;
+                        }
+                    }
+                }
+            }
+        }
 
         let result = agent.process(task).await?;
 
@@ -634,6 +773,24 @@ impl Default for ServiceOrchestrator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use openclaw_agent::Agent;
+    use openclaw_core::session::SessionScope;
+
+    #[cfg(feature = "per_session_memory")]
+    fn make_per_session_config(max_memories: usize) -> OrchestratorConfig {
+        OrchestratorConfig {
+            enable_per_session_memory: true,
+            memory_config: Some(MemoryConfig::default()),
+            max_session_memories: max_memories,
+            enable_agents: false,
+            enable_channels: false,
+            enable_voice: false,
+            enable_canvas: false,
+            default_agent: Some("orchestrator".to_string()),
+            channel_to_agent_map: std::collections::HashMap::new(),
+            agent_to_canvas_map: std::collections::HashMap::new(),
+        }
+    }
 
     #[test]
     fn test_orchestrator_config_default() {
@@ -642,6 +799,30 @@ mod tests {
         assert!(!config.enable_channels);
         assert!(!config.enable_voice);
         assert!(!config.enable_canvas);
+        
+        #[cfg(feature = "per_session_memory")]
+        {
+            assert!(!config.enable_per_session_memory);
+            assert!(config.memory_config.is_none());
+            assert_eq!(config.max_session_memories, 100);
+        }
+    }
+
+    #[test]
+    fn test_orchestrator_config_with_per_session() {
+        #[cfg(feature = "per_session_memory")]
+        {
+            let config = OrchestratorConfig {
+                enable_per_session_memory: true,
+                memory_config: Some(MemoryConfig::default()),
+                max_session_memories: 50,
+                ..Default::default()
+            };
+            
+            assert!(config.enable_per_session_memory);
+            assert!(config.memory_config.is_some());
+            assert_eq!(config.max_session_memories, 50);
+        }
     }
 
     #[test]
@@ -668,5 +849,199 @@ mod tests {
         let orchestrator = ServiceOrchestrator::new(OrchestratorConfig::default());
         let running = orchestrator.running.read().await;
         assert!(!*running);
+    }
+
+    #[cfg(feature = "per_session_memory")]
+    mod per_session_memory_tests {
+        use super::*;
+        use uuid::Uuid;
+
+        #[test]
+        fn test_session_memory_cache_new() {
+            let cache = SessionMemoryCache::new(10);
+            assert_eq!(cache.len(), 0);
+        }
+
+        #[test]
+        fn test_session_memory_cache_insert_and_get() {
+            let mut cache = SessionMemoryCache::new(10);
+            let session_id = Uuid::new_v4();
+            let memory = Arc::new(MemoryManager::default());
+            
+            cache.insert(session_id, memory.clone());
+            assert_eq!(cache.len(), 1);
+            
+            let retrieved = cache.get(&session_id);
+            assert!(retrieved.is_some());
+            assert!(Arc::ptr_eq(&retrieved.unwrap(), &memory));
+        }
+
+        #[test]
+        fn test_session_memory_cache_remove() {
+            let mut cache = SessionMemoryCache::new(10);
+            let session_id = Uuid::new_v4();
+            let memory = Arc::new(MemoryManager::default());
+            
+            cache.insert(session_id, memory);
+            assert_eq!(cache.len(), 1);
+            
+            let removed = cache.remove(&session_id);
+            assert!(removed.is_some());
+            assert_eq!(cache.len(), 0);
+            
+            let retrieved = cache.get(&session_id);
+            assert!(retrieved.is_none());
+        }
+
+        #[test]
+        fn test_session_memory_cache_lru_eviction() {
+            let mut cache = SessionMemoryCache::new(2);
+            
+            let id1 = Uuid::new_v4();
+            let id2 = Uuid::new_v4();
+            let id3 = Uuid::new_v4();
+            
+            cache.insert(id1, Arc::new(MemoryManager::default()));
+            cache.insert(id2, Arc::new(MemoryManager::default()));
+            assert_eq!(cache.len(), 2);
+            
+            cache.insert(id3, Arc::new(MemoryManager::default()));
+            assert_eq!(cache.len(), 2);
+            
+            assert!(cache.get(&id1).is_none());
+            assert!(cache.get(&id2).is_some());
+            assert!(cache.get(&id3).is_some());
+        }
+
+        #[test]
+        fn test_session_memory_cache_no_duplicate_insert() {
+            let mut cache = SessionMemoryCache::new(10);
+            let session_id = Uuid::new_v4();
+            let memory1 = Arc::new(MemoryManager::default());
+            let memory2 = Arc::new(MemoryManager::default());
+            
+            cache.insert(session_id, memory1);
+            cache.insert(session_id, memory2);
+            
+            assert_eq!(cache.len(), 1);
+        }
+
+        #[tokio::test]
+        async fn test_orchestrator_get_session_memory() {
+            let config = make_per_session_config(10);
+            let orchestrator = ServiceOrchestrator::new(config);
+            
+            let session_id = Uuid::new_v4();
+            let memory = orchestrator.get_session_memory(&session_id).await;
+            
+            assert!(memory.is_some());
+        }
+
+        #[tokio::test]
+        async fn test_orchestrator_get_session_memory_cached() {
+            let config = make_per_session_config(10);
+            let orchestrator = ServiceOrchestrator::new(config);
+            
+            let session_id = Uuid::new_v4();
+            
+            let memory1 = orchestrator.get_session_memory(&session_id).await;
+            let memory2 = orchestrator.get_session_memory(&session_id).await;
+            
+            assert!(memory1.is_some());
+            assert!(memory2.is_some());
+        }
+
+        #[tokio::test]
+        async fn test_orchestrator_cleanup_session_memory() {
+            let config = make_per_session_config(10);
+            let orchestrator = ServiceOrchestrator::new(config);
+            
+            let session_id = Uuid::new_v4();
+            
+            let _ = orchestrator.get_session_memory(&session_id).await;
+            
+            orchestrator.cleanup_session_memory(&session_id).await;
+            
+            let cache = orchestrator.session_memory_cache.read().await;
+            assert!(cache.get(&session_id).is_none());
+        }
+
+        #[tokio::test]
+        async fn test_orchestrator_close_session_cleans_memory() {
+            let config = make_per_session_config(10);
+            let orchestrator = ServiceOrchestrator::new(config);
+            
+            let session_id = Uuid::new_v4();
+            
+            let _ = orchestrator.get_session_memory(&session_id).await;
+            
+            orchestrator.cleanup_session_memory(&session_id).await;
+            
+            let cache = orchestrator.session_memory_cache.read().await;
+            assert!(cache.get(&session_id).is_none());
+        }
+
+        #[tokio::test]
+        async fn test_per_session_memory_isolation() {
+            let config = make_per_session_config(10);
+            let orchestrator = ServiceOrchestrator::new(config);
+            
+            let session_id1 = Uuid::new_v4();
+            let session_id2 = Uuid::new_v4();
+            
+            let memory1 = orchestrator.get_session_memory(&session_id1).await;
+            let memory2 = orchestrator.get_session_memory(&session_id2).await;
+            
+            assert!(memory1.is_some());
+            assert!(memory2.is_some());
+            
+            let mem1_ptr = Arc::as_ptr(&memory1.unwrap());
+            let mem2_ptr = Arc::as_ptr(&memory2.unwrap());
+            assert_ne!(mem1_ptr, mem2_ptr, "Each session should have its own MemoryManager");
+        }
+
+        #[tokio::test]
+        async fn test_multiple_sessions_with_lru_eviction() {
+            let config = make_per_session_config(2);
+            let orchestrator = ServiceOrchestrator::new(config);
+            
+            let session_id1 = Uuid::new_v4();
+            
+            let _ = orchestrator.get_session_memory(&session_id1).await;
+            
+            let cache = orchestrator.session_memory_cache.read().await;
+            assert_eq!(cache.len(), 1);
+        }
+
+        #[tokio::test]
+        async fn test_session_memory_persists_across_get_calls() {
+            let config = make_per_session_config(10);
+            let orchestrator = ServiceOrchestrator::new(config);
+            
+            let session_id = Uuid::new_v4();
+            
+            let memory1 = orchestrator.get_session_memory(&session_id).await;
+            assert!(memory1.is_some());
+            
+            let memory2 = orchestrator.get_session_memory(&session_id).await;
+            assert!(memory2.is_some());
+            
+            let mem1_ptr = Arc::as_ptr(&memory1.unwrap());
+            let mem2_ptr = Arc::as_ptr(&memory2.unwrap());
+            assert_eq!(mem1_ptr, mem2_ptr, "Same session should return same MemoryManager");
+        }
+
+        #[tokio::test]
+        async fn test_disabled_per_session_memory_uses_global() {
+            let config = make_per_session_config(10);
+            let mut config = config;
+            config.enable_per_session_memory = false;
+            let orchestrator = ServiceOrchestrator::new(config);
+            
+            let session_id = Uuid::new_v4();
+            
+            let memory = orchestrator.get_session_memory(&session_id).await;
+            assert!(memory.is_none(), "No session memory should be created when disabled");
+        }
     }
 }

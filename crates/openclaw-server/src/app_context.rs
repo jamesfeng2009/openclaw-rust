@@ -19,7 +19,7 @@ use crate::vector_store_registry::VectorStoreRegistry;
 pub struct AppContext {
     pub config: Config,
     pub ai_provider: Arc<dyn AIProvider>,
-    pub memory_manager: Arc<MemoryManager>,
+    pub memory_manager: Option<Arc<MemoryManager>>,
     pub security_pipeline: Arc<SecurityPipeline>,
     pub tool_registry: Arc<ToolRegistry>,
     pub orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,
@@ -33,7 +33,7 @@ impl AppContext {
     pub fn new(
         config: Config,
         ai_provider: Arc<dyn AIProvider>,
-        memory_manager: Arc<MemoryManager>,
+        memory_manager: Option<Arc<MemoryManager>>,
         security_pipeline: Arc<SecurityPipeline>,
         tool_registry: Arc<ToolRegistry>,
         orchestrator: Arc<RwLock<Option<ServiceOrchestrator>>>,

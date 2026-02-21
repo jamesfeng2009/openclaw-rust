@@ -6,38 +6,12 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use openclaw_device::{CameraManager, ScreenManager, UnifiedDeviceManager, DeviceInfo};
+use openclaw_device::{UnifiedDeviceManager, DeviceInfo};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-#[derive(Debug, Deserialize)]
-pub struct CapturePhotoRequest {
-    pub device_index: Option<u32>,
-}
-
 #[derive(Debug, Serialize)]
 pub struct CaptureResponse {
-    pub success: bool,
-    pub data: Option<String>,
-    pub mime_type: String,
-    pub timestamp: i64,
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ScreenshotRequest {
-    pub display: Option<u32>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct StartRecordingRequest {
-    pub device_index: Option<u32>,
-    pub display: Option<u32>,
-    pub duration_secs: Option<u32>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RecordingResponse {
     pub success: bool,
     pub data: Option<String>,
     pub mime_type: String,
@@ -52,112 +26,9 @@ pub struct DeviceListResponse {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct SmartCaptureRequest {
-    pub device_id: Option<String>,
-    pub prompt: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct SmartCaptureResponse {
-    pub success: bool,
-    pub image_data: Option<String>,
-    pub analysis: Option<String>,
-    pub error: Option<String>,
-}
-
 #[derive(Clone)]
 pub struct DeviceApiState {
     pub device_manager: Arc<UnifiedDeviceManager>,
-}
-
-async fn capture_photo(Json(req): Json<CapturePhotoRequest>) -> Json<CaptureResponse> {
-    info!("Capturing photo with device_index: {:?}", req.device_index);
-    
-    let camera_manager = CameraManager::new();
-    match camera_manager.capture_photo(req.device_index).await {
-        Ok(result) => Json(CaptureResponse {
-            success: result.success,
-            data: result.data,
-            mime_type: result.mime_type,
-            timestamp: result.timestamp,
-            error: result.error,
-        }),
-        Err(e) => Json(CaptureResponse {
-            success: false,
-            data: None,
-            mime_type: "".to_string(),
-            timestamp: chrono::Utc::now().timestamp_millis(),
-            error: Some(e.to_string()),
-        }),
-    }
-}
-
-async fn capture_screenshot(Json(req): Json<ScreenshotRequest>) -> Json<CaptureResponse> {
-    info!("Capturing screenshot with display: {:?}", req.display);
-    
-    let screen_manager = ScreenManager::new();
-    match screen_manager.screenshot(req.display).await {
-        Ok(result) => Json(CaptureResponse {
-            success: result.success,
-            data: result.data,
-            mime_type: result.mime_type,
-            timestamp: result.timestamp,
-            error: result.error,
-        }),
-        Err(e) => Json(CaptureResponse {
-            success: false,
-            data: None,
-            mime_type: "".to_string(),
-            timestamp: chrono::Utc::now().timestamp_millis(),
-            error: Some(e.to_string()),
-        }),
-    }
-}
-
-async fn start_video_recording(Json(req): Json<StartRecordingRequest>) -> Json<RecordingResponse> {
-    info!("Starting video recording: device_index={:?}, duration={:?}", 
-          req.device_index, req.duration_secs);
-    
-    let camera_manager = CameraManager::new();
-    match camera_manager.start_recording(req.device_index, req.duration_secs).await {
-        Ok(result) => Json(RecordingResponse {
-            success: result.success,
-            data: result.data,
-            mime_type: result.mime_type,
-            timestamp: result.timestamp,
-            error: result.error,
-        }),
-        Err(e) => Json(RecordingResponse {
-            success: false,
-            data: None,
-            mime_type: "".to_string(),
-            timestamp: chrono::Utc::now().timestamp_millis(),
-            error: Some(e.to_string()),
-        }),
-    }
-}
-
-async fn start_screen_recording(Json(req): Json<StartRecordingRequest>) -> Json<RecordingResponse> {
-    info!("Starting screen recording: duration={:?}", req.duration_secs);
-    
-    let screen_manager = ScreenManager::new();
-    match screen_manager.record_screen(req.display, req.duration_secs).await {
-        Ok(result) => Json(RecordingResponse {
-            success: result.success,
-            data: result.data,
-            mime_type: result.mime_type,
-            timestamp: result.timestamp,
-            error: result.error,
-        }),
-        Err(e) => Json(RecordingResponse {
-            success: false,
-            data: None,
-            mime_type: "".to_string(),
-            timestamp: chrono::Utc::now().timestamp_millis(),
-            error: Some(e.to_string()),
-        }),
-    }
 }
 
 async fn list_devices(State(state): State<DeviceApiState>) -> Json<DeviceListResponse> {
@@ -224,11 +95,7 @@ pub fn create_device_router(device_manager: Arc<UnifiedDeviceManager>) -> Router
     
     Router::new()
         .route("/device/list", get(list_devices))
-        .route("/device/camera/capture", post(capture_photo))
-        .route("/device/camera/record", post(start_video_recording))
         .route("/device/camera/{id}/capture", post(capture_camera))
-        .route("/device/screen/screenshot", post(capture_screenshot))
-        .route("/device/screen/record", post(start_screen_recording))
         .route("/device/screen/{id}/capture", post(capture_screen))
         .with_state(state)
 }
@@ -236,6 +103,12 @@ pub fn create_device_router(device_manager: Arc<UnifiedDeviceManager>) -> Router
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use openclaw_device::{CameraManager, ScreenManager};
+    use tower::ServiceExt;
     
     #[tokio::test]
     async fn test_device_api_state_creation() {
@@ -267,11 +140,122 @@ mod tests {
         assert_eq!(devices[0].id, "test_cam");
     }
     
+    #[tokio::test]
+    async fn test_list_devices_with_multiple_devices() {
+        use openclaw_device::DeviceType;
+        
+        let registry = Arc::new(openclaw_device::DeviceRegistry::new());
+        let manager = Arc::new(UnifiedDeviceManager::new(registry));
+        
+        manager.register_camera("cam1", CameraManager::new()).await;
+        manager.register_camera("cam2", CameraManager::new()).await;
+        manager.register_screen("screen1", ScreenManager::new()).await;
+        
+        let devices = manager.list_capabilities().await;
+        assert_eq!(devices.len(), 3);
+        
+        let camera_count = devices.iter().filter(|d| d.device_type == DeviceType::Camera).count();
+        let screen_count = devices.iter().filter(|d| d.device_type == DeviceType::Screen).count();
+        assert_eq!(camera_count, 2);
+        assert_eq!(screen_count, 1);
+    }
+    
+    #[tokio::test]
+    async fn test_get_camera_not_found() {
+        let registry = Arc::new(openclaw_device::DeviceRegistry::new());
+        let manager = Arc::new(UnifiedDeviceManager::new(registry));
+        
+        let camera = manager.get_camera("nonexistent").await;
+        assert!(camera.is_none());
+    }
+    
+    #[tokio::test]
+    async fn test_get_screen_not_found() {
+        let registry = Arc::new(openclaw_device::DeviceRegistry::new());
+        let manager = Arc::new(UnifiedDeviceManager::new(registry));
+        
+        let screen = manager.get_screen("nonexistent").await;
+        assert!(screen.is_none());
+    }
+    
     #[test]
     fn test_router_creation() {
         let registry = Arc::new(openclaw_device::DeviceRegistry::new());
         let manager = Arc::new(UnifiedDeviceManager::new(registry));
         
         let _router = create_device_router(manager);
+    }
+    
+    #[tokio::test]
+    async fn test_router_list_devices() {
+        let registry = Arc::new(openclaw_device::DeviceRegistry::new());
+        let manager = Arc::new(UnifiedDeviceManager::new(registry));
+        let router = create_device_router(manager);
+        
+        let response = router
+            .oneshot(Request::builder().uri("/device/list").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+    
+    #[tokio::test]
+    async fn test_router_capture_camera_not_found() {
+        let registry = Arc::new(openclaw_device::DeviceRegistry::new());
+        let manager = Arc::new(UnifiedDeviceManager::new(registry));
+        let router = create_device_router(manager);
+        
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/device/camera/nonexistent/capture")
+                    .method("POST")
+                    .body(Body::empty())
+                    .unwrap()
+            )
+            .await
+            .unwrap();
+        
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+    
+    #[tokio::test]
+    async fn test_router_capture_screen_not_found() {
+        let registry = Arc::new(openclaw_device::DeviceRegistry::new());
+        let manager = Arc::new(UnifiedDeviceManager::new(registry));
+        let router = create_device_router(manager);
+        
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/device/screen/nonexistent/capture")
+                    .method("POST")
+                    .body(Body::empty())
+                    .unwrap()
+            )
+            .await
+            .unwrap();
+        
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+    
+    #[tokio::test]
+    async fn test_router_404_not_found() {
+        let registry = Arc::new(openclaw_device::DeviceRegistry::new());
+        let manager = Arc::new(UnifiedDeviceManager::new(registry));
+        let router = create_device_router(manager);
+        
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/nonexistent/route")
+                    .body(Body::empty())
+                    .unwrap()
+            )
+            .await
+            .unwrap();
+        
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 }

@@ -209,6 +209,8 @@ impl ServiceFactory for DefaultServiceFactory {
     }
     
     async fn create_app_context(&self, config: Config) -> Result<Arc<AppContext>> {
+        let memory_config = self.config.memory();
+        
         let orchestrator_config = OrchestratorConfig {
             enable_agents: config.server.enable_agents,
             enable_channels: config.server.enable_channels,
@@ -217,6 +219,12 @@ impl ServiceFactory for DefaultServiceFactory {
             default_agent: Some("orchestrator".to_string()),
             channel_to_agent_map: std::collections::HashMap::new(),
             agent_to_canvas_map: std::collections::HashMap::new(),
+            #[cfg(feature = "per_session_memory")]
+            enable_per_session_memory: false,
+            #[cfg(feature = "per_session_memory")]
+            memory_config: Some(memory_config),
+            #[cfg(feature = "per_session_memory")]
+            max_session_memories: 100,
         };
 
         let orchestrator = Arc::new(RwLock::new(
@@ -231,7 +239,7 @@ impl ServiceFactory for DefaultServiceFactory {
         ));
 
         let ai_provider = self.create_ai_provider().await?;
-        let memory_manager = self.create_memory_manager().await?;
+        let memory_manager = Some(self.create_memory_manager().await?);
         let security_pipeline = self.create_security_pipeline();
         let tool_registry = self.create_tool_registry();
         let voice_service = Arc::new(VoiceService::new());

@@ -20,7 +20,7 @@ pub struct Gateway {
 }
 
 impl Gateway {
-    pub fn new(config: Config) -> Self {
+    pub async fn new(config: Config) -> Self {
         let config_for_adapter = config.clone();
         let config_for_device = config.clone();
         
@@ -34,8 +34,8 @@ impl Gateway {
             device_manager,
         );
 
-        let context = tokio::runtime::Handle::current()
-            .block_on(factory.create_app_context(config.clone()))
+        let context = factory.create_app_context(config.clone())
+            .await
             .expect("Failed to create app context");
 
         Self { config, context }
@@ -53,13 +53,10 @@ impl Gateway {
                 orchestrator.init_agents_from_config(&self.config).await?;
             }
 
-            let memory_lock: Arc<tokio::sync::RwLock<Arc<openclaw_memory::MemoryManager>>> = 
-                Arc::new(tokio::sync::RwLock::new(self.context.memory_manager.clone()));
-            
             orchestrator
                 .inject_dependencies_with_tool_registry(
                     self.context.ai_provider.clone(),
-                    Some(memory_lock.read().await.clone()),
+                    self.context.memory_manager.clone(),
                     self.context.security_pipeline.clone(),
                     self.context.tool_registry.clone(),
                 )
@@ -157,12 +154,6 @@ impl Gateway {
     }
 }
 
-impl Default for Gateway {
-    fn default() -> Self {
-        Self::new(Config::default())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,5 +170,20 @@ mod tests {
         let mut config = Config::default();
         config.server.enable_agents = true;
         assert!(config.server.enable_agents);
+    }
+
+    #[tokio::test]
+    async fn test_gateway_new_is_async() {
+        let config = Config::default();
+        let gateway = Gateway::new(config).await;
+        assert!(!gateway.config.server.enable_agents);
+    }
+
+    #[tokio::test]
+    async fn test_gateway_context_available() {
+        let config = Config::default();
+        let gateway = Gateway::new(config).await;
+        let ctx = gateway.context();
+        assert!(!ctx.config.server.enable_agents);
     }
 }
