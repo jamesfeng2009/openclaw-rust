@@ -15,7 +15,6 @@
 //! - Kimi 月之暗面 (Moonshot v1)
 
 pub mod error;
-pub mod failover;
 pub mod models;
 pub mod oauth;
 pub mod providers;
@@ -25,7 +24,6 @@ pub mod tools;
 pub mod types;
 
 pub use error::*;
-pub use failover::*;
 pub use models::*;
 pub use oauth::*;
 pub use providers::*;

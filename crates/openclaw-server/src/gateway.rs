@@ -153,15 +153,23 @@ impl Gateway {
         let security_pipeline = self.create_security_pipeline();
         tracing::info!("Security Pipeline created");
 
+        let tool_executor = self.create_tool_executor();
+        tracing::info!("Tool Executor created");
+
         let memory_lock: Arc<tokio::sync::RwLock<Arc<MemoryManager>>> = Arc::new(tokio::sync::RwLock::new(memory_manager));
         let memory_for_orchestrator = Some(memory_lock.read().await.clone());
         orchestrator
-            .inject_dependencies(ai_provider.clone(), memory_for_orchestrator, security_pipeline)
+            .inject_dependencies_with_tools(ai_provider.clone(), memory_for_orchestrator, security_pipeline, tool_executor)
             .await;
 
         tracing::info!("Dependencies injected to all agents");
         
         Ok((ai_provider, memory_lock))
+    }
+
+    fn create_tool_executor(&self) -> Arc<openclaw_tools::SkillRegistry> {
+        let registry = openclaw_tools::SkillRegistry::new();
+        Arc::new(registry)
     }
 
     async fn create_ai_provider(&self) -> openclaw_core::Result<Arc<dyn AIProvider>> {
@@ -240,6 +248,11 @@ impl Gateway {
                 collection: self.config.memory.long_term.collection.clone(),
                 embedding_provider: self.config.memory.long_term.embedding_provider.clone(),
                 embedding_model: self.config.memory.long_term.embedding_model.clone(),
+                embedding_dimensions: self.config.memory.long_term.embedding_dimensions,
+                chunk_size: self.config.memory.long_term.chunk_size,
+                overlap: self.config.memory.long_term.overlap,
+                enable_bm25: self.config.memory.long_term.enable_bm25,
+                enable_knowledge_graph: self.config.memory.long_term.enable_knowledge_graph,
                 custom_embedding,
             },
         };
@@ -315,6 +328,11 @@ impl Gateway {
                 collection: self.config.memory.long_term.collection.clone(),
                 embedding_provider: self.config.memory.long_term.embedding_provider.clone(),
                 embedding_model: self.config.memory.long_term.embedding_model.clone(),
+                embedding_dimensions: self.config.memory.long_term.embedding_dimensions,
+                chunk_size: self.config.memory.long_term.chunk_size,
+                overlap: self.config.memory.long_term.overlap,
+                enable_bm25: self.config.memory.long_term.enable_bm25,
+                enable_knowledge_graph: self.config.memory.long_term.enable_knowledge_graph,
                 custom_embedding,
             },
         };
@@ -328,11 +346,24 @@ impl Gateway {
             limit: 10,
             embedding_dimension: Some(1536),
             enable_vector: true,
-            enable_bm25: true,
+            enable_bm25: false,
             enable_knowledge_graph: false,
         };
 
-        let hybrid_search = HybridSearchManager::new(vector_store.clone(), hybrid_config);
+        let mut hybrid_search = HybridSearchManager::new(vector_store.clone(), hybrid_config.clone());
+
+        if hybrid_config.enable_bm25 {
+            if let Ok(bm25_index) = openclaw_memory::bm25::Bm25Index::new(std::path::Path::new("data/bm25")) {
+                hybrid_search = hybrid_search.with_bm25(Arc::new(bm25_index));
+            } else {
+                tracing::warn!("Failed to create BM25 index, skipping");
+            }
+        }
+
+        if hybrid_config.enable_knowledge_graph {
+            let kg = openclaw_memory::knowledge_graph::KnowledgeGraph::new();
+            hybrid_search = hybrid_search.with_knowledge_graph(Arc::new(RwLock::new(kg)));
+        }
 
         let manager = MemoryManager::new(config)
             .with_vector_store(vector_store)
@@ -369,17 +400,42 @@ impl Gateway {
     }
 
     async fn init_voice_service(&self) -> openclaw_core::Result<()> {
-        use openclaw_voice::{OpenAIWhisperStt, OpenAITts, SttConfig, TtsConfig};
+        use openclaw_voice::{create_stt, create_tts, SttConfig, TtsConfig, SttProvider, TtsProvider};
         
-        let stt_config = SttConfig::default();
-        let stt: Arc<dyn openclaw_voice::SpeechToText> = Arc::new(OpenAIWhisperStt::new(stt_config));
-
-        let tts_config = TtsConfig::default();
-        let tts: Arc<dyn openclaw_voice::TextToSpeech> = Arc::new(OpenAITts::new(tts_config));
+        let voice_config = self.config.voice.clone().unwrap_or_default();
+        
+        let stt_provider = match voice_config.stt_provider.as_str() {
+            "openai" => SttProvider::OpenAI,
+            "local" => SttProvider::LocalWhisper,
+            "azure" => SttProvider::Azure,
+            "google" => SttProvider::Google,
+            _ => SttProvider::OpenAI,
+        };
+        
+        let tts_provider = match voice_config.tts_provider.as_str() {
+            "openai" => TtsProvider::OpenAI,
+            "edge" => TtsProvider::Edge,
+            "azure" => TtsProvider::Azure,
+            "google" => TtsProvider::Google,
+            "elevenlabs" => TtsProvider::ElevenLabs,
+            _ => TtsProvider::OpenAI,
+        };
+        
+        let mut stt_config = SttConfig::default();
+        stt_config.openai_api_key = voice_config.api_key.clone();
+        
+        let mut tts_config = TtsConfig::default();
+        tts_config.openai_api_key = voice_config.api_key.clone();
+        
+        let stt = create_stt(stt_provider, stt_config);
+        let tts = create_tts(tts_provider, tts_config);
+        
+        let stt: Arc<dyn openclaw_voice::SpeechToText> = stt.into();
+        let tts: Arc<dyn openclaw_voice::TextToSpeech> = tts.into();
 
         self.voice_service.init_voice(stt, tts).await;
 
-        tracing::info!("Voice service initialized");
+        tracing::info!("Voice service initialized with STT: {}, TTS: {}", voice_config.stt_provider, voice_config.tts_provider);
         Ok(())
     }
 

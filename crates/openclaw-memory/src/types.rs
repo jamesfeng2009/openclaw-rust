@@ -161,6 +161,16 @@ pub struct LongTermMemoryConfig {
     pub embedding_provider: String,
     /// 嵌入模型
     pub embedding_model: String,
+    /// 嵌入向量维度
+    pub embedding_dimensions: usize,
+    /// 文本分块大小
+    pub chunk_size: usize,
+    /// 分块重叠大小
+    pub overlap: usize,
+    /// 是否启用 BM25
+    pub enable_bm25: bool,
+    /// 是否启用知识图谱
+    pub enable_knowledge_graph: bool,
     /// 自定义提供商配置 (当 embedding_provider 为 custom 时使用)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_embedding: Option<CustomEmbeddingConfig>,
@@ -184,6 +194,11 @@ impl Default for LongTermMemoryConfig {
             collection: "memories".to_string(),
             embedding_provider: "openai".to_string(),
             embedding_model: "text-embedding-3-small".to_string(),
+            embedding_dimensions: 1536,
+            chunk_size: 512,
+            overlap: 50,
+            enable_bm25: false,
+            enable_knowledge_graph: false,
             custom_embedding: None,
         }
     }

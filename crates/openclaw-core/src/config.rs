@@ -28,6 +28,16 @@ pub struct Config {
     /// 工作区配置
     #[serde(default)]
     pub workspaces: WorkspacesConfig,
+    /// 语音配置 (STT/TTS) - 服务器端简化配置
+    #[serde(default)]
+    pub voice: Option<VoiceServerConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct VoiceServerConfig {
+    pub stt_provider: String,
+    pub tts_provider: String,
+    pub api_key: Option<String>,
 }
 
 /// 服务配置
@@ -250,6 +260,16 @@ pub struct LongTermMemoryConfig {
     pub embedding_provider: String,
     /// 嵌入模型
     pub embedding_model: String,
+    /// 嵌入向量维度
+    pub embedding_dimensions: usize,
+    /// 文本分块大小
+    pub chunk_size: usize,
+    /// 分块重叠大小
+    pub overlap: usize,
+    /// 是否启用 BM25
+    pub enable_bm25: bool,
+    /// 是否启用知识图谱
+    pub enable_knowledge_graph: bool,
     /// Custom embedding config
     pub custom_embedding: Option<CustomEmbeddingConfig>,
 }
@@ -262,6 +282,11 @@ impl Default for LongTermMemoryConfig {
             collection: "openclaw_memories".to_string(),
             embedding_provider: "openai".to_string(),
             embedding_model: "text-embedding-3-small".to_string(),
+            embedding_dimensions: 1536,
+            chunk_size: 512,
+            overlap: 50,
+            enable_bm25: false,
+            enable_knowledge_graph: false,
             custom_embedding: None,
         }
     }

@@ -9,6 +9,7 @@ license.workspace = true
 [dependencies]
 openclaw-core.workspace = true
 openclaw-ai.workspace = true
+openclaw-device.workspace = true
 openclaw-memory.workspace = true
 openclaw-vector.workspace = true
 openclaw-security.workspace = true
@@ -16,6 +17,8 @@ openclaw-voice.workspace = true
 openclaw-channels.workspace = true
 openclaw-tools.workspace = true
 openclaw-sandbox.workspace = true
+openclaw-canvas.workspace = true
+openclaw-browser.workspace = true
 tokio.workspace = true
 async-trait.workspace = true
 serde.workspace = true

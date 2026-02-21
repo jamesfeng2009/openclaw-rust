@@ -324,6 +324,7 @@ impl UnifiedConfig {
             agents: crate::config::AgentsConfig::default(),
             devices: crate::config::DevicesConfig::default(),
             workspaces: crate::config::WorkspacesConfig::default(),
+            voice: None,
         }
     }
 }

@@ -25,6 +25,8 @@ pub struct ServiceOrchestrator {
     ai_provider: Arc<RwLock<Option<Arc<dyn AIProvider>>>>,
     memory_manager: Arc<RwLock<Option<Arc<MemoryManager>>>>,
     security_pipeline: Arc<RwLock<Option<Arc<SecurityPipeline>>>>,
+    tool_executor: Arc<RwLock<Option<Arc<openclaw_tools::SkillRegistry>>>>,
+    channel_factory: Arc<openclaw_channels::ChannelFactoryRegistry>,
 }
 
 #[derive(Clone, Default)]
@@ -109,6 +111,8 @@ impl ServiceOrchestrator {
             ai_provider: Arc::new(RwLock::new(None)),
             memory_manager: Arc::new(RwLock::new(None)),
             security_pipeline: Arc::new(RwLock::new(None)),
+            tool_executor: Arc::new(RwLock::new(None)),
+            channel_factory: Arc::new(openclaw_channels::ChannelFactoryRegistry::new()),
         }
     }
 
@@ -249,6 +253,48 @@ impl ServiceOrchestrator {
         }
 
         tracing::info!("Dependencies injected to all agents");
+    }
+
+    pub async fn inject_dependencies_with_tools(
+        &self,
+        ai_provider: Arc<dyn AIProvider>,
+        memory_manager: Option<Arc<MemoryManager>>,
+        security_pipeline: Arc<SecurityPipeline>,
+        tool_executor: Arc<openclaw_tools::SkillRegistry>,
+    ) {
+        {
+            let mut provider = self.ai_provider.write().await;
+            *provider = Some(ai_provider.clone());
+        }
+        {
+            let mut memory = self.memory_manager.write().await;
+            *memory = memory_manager.clone();
+        }
+        {
+            let mut pipeline = self.security_pipeline.write().await;
+            *pipeline = Some(security_pipeline.clone());
+        }
+        {
+            let mut tools = self.tool_executor.write().await;
+            *tools = Some(tool_executor.clone());
+        }
+        
+        let agents: Vec<Arc<dyn Agent>> = {
+            let agents = self.agent_service.agents.read().await;
+            agents.values().cloned().collect()
+        };
+
+        let mem_lock = memory_manager.clone();
+        for agent in agents {
+            agent.inject_dependencies_with_tools(
+                ai_provider.clone(),
+                mem_lock.clone(),
+                security_pipeline.clone(),
+                tool_executor.clone(),
+            ).await;
+        }
+
+        tracing::info!("Dependencies with tools injected to all agents");
     }
 
     pub async fn get_agent(&self, id: &str) -> Option<Arc<dyn Agent>> {
@@ -394,66 +440,13 @@ impl ServiceOrchestrator {
     }
 
     pub async fn create_channel(&self, name: String, channel_type: String) -> openclaw_core::Result<()> {
-        use openclaw_channels::Channel;
+        let config = serde_json::json!({
+            "enabled": true
+        });
+        
+        let channel = self.channel_factory.create(&channel_type, config).await?;
         
         let manager = self.channel_service.manager.read().await;
-        
-        let channel: Arc<RwLock<dyn Channel>> = match channel_type.as_str() {
-            "webchat" => {
-                use openclaw_channels::{WebChatClient, WebChatConfig};
-                let config = WebChatConfig {
-                    webhook_url: None,
-                    webhook_secret: None,
-                    server_url: None,
-                    enabled: true,
-                };
-                let web_channel = WebChatClient::new(config);
-                Arc::new(RwLock::new(web_channel))
-            }
-            "telegram" => {
-                use openclaw_channels::telegram::TelegramBot;
-                let bot_token = std::env::var("TELEGRAM_BOT_TOKEN")
-                    .map_err(|_| openclaw_core::OpenClawError::Config("TELEGRAM_BOT_TOKEN not set".to_string()))?;
-                let config = openclaw_channels::telegram::TelegramConfig {
-                    bot_token,
-                    enabled: true,
-                };
-                let telegram_bot = TelegramBot::new(config);
-                Arc::new(RwLock::new(telegram_bot))
-            }
-            "discord" => {
-                use openclaw_channels::discord::DiscordChannel;
-                let bot_token = std::env::var("DISCORD_BOT_TOKEN")
-                    .map_err(|_| openclaw_core::OpenClawError::Config("DISCORD_BOT_TOKEN not set".to_string()))?;
-                let config = openclaw_channels::discord::DiscordConfig {
-                    bot_token,
-                    webhook_url: None,
-                    enabled: true,
-                };
-                let discord_channel = DiscordChannel::new(config);
-                Arc::new(RwLock::new(discord_channel))
-            }
-            "slack" => {
-                use openclaw_channels::slack::SlackChannel;
-                let bot_token = std::env::var("SLACK_BOT_TOKEN").ok();
-                let webhook_url = std::env::var("SLACK_WEBHOOK_URL").ok();
-                let config = openclaw_channels::slack::SlackConfig {
-                    bot_token,
-                    webhook_url,
-                    app_token: None,
-                    enabled: true,
-                };
-                let slack_channel = SlackChannel::new(config);
-                Arc::new(RwLock::new(slack_channel))
-            }
-            _ => {
-                return Err(openclaw_core::OpenClawError::Config(format!(
-                    "Unsupported channel type: {}. Supported types: webchat, telegram, discord, slack", 
-                    channel_type
-                )));
-            }
-        };
-        
         manager.register_channel(name, channel).await;
         Ok(())
     }

@@ -123,7 +123,7 @@ pub struct BaseAgent {
     status: AgentStatus,
     current_tasks: usize,
     ai_provider: Arc<tokio::sync::RwLock<Option<Arc<dyn AIProvider>>>>,
-    memory: Arc<tokio::sync::RwLock<Option<Arc<MemoryManager>>>>,
+    memory: Arc<tokio::sync::Mutex<Option<Arc<MemoryManager>>>>,
     security_pipeline: Arc<tokio::sync::RwLock<Option<Arc<SecurityPipeline>>>>,
     tool_executor: Arc<tokio::sync::RwLock<Option<Arc<openclaw_tools::SkillRegistry>>>>,
 }
@@ -135,7 +135,7 @@ impl BaseAgent {
             current_tasks: 0,
             config,
             ai_provider: Arc::new(RwLock::new(None)),
-            memory: Arc::new(tokio::sync::RwLock::new(None)),
+            memory: Arc::new(tokio::sync::Mutex::new(None)),
             security_pipeline: Arc::new(RwLock::new(None)),
             tool_executor: Arc::new(tokio::sync::RwLock::new(None)),
         }
@@ -193,7 +193,7 @@ impl BaseAgent {
         self
     }
 
-    pub fn get_memory_blocking(&self) -> Arc<tokio::sync::RwLock<Option<Arc<MemoryManager>>>> {
+    pub fn get_memory_blocking(&self) -> Arc<tokio::sync::Mutex<Option<Arc<MemoryManager>>>> {
         self.memory.clone()
     }
 
@@ -210,7 +210,7 @@ impl BaseAgent {
 
         // 从记忆获取上下文
         let memory_lock = self.get_memory_blocking();
-        let ctx = if let Some(mem) = memory_lock.read().await.as_ref() {
+        let ctx = if let Some(mem) = memory_lock.lock().await.as_ref() {
             mem.get_context()
         } else {
             vec![]
@@ -290,7 +290,7 @@ impl Agent for BaseAgent {
 
         let security_pipeline = self.security_pipeline.read().await.clone();
         let ai_provider = self.ai_provider.read().await.clone();
-        let memory = self.memory.clone();
+        let _memory = self.memory.clone();
 
         // 安全检查：输入过滤和分类
         if let Some(pipeline) = &security_pipeline {
@@ -334,12 +334,6 @@ impl Agent for BaseAgent {
                     "No AI provider configured for this agent".to_string(),
                 ));
             }
-        };
-
-        // 获取用户输入用于写入记忆
-        let user_input_message = match &task.input {
-            TaskInput::Message { message } => Some(message.clone()),
-            _ => None,
         };
 
         // 处理工具调用类型的任务
@@ -430,17 +424,8 @@ impl Agent for BaseAgent {
                         .await;
                 }
 
-                // 写入对话到记忆
-                {
-                    let mut mem_guard = memory.write().await;
-                    if let Some(mem) = mem_guard.as_mut() {
-                        if let Some(user_msg) = &user_input_message {
-                            let _ = mem.add(user_msg.clone()).await;
-                        }
-                        let assistant_message = openclaw_core::Message::assistant(final_output.clone());
-                        let _ = mem.add(assistant_message).await;
-                    }
-                }
+                // 写入对话到记忆 - 记忆服务独立处理，Agent 不直接写入
+                // MemoryService 会自动处理记忆的持久化
 
                 // 构建任务结果
                 Ok(TaskResult {
@@ -496,7 +481,7 @@ impl Agent for BaseAgent {
     }
 
     async fn set_memory(&self, memory: Option<Arc<MemoryManager>>) {
-        *self.memory.write().await = memory;
+        *self.memory.lock().await = memory;
     }
 
     async fn set_security_pipeline(&self, pipeline: Arc<SecurityPipeline>) {
@@ -562,7 +547,7 @@ impl Agent for BaseAgent {
     }
 
     async fn get_memory(&self) -> Option<Arc<MemoryManager>> {
-        self.memory.read().await.clone()
+        self.memory.lock().await.clone()
     }
 
     async fn get_security_pipeline(&self) -> Option<Arc<SecurityPipeline>> {

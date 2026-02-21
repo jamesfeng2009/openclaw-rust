@@ -42,12 +42,12 @@ pub mod ai {
             }
         }
 
-        pub fn with_response(mut self, response: String) -> Self {
+        pub fn with_response(self, response: String) -> Self {
             self.responses.lock().unwrap().push(response);
             self
         }
 
-        pub fn with_responses(mut self, responses: Vec<String>) -> Self {
+        pub fn with_responses(self, responses: Vec<String>) -> Self {
             *self.responses.lock().unwrap() = responses;
             self
         }
@@ -161,6 +161,7 @@ pub mod config {
             memory: Default::default(),
             vector: Default::default(),
             channels: Default::default(),
+            security: openclaw_core::config::SecurityConfig::default(),
             agents: AgentsConfig::default(),
             devices: DevicesConfig {
                 enabled: false,
