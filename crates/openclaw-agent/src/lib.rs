@@ -29,6 +29,9 @@ pub mod types;
 pub mod ui_tools;
 pub mod voice;
 
+#[cfg(feature = "testing")]
+pub mod mock;
+
 pub use agent::*;
 pub use aieos::AIEOS;
 pub use dependencies::*;

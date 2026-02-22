@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[features]
+default = []
+testing = []
+
 [dependencies]
 openclaw-core.workspace = true
 openclaw-ai.workspace = true
@@ -32,5 +36,4 @@ futures.workspace = true
 regex.workspace = true
 
 [dev-dependencies]
-openclaw-testing.workspace = true
 tokio-test.workspace = true

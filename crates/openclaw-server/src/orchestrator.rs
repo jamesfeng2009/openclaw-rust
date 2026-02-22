@@ -755,6 +755,7 @@ impl Default for ServiceOrchestrator {
 }
 
 #[cfg(test)]
+#[cfg(feature = "testing")]
 mod tests {
     use super::*;
     use openclaw_agent::Agent;
@@ -811,10 +812,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_orchestrator_inject_dependencies() {
+        use openclaw_agent::mock::mock::MockAiProvider;
         use openclaw_agent::Agent;
         use openclaw_memory::MemoryManager;
         use openclaw_security::SecurityPipeline;
-        use openclaw_testing::ai::MockAiProvider;
         use openclaw_tools::ToolRegistry;
         
         let orchestrator = ServiceOrchestrator::new(OrchestratorConfig::default());

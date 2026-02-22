@@ -37,11 +37,11 @@ chrono.workspace = true
 base64.workspace = true
 
 [dev-dependencies]
-openclaw-testing.workspace = true
 
 [features]
 default = []
-per_session_memory = []
+per_session_memory = ["testing"]
+testing = ["openclaw-agent/testing"]
 lancedb = ["openclaw-vector/lancedb"]
 qdrant = ["openclaw-vector/qdrant"]
 pgvector = ["openclaw-vector/pgvector"]

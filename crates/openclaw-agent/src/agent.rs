@@ -828,10 +828,11 @@ const CONVERSATIONALIST_PROMPT: &str = r#"You are a **Conversational Agent** - s
 - Provide complete but concise responses
 - End with inviting follow-up"#;
 
+#[cfg(feature = "testing")]
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openclaw_testing::ai::MockAiProvider;
+    use crate::mock::mock::MockAiProvider;
     use crate::task::TaskType;
     use std::sync::Arc;
 
