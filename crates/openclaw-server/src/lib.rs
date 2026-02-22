@@ -13,7 +13,6 @@ pub mod device_api;
 pub mod device_manager;
 pub mod gateway;
 pub mod hardware_tools;
-pub mod memory_service;
 pub mod orchestrator;
 pub mod service_factory;
 pub mod vector_store_registry;

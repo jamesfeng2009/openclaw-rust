@@ -291,3 +291,59 @@ pub fn default_provider_info() -> HashMap<&'static str, ProviderInfo> {
 
     map
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_provider_type_from_str() {
+        assert_eq!(ProviderType::from_str("openai"), Some(ProviderType::OpenAI));
+        assert_eq!(ProviderType::from_str("OpenAI"), Some(ProviderType::OpenAI));
+        assert_eq!(ProviderType::from_str("anthropic"), Some(ProviderType::Anthropic));
+        assert_eq!(ProviderType::from_str("claude"), Some(ProviderType::Anthropic));
+        assert_eq!(ProviderType::from_str("gemini"), Some(ProviderType::Gemini));
+        assert_eq!(ProviderType::from_str("google"), Some(ProviderType::Gemini));
+        assert_eq!(ProviderType::from_str("deepseek"), Some(ProviderType::DeepSeek));
+        assert_eq!(ProviderType::from_str("ollama"), Some(ProviderType::Ollama));
+        assert_eq!(ProviderType::from_str("local"), Some(ProviderType::Ollama));
+        assert_eq!(ProviderType::from_str("unknown_provider"), None);
+    }
+
+    #[test]
+    fn test_provider_type_default_model() {
+        assert_eq!(ProviderType::OpenAI.default_model(), "gpt-4o");
+        assert_eq!(ProviderType::Anthropic.default_model(), "claude-4-sonnet-20241022");
+        assert_eq!(ProviderType::Gemini.default_model(), "gemini-2.0-flash-exp");
+        assert_eq!(ProviderType::DeepSeek.default_model(), "deepseek-chat");
+        assert_eq!(ProviderType::Ollama.default_model(), "llama3.1");
+    }
+
+    #[test]
+    fn test_provider_type_display() {
+        assert_eq!(ProviderType::OpenAI.to_string(), "openai");
+        assert_eq!(ProviderType::Anthropic.to_string(), "anthropic");
+        assert_eq!(ProviderType::Gemini.to_string(), "gemini");
+        assert_eq!(ProviderType::DeepSeek.to_string(), "deepseek");
+    }
+
+    #[test]
+    fn test_supported_providers() {
+        let providers = ProviderFactory::supported_providers();
+        assert!(providers.iter().any(|(name, _)| *name == "openai"));
+        assert!(providers.iter().any(|(name, _)| *name == "anthropic"));
+        assert!(providers.iter().any(|(name, _)| *name == "gemini"));
+        assert!(providers.iter().any(|(name, _)| *name == "deepseek"));
+    }
+
+    #[test]
+    fn test_provider_registry_is_registered() {
+        let _ = ProviderRegistry::is_registered("custom");
+    }
+
+    #[test]
+    fn test_provider_registry_list() {
+        let list = ProviderRegistry::list();
+        assert!(list.iter().all(|s| !s.is_empty()));
+    }
+}

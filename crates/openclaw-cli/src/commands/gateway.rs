@@ -60,7 +60,7 @@ pub async fn run(
         canvas
     );
 
-    let gateway = Gateway::new(config).await;
+    let gateway = Gateway::new(config).await?;
     gateway.start().await?;
 
     Ok(())

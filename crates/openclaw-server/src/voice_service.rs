@@ -6,6 +6,7 @@ use openclaw_voice::{SpeechToText, TextToSpeech, VoiceAgent, TalkModeConfig};
 pub struct VoiceService {
     enabled: Arc<RwLock<bool>>,
     voice_agent: Arc<RwLock<Option<VoiceAgent>>>,
+    stt: Arc<RwLock<Option<Arc<dyn SpeechToText>>>>,
 }
 
 impl VoiceService {
@@ -13,6 +14,7 @@ impl VoiceService {
         Self {
             enabled: Arc::new(RwLock::new(false)),
             voice_agent: Arc::new(RwLock::new(None)),
+            stt: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -35,9 +37,21 @@ impl VoiceService {
     }
 
     pub async fn init_voice(&self, stt: Arc<dyn SpeechToText>, tts: Arc<dyn TextToSpeech>) {
+        let stt_clone = stt.clone();
+        *self.stt.write().await = Some(stt);
         let config = TalkModeConfig::default();
-        let agent = VoiceAgent::new(stt, tts, config);
+        let agent = VoiceAgent::new(stt_clone, tts, config);
         *self.voice_agent.write().await = Some(agent);
+    }
+
+    pub async fn speech_to_text(&self, audio_data: &[u8], language: Option<&str>) -> openclaw_core::Result<String> {
+        let stt = self.stt.read().await;
+        if let Some(stt_provider) = stt.as_ref() {
+            let result = stt_provider.transcribe(audio_data, language).await?;
+            Ok(result.text)
+        } else {
+            Err(openclaw_core::OpenClawError::Execution("STT not initialized".to_string()))
+        }
     }
 
     pub async fn start_voice(&self) -> Option<openclaw_core::Result<()>> {
@@ -89,5 +103,46 @@ impl VoiceService {
 impl Default for VoiceService {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_voice_service_new() {
+        let service = VoiceService::new();
+        assert!(!service.is_enabled().await);
+    }
+
+    #[tokio::test]
+    async fn test_voice_service_enable_disable() {
+        let service = VoiceService::new();
+        
+        service.enable().await;
+        assert!(service.is_enabled().await);
+        
+        service.disable().await;
+        assert!(!service.is_enabled().await);
+    }
+
+    #[tokio::test]
+    async fn test_voice_service_toggle() {
+        let service = VoiceService::new();
+        
+        let enabled = service.toggle().await;
+        assert!(enabled);
+        
+        let enabled = service.toggle().await;
+        assert!(!enabled);
+    }
+
+    #[tokio::test]
+    async fn test_voice_service_speech_to_text_not_initialized() {
+        let service = VoiceService::new();
+        
+        let result = service.speech_to_text(b"test audio", Some("en")).await;
+        assert!(result.is_err());
     }
 }

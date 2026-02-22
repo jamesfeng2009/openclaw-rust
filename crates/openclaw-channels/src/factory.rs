@@ -45,6 +45,11 @@ impl ChannelFactoryRegistry {
         let creators = self.creators.read().await;
         creators.keys().cloned().collect()
     }
+
+    pub async fn contains(&self, channel_type: &str) -> bool {
+        let creators = self.creators.read().await;
+        creators.contains_key(channel_type)
+    }
 }
 
 impl Default for ChannelFactoryRegistry {

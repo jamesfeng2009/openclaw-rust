@@ -13,7 +13,7 @@ use openclaw_agent::task::TaskOutput;
 use openclaw_agent::task::{TaskInput, TaskRequest, TaskType};
 use openclaw_agent::{Agent, AgentConfig as OpenclawAgentConfig, AgentInfo, AgentType, BaseAgent};
 use openclaw_canvas::CanvasManager;
-use openclaw_channels::{ChannelManager, ChannelMessage, SendMessage};
+use openclaw_channels::{register_default_channels, ChannelManager, ChannelMessage, SendMessage};
 use openclaw_core::{Config, Content, Message, OpenClawError, Result, Role};
 #[cfg(feature = "per_session_memory")]
 use openclaw_memory::MemoryConfig;
@@ -183,6 +183,15 @@ impl ServiceOrchestrator {
         let storage = Arc::new(MemorySessionStorage::new());
         let session_manager = SessionManager::new(storage);
         
+        let channel_factory = Arc::new(openclaw_channels::ChannelFactoryRegistry::new());
+        
+        if config.enable_channels {
+            let factory_clone = channel_factory.clone();
+            tokio::spawn(async move {
+                register_default_channels(&factory_clone).await;
+            });
+        }
+        
         Self {
             agent_service: AgentServiceState::default(),
             channel_service: ChannelServiceState::default(),
@@ -194,7 +203,7 @@ impl ServiceOrchestrator {
             memory_manager: Arc::new(RwLock::new(None)),
             security_pipeline: Arc::new(RwLock::new(None)),
             tool_executor: Arc::new(RwLock::new(None)),
-            channel_factory: Arc::new(openclaw_channels::ChannelFactoryRegistry::new()),
+            channel_factory,
             agentic_rag_engine: Arc::new(RwLock::new(None)),
             #[cfg(feature = "per_session_memory")]
             session_memory_cache: Arc::new(tokio::sync::RwLock::new(

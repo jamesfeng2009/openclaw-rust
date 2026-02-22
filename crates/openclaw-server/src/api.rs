@@ -6,6 +6,7 @@ use axum::{
     routing::{delete, get, post},
 };
 use openclaw_agent::{Agent, AgentType, BaseAgent};
+use openclaw_browser::BrowserConfig;
 use openclaw_canvas::CanvasManager;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -23,6 +24,7 @@ use crate::agentic_rag_api::create_agentic_rag_router;
 pub fn create_router(
     context: Arc<AppContext>,
     canvas_manager: Option<Arc<CanvasManager>>,
+    browser_config: Option<BrowserConfig>,
 ) -> Router {
     let state = Arc::new(RwLock::new(ApiState::new(context.clone())));
 
@@ -49,7 +51,7 @@ pub fn create_router(
         .route("/api/presence", get(get_presence).post(set_presence))
         .with_state(state)
         .merge(create_canvas_router(canvas_state))
-        .merge(create_browser_router(BrowserApiState::new()))
+        .merge(create_browser_router(BrowserApiState::new(browser_config)))
         .merge(create_device_router(context.unified_device_manager.clone()))
         .merge(create_agentic_rag_router())
 }
@@ -619,7 +621,7 @@ async fn stt_handler(
     State(state): State<Arc<RwLock<ApiState>>>,
     Json(input): Json<SttRequest>,
 ) -> Json<serde_json::Value> {
-    let _voice_service = &state.read().await.voice_service;
+    let voice_service = &state.read().await.voice_service;
     
     if input.audio.is_empty() {
         return Json(serde_json::json!({
@@ -628,8 +630,25 @@ async fn stt_handler(
         }));
     }
     
-    Json(serde_json::json!({
-        "success": true,
-        "text": "STT processing requires base64 crate - audio placeholder"
-    }))
+    use base64::Engine;
+    let audio_data = match base64::engine::general_purpose::STANDARD.decode(&input.audio) {
+        Ok(data) => data,
+        Err(e) => {
+            return Json(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to decode audio: {}", e)
+            }));
+        }
+    };
+    
+    match voice_service.speech_to_text(&audio_data, input.language.as_deref()).await {
+        Ok(text) => Json(serde_json::json!({
+            "success": true,
+            "text": text
+        })),
+        Err(e) => Json(serde_json::json!({
+            "success": false,
+            "error": format!("STT error: {}", e)
+        }))
+    }
 }

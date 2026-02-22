@@ -252,8 +252,8 @@ impl MemoryMaintenanceScheduler {
 
     async fn run_nightly_integration<T: FactExtractor>(
         stats: &Arc<RwLock<MaintenanceStats>>,
-        conflict_resolver: &Arc<ConflictResolver>,
-        fact_extractor: &Arc<T>,
+        _conflict_resolver: &Arc<ConflictResolver>,
+        _fact_extractor: &Arc<T>,
         memory_items: &Arc<RwLock<Vec<MemoryItem>>>,
     ) -> Result<usize, String> {
         let items = memory_items.read().await;

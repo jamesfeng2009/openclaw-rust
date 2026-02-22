@@ -20,16 +20,16 @@ pub struct BrowserApiState {
 }
 
 impl BrowserApiState {
-    pub fn new() -> Self {
+    pub fn new(config: Option<BrowserConfig>) -> Self {
         Self {
-            pool: Arc::new(BrowserPool::new(None)),
+            pool: Arc::new(BrowserPool::new(config)),
         }
     }
 }
 
 impl Default for BrowserApiState {
     fn default() -> Self {
-        Self::new()
+        Self::new(None)
     }
 }
 
@@ -733,4 +733,29 @@ async fn page_pdf(
         .map_err(|e| e.to_string())?;
 
     Ok(Json(PdfResponse { data: base64 }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use openclaw_browser::BrowserConfig;
+
+    #[test]
+    fn test_browser_api_state_new_without_config() {
+        let state = BrowserApiState::new(None);
+        let _ = state.pool;
+    }
+
+    #[test]
+    fn test_browser_api_state_with_config() {
+        let config = BrowserConfig::default();
+        let state = BrowserApiState::new(Some(config));
+        let _ = state.pool;
+    }
+
+    #[test]
+    fn test_browser_api_state_default() {
+        let state = BrowserApiState::default();
+        let _ = state.pool;
+    }
 }

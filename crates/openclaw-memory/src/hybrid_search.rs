@@ -7,8 +7,6 @@
 
 use openclaw_core::Result;
 use openclaw_vector::{SearchQuery, SearchResult, VectorItem, VectorStore};
-use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
