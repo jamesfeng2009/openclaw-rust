@@ -2,7 +2,7 @@
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     routing::{delete, get, post},
 };
 use openclaw_agent::{Agent, AgentType, BaseAgent};
@@ -18,6 +18,7 @@ use crate::canvas_api::{CanvasApiState, create_canvas_router};
 use crate::device_api::create_device_router;
 use openclaw_device::UnifiedDeviceManager;
 use crate::orchestrator::ServiceOrchestrator;
+use crate::sse::error_string_stream_to_sse;
 use crate::voice_service::VoiceService;
 use crate::agentic_rag_api::create_agentic_rag_router;
 
@@ -36,6 +37,7 @@ pub fn create_router(
     Router::new()
         .route("/health", get(health_check))
         .route("/chat", post(chat_handler))
+        .route("/chat/stream", get(chat_stream_handler))
         .route("/models", get(list_models))
         .route("/stats", get(get_stats))
         .route("/voice/tts", post(tts_handler))
@@ -137,6 +139,44 @@ pub struct ChatResponse {
     pub session_id: String,
     pub model: String,
     pub usage: TokenUsage,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StreamQueryParams {
+    pub message: String,
+    #[serde(default = "default_agent_id")]
+    pub agent_id: String,
+    #[serde(default)]
+    pub session_id: Option<String>,
+}
+
+fn default_agent_id() -> String {
+    "orchestrator".to_string()
+}
+
+async fn chat_stream_handler(
+    State(state): State<Arc<RwLock<ApiState>>>,
+    Query(params): Query<StreamQueryParams>,
+) -> impl axum::response::IntoResponse {
+    let session_id = params.session_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let agent_id_param = params.agent_id.clone();
+    let message_param = params.message.clone();
+    
+    let results: Vec<Result<String, String>> = {
+        let state = state.read().await;
+        let guard = state.orchestrator.read().await;
+        if let Some(ref orchestrator) = *guard {
+            match orchestrator.process_chat_stream(&agent_id_param, &message_param, &session_id).await {
+                Ok(r) => r,
+                Err(e) => vec![Err(e)],
+            }
+        } else {
+            vec![Err("No orchestrator available".to_string())]
+        }
+    };
+    
+    let stream = tokio_stream::iter(results);
+    error_string_stream_to_sse(stream)
 }
 
 #[derive(Debug, Serialize)]

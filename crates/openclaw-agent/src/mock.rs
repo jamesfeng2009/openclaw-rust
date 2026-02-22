@@ -95,7 +95,46 @@ pub mod mock {
             &self,
             _request: ChatRequest,
         ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
-            Ok(Box::pin(stream::empty()))
+            use futures::stream;
+            
+            let responses = self.responses.lock().unwrap();
+            let content = responses.first().cloned().unwrap_or_else(|| "Default mock response".to_string());
+            
+            let chunks: Vec<Result<StreamChunk>> = content
+                .chars()
+                .collect::<Vec<_>>()
+                .chunks(3)
+                .map(|chunk| {
+                    Ok(StreamChunk {
+                        id: "mock-chunk".to_string(),
+                        model: "mock-model".to_string(),
+                        delta: openclaw_ai::types::StreamDelta {
+                            role: Some("assistant".to_string()),
+                            content: Some(chunk.iter().collect()),
+                            tool_calls: vec![],
+                        },
+                        finished: false,
+                        finish_reason: None,
+                    })
+                })
+                .collect();
+            
+            let last_chunk = Ok(StreamChunk {
+                id: "mock-chunk-end".to_string(),
+                model: "mock-model".to_string(),
+                delta: openclaw_ai::types::StreamDelta {
+                    role: Some("assistant".to_string()),
+                    content: None,
+                    tool_calls: vec![],
+                },
+                finished: true,
+                finish_reason: Some(FinishReason::Stop),
+            });
+            
+            let mut all_chunks = chunks;
+            all_chunks.push(last_chunk);
+            
+            Ok(Box::pin(stream::iter(all_chunks)))
         }
 
         async fn embed(&self, _request: EmbeddingRequest) -> Result<EmbeddingResponse> {

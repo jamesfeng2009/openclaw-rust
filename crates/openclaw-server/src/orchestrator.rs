@@ -592,6 +592,65 @@ impl ServiceOrchestrator {
         Ok(channel_msg)
     }
 
+    pub async fn process_chat_stream(
+        &self,
+        agent_id: &str,
+        message: &str,
+        session_id: &str,
+    ) -> std::result::Result<Vec<std::result::Result<String, String>>, String> {
+        use openclaw_ai::types::ChatRequest;
+        use futures::StreamExt;
+        use tokio::sync::mpsc;
+
+        let _agent = match self.get_agent(agent_id).await {
+            Some(a) => a,
+            None => return Err(format!("Agent not found: {}", agent_id)),
+        };
+
+        let _task = TaskRequest::new(TaskType::Conversation, TaskInput::Message { 
+            message: Message::new(Role::User, vec![Content::Text { text: message.to_string() }])
+        }).with_session_id(session_id.to_string());
+
+        let ai_port = match self.ai_provider.read().await.clone() {
+            Some(p) => p,
+            None => return Err("AI provider not available".to_string()),
+        };
+
+        let messages = vec![Message::new(
+            Role::User,
+            vec![Content::Text { text: message.to_string() }],
+        )];
+
+        let mut request = ChatRequest::new("default", messages);
+        request.stream = true;
+        
+        let stream = match ai_port.chat_stream(request).await {
+            Ok(s) => s,
+            Err(e) => return Err(format!("Failed to get stream: {:?}", e)),
+        };
+        
+        let (tx, mut rx): (tokio::sync::mpsc::Sender<std::result::Result<String, String>>, _) = mpsc::channel(100);
+        
+        tokio::spawn(async move {
+            let mut stream = stream;
+            while let Some(chunk_result) = stream.next().await {
+                let content = chunk_result
+                    .map(|c| c.delta.content.unwrap_or_default())
+                    .map_err(|e| format!("{:?}", e));
+                if tx.send(content).await.is_err() {
+                    break;
+                }
+            }
+        });
+        
+        let mut results = Vec::new();
+        while let Some(result) = rx.recv().await {
+            results.push(result);
+        }
+        
+        Ok(results)
+    }
+
     pub async fn send_to_channel(
         &self,
         channel_name: &str,

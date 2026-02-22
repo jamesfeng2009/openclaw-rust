@@ -1,33 +1,39 @@
 use async_trait::async_trait;
+use std::pin::Pin;
 use std::sync::Arc;
+use futures::Stream;
+use futures::StreamExt;
+use tokio::sync::mpsc;
 use openclaw_agent::ports::{AIPort, MemoryPort, SecurityPort, ToolPort, MemoryEntry, SecurityCheckResult, ToolInfo, RecallItem};
-use openclaw_core::{Result as OpenClawResult, Message};
-use openclaw_ai::AIProvider;
+use openclaw_core::{Message, Content, Result as OpenClawResult};
+use openclaw_ai::{AIProvider, types::{ChatRequest, StreamChunk}};
 use openclaw_memory::MemoryManager;
 use openclaw_security::SecurityPipeline;
 use openclaw_tools::ToolRegistry;
 
 pub struct AIProviderAdapter {
     provider: Arc<dyn AIProvider>,
+    model: String,
 }
 
 impl AIProviderAdapter {
-    pub fn new(provider: Arc<dyn AIProvider>) -> Self {
-        Self { provider }
+    pub fn new(provider: Arc<dyn AIProvider>, model: impl Into<String>) -> Self {
+        Self { 
+            provider,
+            model: model.into(),
+        }
     }
 }
 
 #[async_trait]
 impl AIPort for AIProviderAdapter {
     async fn chat(&self, messages: Vec<Message>) -> OpenClawResult<String> {
-        use openclaw_ai::types::ChatRequest;
-        
-        let request = ChatRequest::new("default", messages);
+        let request = ChatRequest::new(self.model.clone(), messages);
         
         let response = self.provider.chat(request).await?;
         Ok(response.message.content.first()
             .map(|c| match c {
-                openclaw_core::Content::Text { text } => text.clone(),
+                Content::Text { text } => text.clone(),
                 _ => String::new(),
             })
             .unwrap_or_default())
@@ -35,16 +41,34 @@ impl AIPort for AIProviderAdapter {
     
     async fn chat_stream(
         &self, 
-        _messages: Vec<Message>
+        messages: Vec<Message>
     ) -> OpenClawResult<Box<dyn futures::Stream<Item = OpenClawResult<String>> + Send + Sync>> {
-        Err(openclaw_core::OpenClawError::Execution("chat_stream not implemented".to_string()))
+        let mut request = ChatRequest::new(self.model.clone(), messages);
+        request.stream = true;
+        
+        let stream = self.provider.chat_stream(request).await?;
+        
+        let (tx, rx) = mpsc::channel(100);
+        
+        tokio::spawn(async move {
+            let mut stream = stream;
+            while let Some(chunk_result) = stream.next().await {
+                let content = chunk_result.map(|c| c.delta.content.unwrap_or_default());
+                if tx.send(content).await.is_err() {
+                    break;
+                }
+            }
+        });
+        
+        let rx = tokio_stream::wrappers::ReceiverStream::new(rx);
+        Ok(Box::new(rx) as Box<dyn futures::Stream<Item = OpenClawResult<String>> + Send + Sync>)
     }
 
     async fn embed(&self, texts: Vec<String>) -> OpenClawResult<Vec<Vec<f32>>> {
         use openclaw_ai::types::EmbeddingRequest;
         
         let request = EmbeddingRequest {
-            model: String::new(),
+            model: self.model.clone(),
             input: texts,
         };
         

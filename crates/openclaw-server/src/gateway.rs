@@ -63,7 +63,7 @@ impl Gateway {
                 )
                 .await;
 
-            let ai_port = Arc::new(AIProviderAdapter::new(self.context.ai_provider.clone())) as Arc<dyn openclaw_agent::ports::AIPort>;
+            let ai_port = Arc::new(AIProviderAdapter::new(self.context.ai_provider.clone(), "default")) as Arc<dyn openclaw_agent::ports::AIPort>;
             let security_port = Arc::new(SecurityPipelineAdapter::new(self.context.security_pipeline.clone())) as Arc<dyn openclaw_agent::ports::SecurityPort>;
             let tool_port = Arc::new(ToolRegistryAdapter::new(self.context.tool_registry.clone())) as Arc<dyn openclaw_agent::ports::ToolPort>;
 
