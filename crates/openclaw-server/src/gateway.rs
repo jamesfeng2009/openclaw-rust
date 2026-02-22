@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
-use openclaw_core::Config;
+use openclaw_core::{Config, Result};
 
 use crate::api::create_router;
 use crate::app_context::AppContext;
@@ -17,10 +17,11 @@ use crate::websocket::websocket_router;
 pub struct Gateway {
     config: Config,
     context: Arc<AppContext>,
+    factory: Arc<DefaultServiceFactory>,
 }
 
 impl Gateway {
-    pub async fn new(config: Config) -> Self {
+    pub async fn new(config: Config) -> Result<Self> {
         let config_for_adapter = config.clone();
         let config_for_device = config.clone();
         
@@ -34,15 +35,14 @@ impl Gateway {
             device_manager,
         );
 
-        let context = factory.create_app_context(config.clone())
-            .await
-            .expect("Failed to create app context");
+        let context = factory.create_app_context(config.clone()).await?;
 
-        Self { config, context }
+        Ok(Self { config, context, factory: Arc::new(factory) })
     }
 
     pub async fn start(&self) -> openclaw_core::Result<()> {
-        self.context.vector_store_registry.register_defaults().await;
+        let enabled_backends = self.config.vector.backends.clone();
+        self.context.vector_store_registry.register_defaults(enabled_backends).await;
 
         self.context.device_manager.init().await?;
 
@@ -54,13 +54,22 @@ impl Gateway {
             }
 
             orchestrator
-                .inject_dependencies_with_tool_registry(
+                .inject_dependencies(
                     self.context.ai_provider.clone(),
                     self.context.memory_manager.clone(),
                     self.context.security_pipeline.clone(),
-                    self.context.tool_registry.clone(),
+                    Some(self.context.tool_registry.clone()),
                 )
                 .await;
+
+            if self.config.server.enable_agentic_rag {
+                let agentic_rag_engine = self.factory.create_agentic_rag_engine(
+                    self.context.ai_provider.clone(),
+                    self.context.memory_manager.clone(),
+                ).await?;
+                orchestrator.set_agentic_rag_engine(agentic_rag_engine).await;
+                tracing::info!("Agentic RAG engine initialized");
+            }
 
             tracing::info!("Dependencies injected to all agents");
         }
@@ -71,8 +80,12 @@ impl Gateway {
 
         let canvas_manager = (*self.context.orchestrator.read().await).as_ref().map(|orchestrator| orchestrator.canvas_manager());
 
+        let browser_config = self.config.browser.as_ref().map(|v| {
+            serde_json::from_value::<openclaw_browser::BrowserConfig>(v.clone()).ok()
+        }).flatten();
+
         let app = Router::new()
-            .merge(create_router(self.context.clone(), canvas_manager))
+            .merge(create_router(self.context.clone(), canvas_manager, browser_config))
             .merge(websocket_router())
             .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any))
             .layer(TraceLayer::new_for_http());
@@ -110,41 +123,11 @@ impl Gateway {
     }
 
     async fn init_voice_service(&self) -> openclaw_core::Result<()> {
-        use openclaw_voice::{create_stt, create_tts, SttConfig, TtsConfig, SttProvider, TtsProvider};
-        
-        let voice_config = self.config.voice.clone().unwrap_or_default();
-        
-        let stt_provider = match voice_config.stt_provider.as_str() {
-            "openai" => SttProvider::OpenAI,
-            "local" => SttProvider::LocalWhisper,
-            "azure" => SttProvider::Azure,
-            "google" => SttProvider::Google,
-            _ => SttProvider::OpenAI,
-        };
-        
-        let tts_provider = match voice_config.tts_provider.as_str() {
-            "openai" => TtsProvider::OpenAI,
-            "edge" => TtsProvider::Edge,
-            "azure" => TtsProvider::Azure,
-            "google" => TtsProvider::Google,
-            "elevenlabs" => TtsProvider::ElevenLabs,
-            _ => TtsProvider::OpenAI,
-        };
-        
-        let mut stt_config = SttConfig::default();
-        stt_config.openai_api_key = voice_config.api_key.clone();
-        
-        let mut tts_config = TtsConfig::default();
-        tts_config.openai_api_key = voice_config.api_key.clone();
-        
-        let stt = create_stt(stt_provider, stt_config);
-        let tts = create_tts(tts_provider, tts_config);
-        
-        let stt: Arc<dyn openclaw_voice::SpeechToText> = stt.into();
-        let tts: Arc<dyn openclaw_voice::TextToSpeech> = tts.into();
+        let (stt, tts) = self.factory.create_voice_providers().await?;
 
         self.context.voice_service.init_voice(stt, tts).await;
 
+        let voice_config = self.config.voice.clone().unwrap_or_default();
         tracing::info!("Voice service initialized with STT: {}, TTS: {}", voice_config.stt_provider, voice_config.tts_provider);
         Ok(())
     }
@@ -175,14 +158,14 @@ mod tests {
     #[tokio::test]
     async fn test_gateway_new_is_async() {
         let config = Config::default();
-        let gateway = Gateway::new(config).await;
+        let gateway = Gateway::new(config).await.unwrap();
         assert!(!gateway.config.server.enable_agents);
     }
 
     #[tokio::test]
     async fn test_gateway_context_available() {
         let config = Config::default();
-        let gateway = Gateway::new(config).await;
+        let gateway = Gateway::new(config).await.unwrap();
         let ctx = gateway.context();
         assert!(!ctx.config.server.enable_agents);
     }

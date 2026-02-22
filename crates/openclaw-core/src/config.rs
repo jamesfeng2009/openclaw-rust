@@ -31,6 +31,9 @@ pub struct Config {
     /// 语音配置 (STT/TTS) - 服务器端简化配置
     #[serde(default)]
     pub voice: Option<VoiceServerConfig>,
+    /// 浏览器配置
+    #[serde(default)]
+    pub browser: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -54,6 +57,8 @@ pub struct ServerConfig {
     pub enable_voice: bool,
     #[serde(default)]
     pub enable_canvas: bool,
+    #[serde(default)]
+    pub enable_agentic_rag: bool,
 }
 
 impl Default for ServerConfig {
@@ -66,6 +71,7 @@ impl Default for ServerConfig {
             enable_channels: false,
             enable_voice: false,
             enable_canvas: false,
+            enable_agentic_rag: false,
         }
     }
 }
@@ -304,6 +310,8 @@ pub struct CustomEmbeddingConfig {
 pub struct VectorConfig {
     /// 后端类型
     pub backend: VectorBackend,
+    /// 启用的后端列表 (用于注册到 VectorStoreRegistry)
+    pub backends: Option<Vec<String>>,
     /// Qdrant 配置
     pub qdrant: Option<QdrantConfig>,
     /// LanceDB 配置
@@ -314,6 +322,7 @@ impl Default for VectorConfig {
     fn default() -> Self {
         Self {
             backend: VectorBackend::LanceDB,
+            backends: Some(vec!["memory".to_string()]),
             qdrant: None,
             lancedb: Some(LanceDbConfig::default()),
         }

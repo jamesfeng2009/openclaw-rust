@@ -298,7 +298,7 @@ impl ServiceOrchestrator {
                     };
                     if let (Some(ai), Some(sec)) = (ai, sec)
                         && let Some(m) = mem {
-                            agent_to_inject.inject_dependencies(ai, Some(m), sec).await;
+                            agent_to_inject.inject_dependencies(ai, Some(m), sec, None).await;
                         }
                 });
             }
@@ -309,6 +309,7 @@ impl ServiceOrchestrator {
         ai_provider: Arc<dyn AIProvider>,
         memory_manager: Option<Arc<MemoryManager>>,
         security_pipeline: Arc<SecurityPipeline>,
+        tool_registry: Option<Arc<openclaw_tools::ToolRegistry>>,
     ) {
         {
             let mut provider = self.ai_provider.write().await;
@@ -334,90 +335,11 @@ impl ServiceOrchestrator {
                 ai_provider.clone(),
                 mem_lock.clone(),
                 security_pipeline.clone(),
-            ).await;
-        }
-
-        tracing::info!("Dependencies injected to all agents");
-    }
-
-    pub async fn inject_dependencies_with_tools(
-        &self,
-        ai_provider: Arc<dyn AIProvider>,
-        memory_manager: Option<Arc<MemoryManager>>,
-        security_pipeline: Arc<SecurityPipeline>,
-        tool_executor: Arc<openclaw_tools::SkillRegistry>,
-    ) {
-        {
-            let mut provider = self.ai_provider.write().await;
-            *provider = Some(ai_provider.clone());
-        }
-        {
-            let mut memory = self.memory_manager.write().await;
-            *memory = memory_manager.clone();
-        }
-        {
-            let mut pipeline = self.security_pipeline.write().await;
-            *pipeline = Some(security_pipeline.clone());
-        }
-        {
-            let mut tools = self.tool_executor.write().await;
-            *tools = Some(tool_executor.clone());
-        }
-        
-        let agents: Vec<Arc<dyn Agent>> = {
-            let agents = self.agent_service.agents.read().await;
-            agents.values().cloned().collect()
-        };
-
-        let mem_lock = memory_manager.clone();
-        for agent in agents {
-            agent.inject_dependencies_with_tools(
-                ai_provider.clone(),
-                mem_lock.clone(),
-                security_pipeline.clone(),
-                tool_executor.clone(),
-            ).await;
-        }
-
-        tracing::info!("Dependencies with tools injected to all agents");
-    }
-
-    pub async fn inject_dependencies_with_tool_registry(
-        &self,
-        ai_provider: Arc<dyn AIProvider>,
-        memory_manager: Option<Arc<MemoryManager>>,
-        security_pipeline: Arc<SecurityPipeline>,
-        tool_registry: Arc<openclaw_tools::ToolRegistry>,
-    ) {
-        {
-            let mut provider = self.ai_provider.write().await;
-            *provider = Some(ai_provider.clone());
-        }
-        {
-            let mut memory = self.memory_manager.write().await;
-            *memory = memory_manager.clone();
-        }
-        {
-            let mut pipeline = self.security_pipeline.write().await;
-            *pipeline = Some(security_pipeline.clone());
-        }
-        
-        let agents: Vec<Arc<dyn Agent>> = {
-            let agents = self.agent_service.agents.read().await;
-            agents.values().cloned().collect()
-        };
-
-        let mem_lock = memory_manager.clone();
-        for agent in agents {
-            agent.inject_dependencies_with_tool_registry(
-                ai_provider.clone(),
-                mem_lock.clone(),
-                security_pipeline.clone(),
                 tool_registry.clone(),
             ).await;
         }
 
-        tracing::info!("Dependencies with tool registry injected to all agents");
+        tracing::info!("Dependencies injected to all agents");
     }
 
     pub async fn get_agent(&self, id: &str) -> Option<Arc<dyn Agent>> {
@@ -552,6 +474,7 @@ impl ServiceOrchestrator {
                                 self.ai_provider.read().await.clone().unwrap(),
                                 Some(session_memory),
                                 self.security_pipeline.read().await.clone().unwrap(),
+                                None,
                             ).await;
                         }
                     }
@@ -823,6 +746,32 @@ mod tests {
             assert!(config.memory_config.is_some());
             assert_eq!(config.max_session_memories, 50);
         }
+    }
+
+    #[tokio::test]
+    async fn test_orchestrator_inject_dependencies() {
+        use openclaw_agent::Agent;
+        use openclaw_memory::MemoryManager;
+        use openclaw_security::SecurityPipeline;
+        use openclaw_testing::ai::MockAiProvider;
+        use openclaw_tools::ToolRegistry;
+        
+        let orchestrator = ServiceOrchestrator::new(OrchestratorConfig::default());
+        
+        let ai_provider: Arc<dyn AIProvider> = Arc::new(MockAiProvider::new());
+        let memory_manager: Option<Arc<MemoryManager>> = None;
+        let security_pipeline = Arc::new(SecurityPipeline::default());
+        let tool_registry: Option<Arc<ToolRegistry>> = None;
+        
+        orchestrator.inject_dependencies(
+            ai_provider,
+            memory_manager,
+            security_pipeline,
+            tool_registry,
+        ).await;
+        
+        let provider = orchestrator.get_ai_provider().await;
+        assert!(provider.is_some());
     }
 
     #[test]

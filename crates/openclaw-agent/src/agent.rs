@@ -88,30 +88,13 @@ pub trait Agent: Send + Sync {
     /// 获取设备工具注册中心（异步）
     async fn get_device_tool_registry(&self) -> Option<Arc<crate::DeviceToolRegistry>>;
 
-    /// 注入依赖（异步）- 通过内部 RwLock 实现可变性
+    /// 注入依赖（异步）- 统一接口，支持可选的工具注册中心
     async fn inject_dependencies(
         &self,
         provider: Arc<dyn AIProvider>,
         memory: Option<Arc<MemoryManager>>,
         pipeline: Arc<SecurityPipeline>,
-    );
-
-    /// 注入依赖（异步）- 包含工具执行器
-    async fn inject_dependencies_with_tools(
-        &self,
-        provider: Arc<dyn AIProvider>,
-        memory: Option<Arc<MemoryManager>>,
-        pipeline: Arc<SecurityPipeline>,
-        tool_executor: Arc<openclaw_tools::SkillRegistry>,
-    );
-
-    /// 注入依赖（异步）- 使用统一 ToolRegistry
-    async fn inject_dependencies_with_tool_registry(
-        &self,
-        provider: Arc<dyn AIProvider>,
-        memory: Option<Arc<MemoryManager>>,
-        pipeline: Arc<SecurityPipeline>,
-        tool_registry: Arc<openclaw_tools::ToolRegistry>,
+        tool_registry: Option<Arc<openclaw_tools::ToolRegistry>>,
     );
 
     /// 执行工具
@@ -531,36 +514,14 @@ impl Agent for BaseAgent {
         provider: Arc<dyn AIProvider>,
         memory: Option<Arc<MemoryManager>>,
         pipeline: Arc<SecurityPipeline>,
+        tool_registry: Option<Arc<openclaw_tools::ToolRegistry>>,
     ) {
         *self.ai_provider.write().await = Some(provider);
         self.set_memory(memory).await;
         *self.security_pipeline.write().await = Some(pipeline);
-    }
-
-    async fn inject_dependencies_with_tools(
-        &self,
-        provider: Arc<dyn AIProvider>,
-        memory: Option<Arc<MemoryManager>>,
-        pipeline: Arc<SecurityPipeline>,
-        tool_executor: Arc<openclaw_tools::SkillRegistry>,
-    ) {
-        *self.ai_provider.write().await = Some(provider);
-        self.set_memory(memory).await;
-        *self.security_pipeline.write().await = Some(pipeline);
-        *self.tool_executor.write().await = Some(tool_executor);
-    }
-
-    async fn inject_dependencies_with_tool_registry(
-        &self,
-        provider: Arc<dyn AIProvider>,
-        memory: Option<Arc<MemoryManager>>,
-        pipeline: Arc<SecurityPipeline>,
-        tool_registry: Arc<openclaw_tools::ToolRegistry>,
-    ) {
-        *self.ai_provider.write().await = Some(provider);
-        self.set_memory(memory).await;
-        *self.security_pipeline.write().await = Some(pipeline);
-        *self.tool_registry.write().await = Some(tool_registry);
+        if let Some(registry) = tool_registry {
+            *self.tool_registry.write().await = Some(registry);
+        }
     }
 
     /// 执行工具
@@ -887,6 +848,7 @@ mod tests {
             mock_provider.clone(),
             Some(memory_manager),
             Arc::new(openclaw_security::SecurityPipeline::default()),
+            None,
         ).await;
 
         let ai_provider = agent.get_ai_provider().await;

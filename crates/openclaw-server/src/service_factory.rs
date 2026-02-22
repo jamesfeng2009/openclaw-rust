@@ -76,14 +76,12 @@ impl ServiceFactory for DefaultServiceFactory {
             organization: None,
         };
         
-        let provider_type = match core_config.name.as_str() {
-            "openai" => ProviderType::OpenAI,
-            "anthropic" => ProviderType::Anthropic,
-            "google" | "gemini" => ProviderType::Gemini,
-            "deepseek" => ProviderType::DeepSeek,
-            "ollama" => ProviderType::Ollama,
-            _ => ProviderType::OpenAI,
-        };
+        let provider_type = ProviderType::from_str(&core_config.name)
+            .ok_or_else(|| {
+                openclaw_core::OpenClawError::AIProvider(
+                    format!("Unknown AI provider: {}", core_config.name)
+                )
+            })?;
         
         let provider = ProviderFactory::create(provider_type, ai_config)
             .map_err(openclaw_core::OpenClawError::AIProvider)?;

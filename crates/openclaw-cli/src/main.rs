@@ -169,8 +169,6 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    openclaw_device::init_device().await?;
-
     match cli.command {
         Commands::Gateway {
             port,
@@ -181,6 +179,7 @@ async fn main() -> Result<()> {
             voice,
             canvas,
         } => {
+            openclaw_device::init_device().await?;
             commands::gateway::run(port, host, verbose, agents, channels, voice, canvas).await?;
         }
         Commands::Agents { command } => {

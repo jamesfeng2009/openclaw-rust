@@ -153,6 +153,8 @@ pub struct FeaturesSection {
     pub webhook: bool,
     #[serde(default = "default_true")]
     pub sandbox: bool,
+    #[serde(default)]
+    pub agentic_rag: bool,
 }
 
 fn default_true() -> bool {
@@ -302,6 +304,7 @@ impl UnifiedConfig {
                 || self.channels.dingtalk.enabled,
             enable_voice: self.voice.enabled,
             enable_canvas: false,
+            enable_agentic_rag: self.features.agentic_rag,
         };
 
         let security_config = crate::config::SecurityConfig {
@@ -325,6 +328,7 @@ impl UnifiedConfig {
             devices: crate::config::DevicesConfig::default(),
             workspaces: crate::config::WorkspacesConfig::default(),
             voice: None,
+            browser: None,
         }
     }
 }
