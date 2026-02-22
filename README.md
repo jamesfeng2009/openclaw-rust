@@ -25,6 +25,90 @@
 - **安全性**: 多层安全防护，敏感操作沙箱隔离，完整审计日志
 - **高性能**: 异步 Rust (tokio)，流式响应，连接池
 
+### 系统架构图
+
+```mermaid
+graph TB
+    subgraph Client
+        CLI[CLI 工具<br/>wizard/doctor/gateway]
+        WS[WebSocket]
+        HTTP[HTTP API]
+    end
+
+    subgraph Gateway["openclaw-server"]
+        GW[Gateway Service]
+        API[API Handlers]
+        WSHandler[WebSocket Handler]
+    end
+
+    subgraph Core["openclaw-core"]
+        Config[配置管理]
+        Types[核心类型]
+    end
+
+    subgraph AI["openclaw-ai"]
+        Provider[AI Provider<br/>Trait]
+        OpenAI[OpenAI]
+        Anthropic[Anthropic]
+        DeepSeek[DeepSeek]
+        Qwen[通义千问]
+    end
+
+    subgraph Memory["openclaw-memory"]
+        Working[工作记忆]
+        Short[短期记忆]
+        Long[长期记忆<br/>Vector Store]
+    end
+
+    subgraph Agent["openclaw-agent"]
+        Orch[Orchestrator]
+        Researcher[Researcher]
+        Coder[Coder]
+    end
+
+    subgraph Tools["openclaw-tools"]
+        Cron[Cron 调度]
+        Webhook[Webhook]
+        Skill[技能系统]
+    end
+
+    subgraph Security["openclaw-security"]
+        Filter[输入过滤]
+        Validate[输出验证]
+        Audit[审计日志]
+    end
+
+    subgraph Channels["openclaw-channels"]
+        TG[Telegram]
+        DD[钉钉]
+        WX[企业微信]
+        Feishu[飞书]
+    end
+
+    subgraph Voice["openclaw-voice"]
+        STT[语音识别]
+        TTS[语音合成]
+    end
+
+    CLI --> GW
+    WS --> WSHandler
+    HTTP --> API
+    GW --> Config
+    API --> Agent
+    GW --> Memory
+    Agent --> Provider
+    Agent --> Security
+    Agent --> Tools
+    Agent --> Channels
+    Agent --> Voice
+    Working --> Short
+    Short --> Long
+    Provider --> OpenAI
+    Provider --> Anthropic
+    Provider --> DeepSeek
+    Provider --> Qwen
+```
+
 ### 核心模块
 
 ```
