@@ -42,3 +42,6 @@ openclaw-testing.workspace = true
 [features]
 default = []
 per_session_memory = []
+lancedb = ["openclaw-vector/lancedb"]
+qdrant = ["openclaw-vector/qdrant"]
+pgvector = ["openclaw-vector/pgvector"]

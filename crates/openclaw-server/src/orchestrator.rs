@@ -104,9 +104,19 @@ pub struct AgentServiceState {
     agents: Arc<RwLock<HashMap<String, Arc<dyn Agent>>>>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ChannelServiceState {
-    manager: Arc<RwLock<ChannelManager>>,
+    pub manager: Arc<RwLock<ChannelManager>>,
+    pub factory: Arc<openclaw_channels::ChannelFactoryRegistry>,
+}
+
+impl Default for ChannelServiceState {
+    fn default() -> Self {
+        Self {
+            manager: Arc::new(RwLock::new(ChannelManager::new())),
+            factory: Arc::new(openclaw_channels::ChannelFactoryRegistry::new()),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -192,9 +202,20 @@ impl ServiceOrchestrator {
             });
         }
         
+        let channel_manager = if config.enable_channels {
+            openclaw_channels::ChannelManager::with_factory(channel_factory.clone())
+        } else {
+            openclaw_channels::ChannelManager::new()
+        };
+        
+        let channel_factory_for_service = channel_factory.clone();
+        
         Self {
             agent_service: AgentServiceState::default(),
-            channel_service: ChannelServiceState::default(),
+            channel_service: ChannelServiceState {
+                manager: Arc::new(RwLock::new(channel_manager)),
+                factory: channel_factory_for_service,
+            },
             canvas_service: CanvasServiceState::default(),
             session_service: SessionServiceState::new(session_manager),
             config: config.clone(),
@@ -351,6 +372,30 @@ impl ServiceOrchestrator {
         tracing::info!("Dependencies injected to all agents");
     }
 
+    pub async fn inject_ports(
+        &self,
+        ai_port: Option<Arc<dyn openclaw_agent::ports::AIPort>>,
+        memory_port: Option<Arc<dyn openclaw_agent::ports::MemoryPort>>,
+        security_port: Option<Arc<dyn openclaw_agent::ports::SecurityPort>>,
+        tool_port: Option<Arc<dyn openclaw_agent::ports::ToolPort>>,
+    ) {
+        let agents: Vec<Arc<dyn Agent>> = {
+            let agents = self.agent_service.agents.read().await;
+            agents.values().cloned().collect()
+        };
+
+        for agent in agents {
+            agent.inject_ports(
+                ai_port.clone(),
+                memory_port.clone(),
+                security_port.clone(),
+                tool_port.clone(),
+            ).await;
+        }
+
+        tracing::info!("Ports injected to all agents");
+    }
+
     pub async fn get_agent(&self, id: &str) -> Option<Arc<dyn Agent>> {
         let agents = self.agent_service.agents.read().await;
         agents.get(id).cloned()
@@ -392,9 +437,16 @@ impl ServiceOrchestrator {
         scope: openclaw_core::session::SessionScope,
         channel_type: Option<String>,
     ) -> openclaw_agent::Result<openclaw_agent::sessions::Session> {
+        let peer_id = match &scope {
+            openclaw_core::session::SessionScope::Main => None,
+            openclaw_core::session::SessionScope::PerPeer => None,
+            openclaw_core::session::SessionScope::PerChannelPeer => None,
+            openclaw_core::session::SessionScope::PerAccountChannelPeer => None,
+        };
+        
         let agent_id_owned = agent_id.clone();
         self.session_service.manager
-            .create_session(name, agent_id_owned, scope, channel_type, None)
+            .create_session(name, agent_id_owned, scope, channel_type, peer_id)
             .await
     }
 
