@@ -28,85 +28,48 @@
 ### 系统架构图
 
 ```mermaid
-graph TB
-    subgraph Client
-        CLI[CLI 工具<br/>wizard/doctor/gateway]
-        WS[WebSocket]
-        HTTP[HTTP API]
-    end
+sequenceDiagram
+    participant User as 用户
+    participant CLI as CLI
+    participant GW as Gateway
+    participant Agent as Agent
+    participant Mem as Memory
+    participant Sec as Security
+    participant Tool as Tools
+    participant Prov as AI Provider
+    participant External as 外部服务
 
-    subgraph Gateway["openclaw-server"]
-        GW[Gateway Service]
-        API[API Handlers]
-        WSHandler[WebSocket Handler]
-    end
+    Note over User,External: 请求入口
+    User->>CLI: cargo run -- gateway
+    CLI->>GW: 启动服务
+    GW->>GW: 初始化配置
 
-    subgraph Core["openclaw-core"]
-        Config[配置管理]
-        Types[核心类型]
-    end
+    Note over User,External: 消息处理流程
+    User->>GW: 发送消息 (HTTP/WS)
+    GW->>Sec: 输入安全过滤
+    Sec->>Sec: 关键词检测/Prompt分类
+    Sec-->>GW: 安全通过
 
-    subgraph AI["openclaw-ai"]
-        Provider[AI Provider<br/>Trait]
-        OpenAI[OpenAI]
-        Anthropic[Anthropic]
-        DeepSeek[DeepSeek]
-        Qwen[通义千问]
-    end
+    GW->>Agent: 分发到 Agent
+    Agent->>Mem: 获取会话上下文
+    Mem-->>Agent: 记忆上下文
+    Agent->>Agent: 任务规划分解
 
-    subgraph Memory["openclaw-memory"]
-        Working[工作记忆]
-        Short[短期记忆]
-        Long[长期记忆<br/>Vector Store]
-    end
+    Agent->>Tool: 调用工具 (可选)
+    Tool->>External: Cron/Webhook/设备控制
+    External-->>Tool: 返回结果
+    Tool-->>Agent: 工具结果
 
-    subgraph Agent["openclaw-agent"]
-        Orch[Orchestrator]
-        Researcher[Researcher]
-        Coder[Coder]
-    end
+    Agent->>Prov: 调用 AI Provider
+    Prov->>External: OpenAI/Anthropic/DeepSeek
+    External-->>Prov: AI 响应
+    Prov-->>Agent: 流式响应
 
-    subgraph Tools["openclaw-tools"]
-        Cron[Cron 调度]
-        Webhook[Webhook]
-        Skill[技能系统]
-    end
+    Agent->>Sec: 输出安全验证
+    Sec-->>Agent: 验证通过
 
-    subgraph Security["openclaw-security"]
-        Filter[输入过滤]
-        Validate[输出验证]
-        Audit[审计日志]
-    end
-
-    subgraph Channels["openclaw-channels"]
-        TG[Telegram]
-        DD[钉钉]
-        WX[企业微信]
-        Feishu[飞书]
-    end
-
-    subgraph Voice["openclaw-voice"]
-        STT[语音识别]
-        TTS[语音合成]
-    end
-
-    CLI --> GW
-    WS --> WSHandler
-    HTTP --> API
-    GW --> Config
-    API --> Agent
-    GW --> Memory
-    Agent --> Provider
-    Agent --> Security
-    Agent --> Tools
-    Agent --> Channels
-    Agent --> Voice
-    Working --> Short
-    Short --> Long
-    Provider --> OpenAI
-    Provider --> Anthropic
-    Provider --> DeepSeek
-    Provider --> Qwen
+    Agent-->>GW: 最终响应
+    GW-->>User: 返回结果 (流式)
 ```
 
 ### 核心模块
