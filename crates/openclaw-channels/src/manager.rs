@@ -3,22 +3,31 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::base::{Channel, ChannelEvent, ChannelHandler};
+use crate::factory::ChannelFactoryRegistry;
 use crate::types::{ChannelMessage, SendMessage};
 use openclaw_core::Result;
 
 pub struct ChannelManager {
-    channels: Arc<RwLock<HashMap<String, Arc<RwLock<dyn Channel>>>>>,
-    handlers: Arc<RwLock<Vec<Arc<dyn ChannelHandler>>>>,
-    event_tx: tokio::sync::mpsc::Sender<ChannelEvent>,
+    channels: Arc<RwLock<HashMap<String, Arc<RwLock<dyn Channel>>>>>,    handlers: Arc<RwLock<Vec<Arc<dyn ChannelHandler>>>>,    event_tx: tokio::sync::mpsc::Sender<ChannelEvent>,
+    factory: Option<Arc<ChannelFactoryRegistry>>,
 }
 
 impl ChannelManager {
     pub fn new() -> Self {
-        let (event_tx, _) = tokio::sync::mpsc::channel(1000);
-        Self {
+        let (event_tx, _) = tokio::sync::mpsc::channel(1000);        Self {
             channels: Arc::new(RwLock::new(HashMap::new())),
             handlers: Arc::new(RwLock::new(Vec::new())),
             event_tx,
+            factory: None,
+        }
+    }
+
+    pub fn with_factory(factory: Arc<ChannelFactoryRegistry>) -> Self {
+        let (event_tx, _) = tokio::sync::mpsc::channel(1000);        Self {
+            channels: Arc::new(RwLock::new(HashMap::new())),
+            handlers: Arc::new(RwLock::new(Vec::new())),
+            event_tx,
+            factory: Some(factory),
         }
     }
 
@@ -113,6 +122,33 @@ impl ChannelManager {
         }
 
         results
+    }
+
+    pub async fn get_or_create_channel(
+        &self,
+        channel_type: &str,
+        config: serde_json::Value,
+    ) -> Result<Arc<RwLock<dyn Channel>>> {
+        {
+            let channels = self.channels.read().await;
+            if let Some(channel) = channels.get(channel_type) {
+                return Ok(channel.clone());
+            }
+        }
+
+        if let Some(ref factory) = self.factory {
+            let channel = factory.create(channel_type, config).await?;
+            let mut channels = self.channels.write().await;
+            channels.insert(channel_type.to_string(), channel.clone());
+            Ok(channel)
+        } else {
+            Err(openclaw_core::OpenClawError::Config(
+                format!(
+                    "Channel type '{}' not found and no factory available to create it",
+                    channel_type
+                )
+            ))
+        }
     }
 }
 

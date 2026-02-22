@@ -20,6 +20,7 @@ openclaw-device.workspace = true
 openclaw-voice.workspace = true
 openclaw-tools.workspace = true
 tokio.workspace = true
+tokio-stream.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
