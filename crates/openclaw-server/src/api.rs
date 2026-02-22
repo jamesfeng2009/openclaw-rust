@@ -16,7 +16,6 @@ use crate::app_context::AppContext;
 use crate::browser_api::{BrowserApiState, create_browser_router};
 use crate::canvas_api::{CanvasApiState, create_canvas_router};
 use crate::device_api::create_device_router;
-use openclaw_device::UnifiedDeviceManager;
 use crate::orchestrator::ServiceOrchestrator;
 use crate::sse::error_string_stream_to_sse;
 use crate::voice_service::VoiceService;
