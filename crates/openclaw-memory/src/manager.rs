@@ -26,6 +26,14 @@ pub struct MemoryManager {
     embedding_provider: Option<Arc<dyn EmbeddingProvider>>,
 }
 
+impl std::fmt::Debug for MemoryManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemoryManager")
+            .field("config", &self.config)
+            .finish()
+    }
+}
+
 impl MemoryManager {
     pub fn new(config: MemoryConfig) -> Self {
         Self {
@@ -58,23 +66,11 @@ impl MemoryManager {
         self
     }
 
-    /// 获取嵌入向量维度
-    /// 优先级: 1. 配置中的 embedding_dimensions 2. embedding_provider.dimensions() 3. 默认值 1536
-    pub fn embedding_dimensions(&self) -> usize {
-        if let Some(dims) = self.config.embedding_dimensions {
-            return dims;
-        }
-        if let Some(provider) = &self.embedding_provider {
-            return provider.dimensions();
-        }
-        1536
-    }
-
     /// 自动召回相关记忆
     pub async fn recall(&self, query: &str) -> Result<RecallResult> {
         if let Some(provider) = &self.embedding_provider {
-            if let Some(vector_store) = &self.long_term {
-                let recall_tool = SimpleMemoryRecall::new(provider.clone(), vector_store.clone());
+            if let Some(store) = &self.long_term {
+                let recall_tool = SimpleMemoryRecall::new(provider.clone(), store.clone());
                 let result = recall_tool.recall(query, None).await?;
                 Ok(result)
             } else {

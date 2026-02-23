@@ -336,9 +336,9 @@ impl ServiceOrchestrator {
                     if let (Some(ai), Some(sec)) = (ai, sec) {
                         let ai_port = Arc::new(AiPortAdapter { provider: ai }) as Arc<dyn openclaw_agent::ports::AIPort>;
                         
-                        let memory_port = mem.as_ref().map(|m| 
+                        let memory_port = mem.as_ref().map(|m| {
                             Arc::new(MemoryPortAdapter::new(m.clone())) as Arc<dyn openclaw_agent::ports::MemoryPort>
-                        );
+                        });
                         
                         let security_port = Arc::new(SecurityPortAdapter { pipeline: sec }) as Arc<dyn openclaw_agent::ports::SecurityPort>;
                         
@@ -385,7 +385,9 @@ impl ServiceOrchestrator {
         let mem_lock = memory_manager.clone();
         for agent in agents {
             let ai_port = Arc::new(AiPortAdapter { provider: ai_provider.clone() }) as Arc<dyn openclaw_agent::ports::AIPort>;
-            let memory_port = mem_lock.clone().map(|m| Arc::new(MemoryPortAdapter::new(m)) as Arc<dyn openclaw_agent::ports::MemoryPort>);
+            let memory_port = mem_lock.clone().map(|m| {
+                Arc::new(MemoryPortAdapter::new(m.clone())) as Arc<dyn openclaw_agent::ports::MemoryPort>
+            });
             let security_port = Arc::new(SecurityPortAdapter { pipeline: security_pipeline.clone() }) as Arc<dyn openclaw_agent::ports::SecurityPort>;
             
             agent.inject_ports(
@@ -561,7 +563,7 @@ impl ServiceOrchestrator {
                             let ai_port = Arc::new(AiPortAdapter { 
                                 provider: self.ai_provider.read().await.clone().unwrap()
                             }) as Arc<dyn openclaw_agent::ports::AIPort>;
-                            let memory_port = Arc::new(MemoryPortAdapter::new(session_memory)) as Arc<dyn openclaw_agent::ports::MemoryPort>;
+                            let memory_port = Arc::new(MemoryPortAdapter::new(session_memory.clone())) as Arc<dyn openclaw_agent::ports::MemoryPort>;
                             let security_port = Arc::new(SecurityPortAdapter { 
                                 pipeline: self.security_pipeline.read().await.clone().unwrap()
                             }) as Arc<dyn openclaw_agent::ports::SecurityPort>;

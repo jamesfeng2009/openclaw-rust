@@ -16,6 +16,7 @@ use openclaw_tools::SkillRegistry;
 use openclaw_device::UnifiedDeviceManager;
 use std::sync::Arc;
 use futures::StreamExt;
+use tokio::sync::RwLock;
 
 fn memory_item_to_entry(m: MemoryItem) -> MemoryEntry {
     MemoryEntry {
@@ -80,15 +81,12 @@ impl AIPort for AiPortAdapter {
 }
 
 pub struct MemoryPortAdapter {
-    manager: Arc<tokio::sync::Mutex<MemoryManager>>,
+    manager: Arc<tokio::sync::RwLock<MemoryManager>>,
 }
 
 impl MemoryPortAdapter {
     pub fn new(manager: Arc<MemoryManager>) -> Self {
-        let inner = (*manager).clone();
-        Self {
-            manager: Arc::new(tokio::sync::Mutex::new(inner)),
-        }
+        Self { manager: Arc::new(tokio::sync::RwLock::new(manager.as_ref().clone())) }
     }
 }
 
@@ -104,12 +102,12 @@ impl MemoryPort for MemoryPortAdapter {
             created_at: chrono::Utc::now(),
             metadata: Default::default(),
         };
-        let mut guard = self.manager.lock().await;
+        let mut guard = self.manager.write().await;
         guard.add(message).await
     }
 
     async fn retrieve(&self, query: &str, limit: usize) -> OpenClawResult<Vec<MemoryEntry>> {
-        let guard = self.manager.lock().await;
+        let guard = self.manager.read().await;
         let retrieval: MemoryRetrieval = guard.retrieve(query, limit).await?;
         Ok(retrieval
             .items
@@ -119,7 +117,7 @@ impl MemoryPort for MemoryPortAdapter {
     }
 
     async fn recall(&self, context: &str, _limit: usize) -> OpenClawResult<Vec<RecallItem>> {
-        let guard = self.manager.lock().await;
+        let guard = self.manager.read().await;
         let recall_result: MemoryRecallResult = guard.recall(context).await?;
         Ok(recall_result
             .items
