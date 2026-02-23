@@ -24,7 +24,8 @@ pub enum ProviderType {
     Custom,
 }
 
-type ProviderCreator = Arc<dyn Fn(ProviderConfig) -> Result<Arc<dyn AIProvider>, String> + Send + Sync>;
+type ProviderCreator =
+    Arc<dyn Fn(ProviderConfig) -> Result<Arc<dyn AIProvider>, String> + Send + Sync>;
 
 #[derive(Clone)]
 pub struct ProviderInfoEntry {
@@ -33,28 +34,27 @@ pub struct ProviderInfoEntry {
     pub default_models: Vec<String>,
 }
 
-static CUSTOM_PROVIDER_REGISTRY: std::sync::LazyLock<RwLock<HashMap<String, (ProviderCreator, ProviderInfoEntry)>>> = 
-    std::sync::LazyLock::new(|| RwLock::new(HashMap::new()));
+static CUSTOM_PROVIDER_REGISTRY: std::sync::LazyLock<
+    RwLock<HashMap<String, (ProviderCreator, ProviderInfoEntry)>>,
+> = std::sync::LazyLock::new(|| RwLock::new(HashMap::new()));
 
 pub struct ProviderRegistry;
 
 impl ProviderRegistry {
-    pub fn register<F>(
-        name: &str,
-        creator: F,
-        info: ProviderInfoEntry,
-    ) -> Result<(), String>
+    pub fn register<F>(name: &str, creator: F, info: ProviderInfoEntry) -> Result<(), String>
     where
         F: Fn(ProviderConfig) -> Result<Arc<dyn AIProvider>, String> + Send + Sync + 'static,
     {
-        let mut registry = CUSTOM_PROVIDER_REGISTRY.write().map_err(|e| e.to_string())?;
-        
+        let mut registry = CUSTOM_PROVIDER_REGISTRY
+            .write()
+            .map_err(|e| e.to_string())?;
+
         if registry.contains_key(name) {
             return Err(format!("Provider '{}' already registered", name));
         }
-        
+
         registry.insert(name.to_string(), (Arc::new(creator), info));
-        
+
         Ok(())
     }
 
@@ -63,13 +63,15 @@ impl ProviderRegistry {
     }
 
     pub fn list() -> Vec<String> {
-        CUSTOM_PROVIDER_REGISTRY.read()
+        CUSTOM_PROVIDER_REGISTRY
+            .read()
             .map(|r| r.keys().cloned().collect())
             .unwrap_or_default()
     }
 
     pub fn is_registered(name: &str) -> bool {
-        CUSTOM_PROVIDER_REGISTRY.read()
+        CUSTOM_PROVIDER_REGISTRY
+            .read()
             .map(|r| r.contains_key(name))
             .unwrap_or(false)
     }
@@ -300,11 +302,20 @@ mod tests {
     fn test_provider_type_from_str() {
         assert_eq!(ProviderType::from_str("openai"), Some(ProviderType::OpenAI));
         assert_eq!(ProviderType::from_str("OpenAI"), Some(ProviderType::OpenAI));
-        assert_eq!(ProviderType::from_str("anthropic"), Some(ProviderType::Anthropic));
-        assert_eq!(ProviderType::from_str("claude"), Some(ProviderType::Anthropic));
+        assert_eq!(
+            ProviderType::from_str("anthropic"),
+            Some(ProviderType::Anthropic)
+        );
+        assert_eq!(
+            ProviderType::from_str("claude"),
+            Some(ProviderType::Anthropic)
+        );
         assert_eq!(ProviderType::from_str("gemini"), Some(ProviderType::Gemini));
         assert_eq!(ProviderType::from_str("google"), Some(ProviderType::Gemini));
-        assert_eq!(ProviderType::from_str("deepseek"), Some(ProviderType::DeepSeek));
+        assert_eq!(
+            ProviderType::from_str("deepseek"),
+            Some(ProviderType::DeepSeek)
+        );
         assert_eq!(ProviderType::from_str("ollama"), Some(ProviderType::Ollama));
         assert_eq!(ProviderType::from_str("local"), Some(ProviderType::Ollama));
         assert_eq!(ProviderType::from_str("unknown_provider"), None);
@@ -313,7 +324,10 @@ mod tests {
     #[test]
     fn test_provider_type_default_model() {
         assert_eq!(ProviderType::OpenAI.default_model(), "gpt-4o");
-        assert_eq!(ProviderType::Anthropic.default_model(), "claude-4-sonnet-20241022");
+        assert_eq!(
+            ProviderType::Anthropic.default_model(),
+            "claude-4-sonnet-20241022"
+        );
         assert_eq!(ProviderType::Gemini.default_model(), "gemini-2.0-flash-exp");
         assert_eq!(ProviderType::DeepSeek.default_model(), "deepseek-chat");
         assert_eq!(ProviderType::Ollama.default_model(), "llama3.1");

@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use async_trait::async_trait;
-use serde_json::Value;
 use openclaw_core::{Message, OpenClawError, Result};
+use serde_json::Value;
+use std::sync::Arc;
 
 #[async_trait]
 pub trait MemoryProvider: Send + Sync {
@@ -77,9 +77,9 @@ impl SecurityProvider for SecurityPipelineWrapper {
         let (result, _) = self.inner.check_input(session_id, input).await;
         match result {
             openclaw_security::PipelineResult::Allow => Ok(()),
-            openclaw_security::PipelineResult::Block(reason) => {
-                Err(OpenClawError::Execution(format!("Input blocked: {}", reason)))
-            }
+            openclaw_security::PipelineResult::Block(reason) => Err(OpenClawError::Execution(
+                format!("Input blocked: {}", reason),
+            )),
             openclaw_security::PipelineResult::Warn(reason) => {
                 tracing::warn!("Security warning: {}", reason);
                 Ok(())
@@ -188,13 +188,15 @@ mod tests {
     fn test_provider_registry_builder_pattern() {
         let registry = ProviderRegistry::new()
             .with_memory(Arc::new(MemoryManagerWrapper::new(
-                openclaw_memory::MemoryManager::new(openclaw_memory::MemoryConfig::default())
+                openclaw_memory::MemoryManager::new(openclaw_memory::MemoryConfig::default()),
             )))
             .with_security(Arc::new(SecurityPipelineWrapper::new(
-                openclaw_security::SecurityPipeline::new(openclaw_security::PipelineConfig::default())
+                openclaw_security::SecurityPipeline::new(
+                    openclaw_security::PipelineConfig::default(),
+                ),
             )))
             .with_tools(Arc::new(openclaw_tools::ToolRegistry::new()));
-        
+
         assert!(registry.memory().is_some());
         assert!(registry.security().is_some());
         assert!(registry.tools().is_some());
@@ -202,11 +204,11 @@ mod tests {
 
     #[test]
     fn test_provider_registry_take() {
-        let mut registry = ProviderRegistry::new()
-            .with_memory(Arc::new(MemoryManagerWrapper::new(
-                openclaw_memory::MemoryManager::new(openclaw_memory::MemoryConfig::default())
+        let mut registry =
+            ProviderRegistry::new().with_memory(Arc::new(MemoryManagerWrapper::new(
+                openclaw_memory::MemoryManager::new(openclaw_memory::MemoryConfig::default()),
             )));
-        
+
         assert!(registry.memory().is_some());
         let taken = registry.take_memory();
         assert!(taken.is_some());

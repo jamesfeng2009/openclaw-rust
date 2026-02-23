@@ -2,9 +2,9 @@
 //!
 //! 将设备能力作为工具集成到 Agent 决策流程中
 
-use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use openclaw_core::Result;
 
@@ -50,16 +50,14 @@ impl DeviceCapabilityTool for CameraTool {
 
     async fn execute(&self, params: DeviceToolParams) -> Result<DeviceToolResult> {
         match params.action.as_str() {
-            "capture" => {
-                Ok(DeviceToolResult {
-                    success: true,
-                    data: serde_json::json!({
-                        "camera_available": self.capabilities.sensors.contains(&openclaw_device::SensorType::Camera),
-                        "resolution": "1920x1080"
-                    }),
-                    message: "Camera capture simulated".to_string(),
-                })
-            }
+            "capture" => Ok(DeviceToolResult {
+                success: true,
+                data: serde_json::json!({
+                    "camera_available": self.capabilities.sensors.contains(&openclaw_device::SensorType::Camera),
+                    "resolution": "1920x1080"
+                }),
+                message: "Camera capture simulated".to_string(),
+            }),
             _ => Ok(DeviceToolResult {
                 success: false,
                 data: serde_json::Value::Null,
@@ -89,16 +87,14 @@ impl DeviceCapabilityTool for ScreenTool {
 
     async fn execute(&self, params: DeviceToolParams) -> Result<DeviceToolResult> {
         match params.action.as_str() {
-            "screenshot" => {
-                Ok(DeviceToolResult {
-                    success: true,
-                    data: serde_json::json!({
-                        "screen_available": true,
-                        "resolution": "1920x1080"
-                    }),
-                    message: "Screenshot captured".to_string(),
-                })
-            }
+            "screenshot" => Ok(DeviceToolResult {
+                success: true,
+                data: serde_json::json!({
+                    "screen_available": true,
+                    "resolution": "1920x1080"
+                }),
+                message: "Screenshot captured".to_string(),
+            }),
             _ => Ok(DeviceToolResult {
                 success: false,
                 data: serde_json::Value::Null,
@@ -130,17 +126,15 @@ impl DeviceCapabilityTool for LocationTool {
 
     async fn execute(&self, params: DeviceToolParams) -> Result<DeviceToolResult> {
         match params.action.as_str() {
-            "get_location" => {
-                Ok(DeviceToolResult {
-                    success: true,
-                    data: serde_json::json!({
-                        "location_available": self.capabilities.sensors.contains(&openclaw_device::SensorType::Gps),
-                        "latitude": 0.0,
-                        "longitude": 0.0
-                    }),
-                    message: "Location retrieved".to_string(),
-                })
-            }
+            "get_location" => Ok(DeviceToolResult {
+                success: true,
+                data: serde_json::json!({
+                    "location_available": self.capabilities.sensors.contains(&openclaw_device::SensorType::Gps),
+                    "latitude": 0.0,
+                    "longitude": 0.0
+                }),
+                message: "Location retrieved".to_string(),
+            }),
             _ => Ok(DeviceToolResult {
                 success: false,
                 data: serde_json::Value::Null,
@@ -172,26 +166,22 @@ impl DeviceCapabilityTool for SystemTool {
 
     async fn execute(&self, params: DeviceToolParams) -> Result<DeviceToolResult> {
         match params.action.as_str() {
-            "battery" => {
-                Ok(DeviceToolResult {
-                    success: true,
-                    data: serde_json::json!({
-                        "battery_level": 100,
-                        "charging": false
-                    }),
-                    message: "Battery info retrieved".to_string(),
-                })
-            }
-            "memory" => {
-                Ok(DeviceToolResult {
-                    success: true,
-                    data: serde_json::json!({
-                        "total_bytes": self.capabilities.memory.total_bytes,
-                        "available_bytes": self.capabilities.memory.available_bytes
-                    }),
-                    message: "Memory info retrieved".to_string(),
-                })
-            }
+            "battery" => Ok(DeviceToolResult {
+                success: true,
+                data: serde_json::json!({
+                    "battery_level": 100,
+                    "charging": false
+                }),
+                message: "Battery info retrieved".to_string(),
+            }),
+            "memory" => Ok(DeviceToolResult {
+                success: true,
+                data: serde_json::json!({
+                    "total_bytes": self.capabilities.memory.total_bytes,
+                    "available_bytes": self.capabilities.memory.available_bytes
+                }),
+                message: "Memory info retrieved".to_string(),
+            }),
             _ => Ok(DeviceToolResult {
                 success: false,
                 data: serde_json::Value::Null,
@@ -209,10 +199,14 @@ impl DeviceToolRegistry {
     pub fn new(capabilities: Arc<openclaw_device::DeviceCapabilities>) -> Self {
         let mut tools = Vec::new();
 
-        tools.push(Arc::new(CameraTool::new(capabilities.clone())) as Arc<dyn DeviceCapabilityTool>);
+        tools
+            .push(Arc::new(CameraTool::new(capabilities.clone())) as Arc<dyn DeviceCapabilityTool>);
         tools.push(Arc::new(ScreenTool::new()) as Arc<dyn DeviceCapabilityTool>);
-        tools.push(Arc::new(LocationTool::new(capabilities.clone())) as Arc<dyn DeviceCapabilityTool>);
-        tools.push(Arc::new(SystemTool::new(capabilities.clone())) as Arc<dyn DeviceCapabilityTool>);
+        tools.push(
+            Arc::new(LocationTool::new(capabilities.clone())) as Arc<dyn DeviceCapabilityTool>
+        );
+        tools
+            .push(Arc::new(SystemTool::new(capabilities.clone())) as Arc<dyn DeviceCapabilityTool>);
 
         Self { tools }
     }
@@ -221,12 +215,19 @@ impl DeviceToolRegistry {
         &self.tools
     }
 
-    pub async fn execute(&self, tool_name: &str, params: DeviceToolParams) -> Result<DeviceToolResult> {
+    pub async fn execute(
+        &self,
+        tool_name: &str,
+        params: DeviceToolParams,
+    ) -> Result<DeviceToolResult> {
         for tool in &self.tools {
             if tool.name() == tool_name {
                 return tool.execute(params).await;
             }
         }
-        Err(openclaw_core::OpenClawError::Config(format!("Tool not found: {}", tool_name)))
+        Err(openclaw_core::OpenClawError::Config(format!(
+            "Tool not found: {}",
+            tool_name
+        )))
     }
 }

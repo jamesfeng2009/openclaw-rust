@@ -200,7 +200,8 @@ impl SessionPruner {
             result
         };
 
-        let space: usize = keys_to_remove.iter()
+        let space: usize = keys_to_remove
+            .iter()
             .filter_map(|id: &String| sessions.get(id))
             .map(|s: &T| s.size_estimate())
             .sum();

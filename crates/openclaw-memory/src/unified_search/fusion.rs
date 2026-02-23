@@ -39,10 +39,8 @@ impl ResultFusion {
             return Vec::new();
         }
 
-        let enabled_results: Vec<&Vec<UnifiedSearchResult>> = results
-            .iter()
-            .filter(|r| !r.is_empty())
-            .collect();
+        let enabled_results: Vec<&Vec<UnifiedSearchResult>> =
+            results.iter().filter(|r| !r.is_empty()).collect();
 
         if enabled_results.is_empty() {
             return Vec::new();
@@ -78,7 +76,7 @@ impl ResultFusion {
 
             for item in result_set.iter() {
                 let weighted_score = item.score * weight;
-                
+
                 if let Some(existing) = merged.get_mut(&item.id) {
                     if weighted_score > existing.score {
                         existing.score = weighted_score;
@@ -98,7 +96,11 @@ impl ResultFusion {
         }
 
         let mut fused: Vec<UnifiedSearchResult> = merged.into_values().collect();
-        fused.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        fused.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         fused.truncate(self.config.max_results);
         fused
     }
@@ -110,7 +112,7 @@ impl ResultFusion {
         for result_set in results.iter() {
             for (rank, item) in result_set.iter().enumerate() {
                 let rrf_score = 1.0 / (k + rank + 1) as f32;
-                
+
                 if let Some((score, existing)) = rrf_scores.get_mut(&item.id) {
                     *score += rrf_score;
                     if item.score > existing.score {
@@ -137,8 +139,12 @@ impl ResultFusion {
                 item
             })
             .collect();
-        
-        fused.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+
+        fused.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         fused.truncate(self.config.max_results);
         fused
     }
@@ -168,7 +174,11 @@ impl ResultFusion {
         }
 
         let mut fused: Vec<UnifiedSearchResult> = merged.into_values().collect();
-        fused.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        fused.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         fused.truncate(self.config.max_results);
         fused
     }
@@ -203,9 +213,13 @@ impl ResultFusion {
                 item
             })
             .collect();
-        
+
         let mut fused = fused;
-        fused.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        fused.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         fused.truncate(self.config.max_results);
         fused
     }
@@ -215,7 +229,12 @@ impl ResultFusion {
 mod tests {
     use super::*;
 
-    fn create_test_result(id: &str, content: &str, score: f32, source: SearchSource) -> UnifiedSearchResult {
+    fn create_test_result(
+        id: &str,
+        content: &str,
+        score: f32,
+        source: SearchSource,
+    ) -> UnifiedSearchResult {
         UnifiedSearchResult::new(id.to_string(), content.to_string(), score, source)
     }
 
@@ -258,12 +277,12 @@ mod tests {
     fn test_fusion_weighted_single_source() {
         let config = UnifiedSearchConfig::default();
         let fusion = ResultFusion::new(config, FusionStrategy::Weighted);
-        
+
         let vector_results = vec![
             create_test_result("1", "content 1", 0.9, SearchSource::Vector),
             create_test_result("2", "content 2", 0.8, SearchSource::Vector),
         ];
-        
+
         let result = fusion.fuse(&[vector_results]);
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].id, "1");
@@ -279,17 +298,17 @@ mod tests {
             ..Default::default()
         };
         let fusion = ResultFusion::new(config, FusionStrategy::Weighted);
-        
+
         let vector_results = vec![
             create_test_result("1", "content 1", 0.9, SearchSource::Vector),
             create_test_result("2", "content 2", 0.7, SearchSource::Vector),
         ];
-        
+
         let bm25_results = vec![
             create_test_result("1", "content 1", 0.8, SearchSource::Bm25),
             create_test_result("3", "content 3", 0.6, SearchSource::Bm25),
         ];
-        
+
         let result = fusion.fuse(&[vector_results, bm25_results]);
         assert_eq!(result.len(), 3);
     }
@@ -298,17 +317,17 @@ mod tests {
     fn test_fusion_rrf() {
         let config = UnifiedSearchConfig::default();
         let fusion = ResultFusion::new(config, FusionStrategy::RRF);
-        
+
         let results1 = vec![
             create_test_result("1", "content 1", 0.9, SearchSource::Vector),
             create_test_result("2", "content 2", 0.8, SearchSource::Vector),
         ];
-        
+
         let results2 = vec![
             create_test_result("1", "content 1", 0.7, SearchSource::Bm25),
             create_test_result("3", "content 3", 0.6, SearchSource::Bm25),
         ];
-        
+
         let result = fusion.fuse(&[results1, results2]);
         assert!(result.len() <= 10);
     }
@@ -317,15 +336,21 @@ mod tests {
     fn test_fusion_max_score() {
         let config = UnifiedSearchConfig::default();
         let fusion = ResultFusion::new(config, FusionStrategy::MaxScore);
-        
-        let results1 = vec![
-            create_test_result("1", "content 1", 0.5, SearchSource::Vector),
-        ];
-        
-        let results2 = vec![
-            create_test_result("1", "content 1", 0.9, SearchSource::Bm25),
-        ];
-        
+
+        let results1 = vec![create_test_result(
+            "1",
+            "content 1",
+            0.5,
+            SearchSource::Vector,
+        )];
+
+        let results2 = vec![create_test_result(
+            "1",
+            "content 1",
+            0.9,
+            SearchSource::Bm25,
+        )];
+
         let result = fusion.fuse(&[results1, results2]);
         assert_eq!(result.len(), 1);
         assert!((result[0].score - 0.9).abs() < 0.001);
@@ -335,15 +360,21 @@ mod tests {
     fn test_fusion_average() {
         let config = UnifiedSearchConfig::default();
         let fusion = ResultFusion::new(config, FusionStrategy::Average);
-        
-        let results1 = vec![
-            create_test_result("1", "content 1", 0.8, SearchSource::Vector),
-        ];
-        
-        let results2 = vec![
-            create_test_result("1", "content 1", 0.4, SearchSource::Bm25),
-        ];
-        
+
+        let results1 = vec![create_test_result(
+            "1",
+            "content 1",
+            0.8,
+            SearchSource::Vector,
+        )];
+
+        let results2 = vec![create_test_result(
+            "1",
+            "content 1",
+            0.4,
+            SearchSource::Bm25,
+        )];
+
         let result = fusion.fuse(&[results1, results2]);
         assert_eq!(result.len(), 1);
         assert!((result[0].score - 0.6).abs() < 0.001);
@@ -363,7 +394,7 @@ mod tests {
         let result = create_test_result("1", "test", 0.5, SearchSource::Vector)
             .with_metadata("key1", "value1")
             .with_metadata("key2", "value2");
-        
+
         assert_eq!(result.metadata.get("key1"), Some(&"value1".to_string()));
         assert_eq!(result.metadata.get("key2"), Some(&"value2".to_string()));
     }
@@ -372,7 +403,7 @@ mod tests {
     fn test_search_result_source_score() {
         let mut result = create_test_result("1", "test", 0.5, SearchSource::Vector);
         result.add_source_score(SearchSource::Bm25, 0.8);
-        
+
         assert_eq!(result.get_source_score(&SearchSource::Vector), Some(0.5));
         assert_eq!(result.get_source_score(&SearchSource::Bm25), Some(0.8));
     }
@@ -397,7 +428,7 @@ mod tests {
             enable_knowledge_graph: true,
             ..Default::default()
         };
-        
+
         assert!(config.enable_vector);
         assert!(!config.enable_bm25);
         assert!(config.enable_knowledge_graph);
@@ -410,7 +441,7 @@ mod tests {
             ..Default::default()
         };
         let fusion = ResultFusion::new(config, FusionStrategy::Weighted);
-        
+
         let results = vec![
             create_test_result("1", "content 1", 0.9, SearchSource::Vector),
             create_test_result("2", "content 2", 0.8, SearchSource::Vector),
@@ -418,7 +449,7 @@ mod tests {
             create_test_result("4", "content 4", 0.6, SearchSource::Vector),
             create_test_result("5", "content 5", 0.5, SearchSource::Vector),
         ];
-        
+
         let result = fusion.fuse(&[results]);
         assert_eq!(result.len(), 3);
     }
@@ -427,10 +458,10 @@ mod tests {
     fn test_empty_result_sets() {
         let config = UnifiedSearchConfig::default();
         let fusion = ResultFusion::new(config, FusionStrategy::Weighted);
-        
+
         let empty1: Vec<UnifiedSearchResult> = Vec::new();
         let empty2: Vec<UnifiedSearchResult> = Vec::new();
-        
+
         let result = fusion.fuse(&[empty1, empty2]);
         assert!(result.is_empty());
     }
@@ -439,9 +470,9 @@ mod tests {
     fn test_result_merge() {
         let mut result1 = create_test_result("1", "content", 0.5, SearchSource::Vector);
         let result2 = create_test_result("1", "content", 0.8, SearchSource::Bm25);
-        
+
         result1.merge(result2);
-        
+
         assert_eq!(result1.score, 0.8);
     }
 }

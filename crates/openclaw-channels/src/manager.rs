@@ -8,13 +8,16 @@ use crate::types::{ChannelMessage, SendMessage};
 use openclaw_core::Result;
 
 pub struct ChannelManager {
-    channels: Arc<RwLock<HashMap<String, Arc<RwLock<dyn Channel>>>>>,    handlers: Arc<RwLock<Vec<Arc<dyn ChannelHandler>>>>,    event_tx: tokio::sync::mpsc::Sender<ChannelEvent>,
+    channels: Arc<RwLock<HashMap<String, Arc<RwLock<dyn Channel>>>>>,
+    handlers: Arc<RwLock<Vec<Arc<dyn ChannelHandler>>>>,
+    event_tx: tokio::sync::mpsc::Sender<ChannelEvent>,
     factory: Option<Arc<ChannelFactoryRegistry>>,
 }
 
 impl ChannelManager {
     pub fn new() -> Self {
-        let (event_tx, _) = tokio::sync::mpsc::channel(1000);        Self {
+        let (event_tx, _) = tokio::sync::mpsc::channel(1000);
+        Self {
             channels: Arc::new(RwLock::new(HashMap::new())),
             handlers: Arc::new(RwLock::new(Vec::new())),
             event_tx,
@@ -23,7 +26,8 @@ impl ChannelManager {
     }
 
     pub fn with_factory(factory: Arc<ChannelFactoryRegistry>) -> Self {
-        let (event_tx, _) = tokio::sync::mpsc::channel(1000);        Self {
+        let (event_tx, _) = tokio::sync::mpsc::channel(1000);
+        Self {
             channels: Arc::new(RwLock::new(HashMap::new())),
             handlers: Arc::new(RwLock::new(Vec::new())),
             event_tx,
@@ -142,12 +146,10 @@ impl ChannelManager {
             channels.insert(channel_type.to_string(), channel.clone());
             Ok(channel)
         } else {
-            Err(openclaw_core::OpenClawError::Config(
-                format!(
-                    "Channel type '{}' not found and no factory available to create it",
-                    channel_type
-                )
-            ))
+            Err(openclaw_core::OpenClawError::Config(format!(
+                "Channel type '{}' not found and no factory available to create it",
+                channel_type
+            )))
         }
     }
 }

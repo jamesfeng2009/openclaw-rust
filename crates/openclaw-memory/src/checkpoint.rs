@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,7 +69,11 @@ impl AgentState {
         self.updated_at = Utc::now();
     }
 
-    pub fn add_tool_call(&mut self, tool_name: impl Into<String>, input: serde_json::Value) -> String {
+    pub fn add_tool_call(
+        &mut self,
+        tool_name: impl Into<String>,
+        input: serde_json::Value,
+    ) -> String {
         let id = uuid::Uuid::new_v4().to_string();
         let tool_call = ToolCall {
             id: id.clone(),
@@ -84,7 +88,12 @@ impl AgentState {
         id
     }
 
-    pub fn complete_tool_call(&mut self, call_id: &str, output: serde_json::Value, duration_ms: u64) {
+    pub fn complete_tool_call(
+        &mut self,
+        call_id: &str,
+        output: serde_json::Value,
+        duration_ms: u64,
+    ) {
         if let Some(tool_call) = self.tool_history.iter_mut().find(|t| t.id == call_id) {
             tool_call.output = Some(output);
             tool_call.duration_ms = duration_ms;
@@ -116,7 +125,12 @@ pub struct Checkpoint {
 }
 
 impl Checkpoint {
-    pub fn new(agent_id: String, session_id: String, state: AgentState, sequence_number: u64) -> Self {
+    pub fn new(
+        agent_id: String,
+        session_id: String,
+        state: AgentState,
+        sequence_number: u64,
+    ) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             agent_id,
@@ -145,15 +159,18 @@ mod tests {
     fn test_update_state() {
         let mut state = AgentState::new("agent-1".to_string());
         state.update_state("key1", serde_json::json!("value1"));
-        
-        assert_eq!(state.internal_state.get("key1"), Some(&serde_json::json!("value1")));
+
+        assert_eq!(
+            state.internal_state.get("key1"),
+            Some(&serde_json::json!("value1"))
+        );
     }
 
     #[test]
     fn test_add_message() {
         let mut state = AgentState::new("agent-1".to_string());
         state.add_message(MessageRole::User, "Hello");
-        
+
         assert_eq!(state.message_history.len(), 1);
         assert_eq!(state.message_history[0].content, "Hello");
     }
@@ -161,12 +178,12 @@ mod tests {
     #[test]
     fn test_tool_call_lifecycle() {
         let mut state = AgentState::new("agent-1".to_string());
-        
+
         let call_id = state.add_tool_call("search", serde_json::json!({"query": "test"}));
         assert_eq!(state.tool_history.len(), 1);
-        
+
         state.complete_tool_call(&call_id, serde_json::json!({"results": []}), 100);
-        
+
         let tool_call = &state.tool_history[0];
         assert!(tool_call.output.is_some());
         assert_eq!(tool_call.duration_ms, 100);
@@ -175,11 +192,11 @@ mod tests {
     #[test]
     fn test_recent_messages() {
         let mut state = AgentState::new("agent-1".to_string());
-        
+
         for i in 0..10 {
             state.add_message(MessageRole::User, format!("Message {}", i));
         }
-        
+
         let recent = state.get_recent_messages(3);
         assert_eq!(recent.len(), 3);
     }
@@ -188,7 +205,7 @@ mod tests {
     fn test_checkpoint_creation() {
         let state = AgentState::new("agent-1".to_string());
         let checkpoint = Checkpoint::new("agent-1".to_string(), "session-1".to_string(), state, 1);
-        
+
         assert_eq!(checkpoint.agent_id, "agent-1");
         assert_eq!(checkpoint.session_id, "session-1");
         assert_eq!(checkpoint.sequence_number, 1);
@@ -197,11 +214,11 @@ mod tests {
     #[test]
     fn test_replay_from_index() {
         let mut state = AgentState::new("agent-1".to_string());
-        
+
         for i in 0..5 {
             state.add_message(MessageRole::User, format!("Message {}", i));
         }
-        
+
         let replayed = state.replay_messages(2);
         assert_eq!(replayed.len(), 3);
     }

@@ -455,7 +455,7 @@ fn deserialize_vector(blob: &[u8]) -> Result<Vec<f32>> {
             blob.len()
         )));
     }
-    
+
     let f32_count = blob.len() / 4;
     let mut vector = vec![0.0f32; f32_count];
     for i in 0..f32_count {

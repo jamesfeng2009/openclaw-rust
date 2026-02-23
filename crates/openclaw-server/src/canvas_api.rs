@@ -255,9 +255,10 @@ async fn handle_canvas_ws(socket: WebSocket, state: CanvasApiState, canvas_id: C
         };
 
         if let Ok(msg) = serde_json::to_string(&sync_msg)
-            && let Err(e) = tx.send(Message::Text(msg.into())).await {
-                tracing::warn!("Failed to send sync response to WebSocket: {}", e);
-            }
+            && let Err(e) = tx.send(Message::Text(msg.into())).await
+        {
+            tracing::warn!("Failed to send sync response to WebSocket: {}", e);
+        }
     }
 
     // 处理消息循环

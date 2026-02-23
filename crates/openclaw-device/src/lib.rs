@@ -22,6 +22,7 @@ pub mod system;
 // 弹性计算和边缘计算设备抽象
 pub mod adapter;
 pub mod capabilities;
+pub mod config;
 pub mod device;
 pub mod device_trait;
 pub mod embedded;
@@ -41,15 +42,16 @@ pub mod modules;
 pub mod unified_manager;
 
 pub use camera::*;
-pub use unified_manager::*;
 pub use location::*;
 pub use nodes::*;
 pub use notification::*;
 pub use screen::*;
 pub use system::*;
+pub use unified_manager::*;
 
 pub use adapter::*;
 pub use capabilities::*;
+pub use config::*;
 pub use device::*;
 pub use device_trait::*;
 pub use embedded::*;

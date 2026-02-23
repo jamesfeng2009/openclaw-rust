@@ -117,12 +117,14 @@ impl AgentLoopState {
         if self.retrieved_context.is_empty() {
             return false;
         }
-        
-        let avg_score: f32 = self.retrieved_context.iter()
+
+        let avg_score: f32 = self
+            .retrieved_context
+            .iter()
             .map(|r| r.relevance_score)
-            .sum::<f32>() 
+            .sum::<f32>()
             / self.retrieved_context.len() as f32;
-        
+
         avg_score >= min_confidence
     }
 }
@@ -147,7 +149,10 @@ impl<C: LoopController> AgentLoop<C> {
     ) -> Result<LoopResult> {
         let mut state = AgentLoopState::new(config.max_iterations);
 
-        state.add_thought(AgentAction::Think, format!("Analyzing user query: {}", query));
+        state.add_thought(
+            AgentAction::Think,
+            format!("Analyzing user query: {}", query),
+        );
 
         let plan = planner
             .plan(
@@ -159,7 +164,10 @@ impl<C: LoopController> AgentLoop<C> {
             .await?;
 
         state.plan = Some(plan.clone());
-        state.add_thought(AgentAction::Plan, format!("Created plan with {} sub-queries", plan.sub_queries.len()));
+        state.add_thought(
+            AgentAction::Plan,
+            format!("Created plan with {} sub-queries", plan.sub_queries.len()),
+        );
 
         for (idx, sub_query) in plan.sub_queries.iter().enumerate() {
             state.current_sub_query = Some(idx);
@@ -168,27 +176,41 @@ impl<C: LoopController> AgentLoop<C> {
                 format!("Executing sub-query {}: {}", idx + 1, sub_query.query),
             );
 
-            let results = executor.execute(&sub_query.query, &super::config::ExecutorConfig::default()).await?;
+            let results = executor
+                .execute(&sub_query.query, &super::config::ExecutorConfig::default())
+                .await?;
             state.add_results(results);
 
-            state.add_thought(AgentAction::Observe, format!("Retrieved {} results", state.retrieved_context.len()));
+            state.add_thought(
+                AgentAction::Observe,
+                format!("Retrieved {} results", state.retrieved_context.len()),
+            );
         }
 
-        let reflection = reflector.reflect(query, &state.retrieved_context, config).await?;
+        let reflection = reflector
+            .reflect(query, &state.retrieved_context, config)
+            .await?;
 
         if !reflection.is_sufficient && self.controller.should_continue(&state, &reflection) {
             if let Some(ref plan) = state.plan {
                 let new_sub_queries = self.generate_refinement_queries(&reflection, plan);
                 for sub_query in new_sub_queries {
-                    let results = executor.execute(&sub_query.query, &super::config::ExecutorConfig::default()).await?;
+                    let results = executor
+                        .execute(&sub_query.query, &super::config::ExecutorConfig::default())
+                        .await?;
                     state.add_results(results);
                 }
             }
         }
 
-        state.add_thought(AgentAction::Reflect, format!("Confidence: {:.2}", reflection.confidence));
+        state.add_thought(
+            AgentAction::Reflect,
+            format!("Confidence: {:.2}", reflection.confidence),
+        );
 
-        let answer = reflector.generate_answer(query, &state.retrieved_context, context).await?;
+        let answer = reflector
+            .generate_answer(query, &state.retrieved_context, context)
+            .await?;
 
         state.add_thought(AgentAction::Answer, "Generated final answer".to_string());
         state.add_thought(AgentAction::Done, "Agent loop completed".to_string());
@@ -204,13 +226,21 @@ impl<C: LoopController> AgentLoop<C> {
 }
 
 impl<C: LoopController> AgentLoop<C> {
-    fn generate_refinement_queries(&self, reflection: &Reflection, plan: &RetrievalPlan) -> Vec<SubQuery> {
+    fn generate_refinement_queries(
+        &self,
+        reflection: &Reflection,
+        plan: &RetrievalPlan,
+    ) -> Vec<SubQuery> {
         let mut new_queries = Vec::new();
 
         for suggestion in &reflection.suggestions {
             new_queries.push(SubQuery {
                 query: format!("{} {}", plan.query_rewrite, suggestion),
-                source: plan.sources.first().cloned().unwrap_or(super::config::SourceType::Memory),
+                source: plan
+                    .sources
+                    .first()
+                    .cloned()
+                    .unwrap_or(super::config::SourceType::Memory),
                 description: format!("Refined based on: {}", suggestion),
             });
         }
@@ -263,7 +293,7 @@ mod tests {
     fn test_agent_loop_state_add_thought() {
         let mut state = AgentLoopState::new(3);
         state.add_thought(AgentAction::Think, "Initial reasoning".to_string());
-        
+
         assert_eq!(state.thought_history.len(), 1);
         assert_eq!(state.thought_history[0].action, AgentAction::Think);
     }
@@ -271,7 +301,7 @@ mod tests {
     #[test]
     fn test_agent_loop_state_add_results() {
         let mut state = AgentLoopState::new(3);
-        
+
         let results = vec![
             RetrievalResult {
                 id: "1".to_string(),
@@ -288,28 +318,26 @@ mod tests {
                 metadata: std::collections::HashMap::new(),
             },
         ];
-        
+
         state.add_results(results);
-        
+
         assert_eq!(state.retrieved_context.len(), 2);
     }
 
     #[test]
     fn test_has_sufficient_results() {
         let mut state = AgentLoopState::new(3);
-        
-        let results = vec![
-            RetrievalResult {
-                id: "1".to_string(),
-                content: "Content".to_string(),
-                source: super::super::config::SourceType::Memory,
-                relevance_score: 0.9,
-                metadata: std::collections::HashMap::new(),
-            },
-        ];
-        
+
+        let results = vec![RetrievalResult {
+            id: "1".to_string(),
+            content: "Content".to_string(),
+            source: super::super::config::SourceType::Memory,
+            relevance_score: 0.9,
+            metadata: std::collections::HashMap::new(),
+        }];
+
         state.add_results(results);
-        
+
         assert!(state.has_sufficient_results(0.7));
         assert!(!state.has_sufficient_results(0.95));
     }
@@ -317,14 +345,14 @@ mod tests {
     #[test]
     fn test_next_action_when_sufficient() {
         let mut state = AgentLoopState::new(3);
-        
+
         let reflection = Reflection {
             is_sufficient: true,
             confidence: 0.9,
             missing_info: vec![],
             suggestions: vec![],
         };
-        
+
         let next = state.next_action(&reflection);
         assert_eq!(next, AgentAction::Answer);
     }
@@ -332,21 +360,21 @@ mod tests {
     #[test]
     fn test_next_action_when_not_sufficient_with_suggestions() {
         let mut state = AgentLoopState::new(3);
-        
+
         let reflection = Reflection {
             is_sufficient: false,
             confidence: 0.5,
             missing_info: vec!["Need more info".to_string()],
             suggestions: vec!["Try broader terms".to_string()],
         };
-        
+
         state.plan = Some(RetrievalPlan {
             query_rewrite: "test".to_string(),
             sub_queries: vec![],
             sources: vec![],
             max_iterations: 3,
         });
-        
+
         let next = state.next_action(&reflection);
         assert_eq!(next, AgentAction::Plan);
     }
@@ -355,14 +383,14 @@ mod tests {
     fn test_next_action_max_iterations_reached() {
         let mut state = AgentLoopState::new(3);
         state.iteration = 3;
-        
+
         let reflection = Reflection {
             is_sufficient: false,
             confidence: 0.5,
             missing_info: vec![],
             suggestions: vec![],
         };
-        
+
         let next = state.next_action(&reflection);
         assert_eq!(next, AgentAction::Answer);
     }
@@ -370,25 +398,25 @@ mod tests {
     #[test]
     fn test_default_loop_controller() {
         let controller = DefaultLoopController;
-        
+
         let state = AgentLoopState::new(3);
-        
+
         let insufficient_reflection = Reflection {
             is_sufficient: false,
             confidence: 0.5,
             missing_info: vec![],
             suggestions: vec![],
         };
-        
+
         assert!(controller.should_continue(&state, &insufficient_reflection));
-        
+
         let sufficient_reflection = Reflection {
             is_sufficient: true,
             confidence: 0.9,
             missing_info: vec![],
             suggestions: vec![],
         };
-        
+
         assert!(!controller.should_continue(&state, &sufficient_reflection));
     }
 }

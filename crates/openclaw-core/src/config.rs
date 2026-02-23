@@ -16,18 +16,10 @@ pub struct Config {
     pub memory: MemoryConfig,
     /// 向量存储配置
     pub vector: VectorConfig,
-    /// 通道配置
-    pub channels: ChannelsConfig,
+    /// 通道设置
+    pub channels: ChannelSettings,
     /// 安全配置
     pub security: SecurityConfig,
-    /// 智能体配置
-    pub agents: AgentsConfig,
-    /// 设备配置
-    #[serde(default)]
-    pub devices: DevicesConfig,
-    /// 工作区配置
-    #[serde(default)]
-    pub workspaces: WorkspacesConfig,
     /// 语音配置 (STT/TTS) - 服务器端简化配置
     #[serde(default)]
     pub voice: Option<VoiceServerConfig>,
@@ -41,6 +33,16 @@ pub struct VoiceServerConfig {
     pub stt_provider: String,
     pub tts_provider: String,
     pub api_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ChannelSettings {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub config: Option<serde_json::Value>,
+    #[serde(default)]
+    pub channel_to_agent_map: std::collections::HashMap<String, String>,
 }
 
 /// 服务配置
@@ -368,21 +370,6 @@ impl Default for LanceDbConfig {
     }
 }
 
-/// 通道配置
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct ChannelsConfig {
-    // 国内平台
-    pub dingtalk: Option<DingTalkConfig>,
-    pub wecom: Option<WeComConfig>,
-    pub feishu: Option<FeishuConfig>,
-    // 国际平台
-    pub telegram: Option<TelegramConfig>,
-    pub discord: Option<DiscordConfig>,
-    pub whatsapp: Option<WhatsAppConfig>,
-    pub slack: Option<SlackConfig>,
-}
-
-/// 安全配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
     pub enable_input_filter: bool,
@@ -408,100 +395,38 @@ impl Default for SecurityConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TelegramConfig {
-    pub bot_token: String,
+/// 智能体设置 (保留用于未来扩展)
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AgentSettings {
+    #[serde(default)]
     pub enabled: bool,
+    #[serde(default)]
+    pub config: Option<serde_json::Value>,
 }
 
-/// WhatsApp Cloud API 配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WhatsAppConfig {
-    /// WhatsApp Business Account ID
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub business_account_id: Option<String>,
-    /// Phone Number ID
-    pub phone_number_id: String,
-    /// Access Token
-    pub access_token: String,
-    /// Webhook Verify Token (可选)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub verify_token: Option<String>,
-    /// 是否启用
+/// 工作区设置 (保留用于未来扩展)
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkspaceSettings {
+    #[serde(default)]
     pub enabled: bool,
+    #[serde(default)]
+    pub config: Option<serde_json::Value>,
 }
 
-/// 钉钉配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DingTalkConfig {
-    /// Webhook 地址
-    pub webhook: String,
-    /// 加签密钥（可选）
-    pub secret: Option<String>,
-    /// 是否启用
+/// 设备设置 (保留用于未来扩展)
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DeviceSettings {
+    #[serde(default)]
     pub enabled: bool,
+    #[serde(default)]
+    pub config: Option<serde_json::Value>,
 }
 
-/// 企业微信配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WeComConfig {
-    /// Webhook 地址
-    pub webhook: String,
-    /// 是否启用
-    pub enabled: bool,
-}
+// ============== 智能体配置 (迁移到 openclaw-agent) ==============
 
-/// 飞书配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FeishuConfig {
-    /// App ID
-    pub app_id: String,
-    /// App Secret
-    pub app_secret: String,
-    /// Webhook 地址（可选）
-    pub webhook: Option<String>,
-    /// 是否启用
-    pub enabled: bool,
-}
-
-/// Discord 配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiscordConfig {
-    /// Bot Token
-    pub bot_token: String,
-    /// Webhook URL (可选)
-    pub webhook_url: Option<String>,
-    /// 是否启用
-    pub enabled: bool,
-}
-
-/// Microsoft Teams 配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TeamsConfig {
-    /// Webhook URL
-    pub webhook_url: Option<String>,
-    /// Bot ID (可选)
-    pub bot_id: Option<String>,
-    /// Bot Password (可选)
-    pub bot_password: Option<String>,
-    /// 是否启用
-    pub enabled: bool,
-}
-
-/// Slack 配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SlackConfig {
-    /// Bot Token
-    pub bot_token: Option<String>,
-    /// Webhook URL
-    pub webhook_url: Option<String>,
-    /// App Token (可选)
-    pub app_token: Option<String>,
-    /// 是否启用
-    pub enabled: bool,
-}
-
-/// 智能体配置
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AgentsConfig {
     pub list: Vec<AgentConfig>,
@@ -531,33 +456,25 @@ impl Default for AgentDefaults {
     }
 }
 
-/// 工作区配置
+// ============== 工作区配置 (迁移到 openclaw-memory) ==============
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WorkspacesConfig {
-    /// 工作区列表
     #[serde(default)]
     pub workspaces: Vec<WorkspaceConfig>,
-    /// 默认工作区 ID
     #[serde(default)]
     pub default: Option<String>,
 }
 
-/// 单个工作区配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceConfig {
-    /// 工作区 ID
     pub id: String,
-    /// 工作区名称
     pub name: String,
-    /// 工作区路径
     pub path: PathBuf,
-    /// 关联的通道 (channel_id -> 配置)
     #[serde(default)]
     pub channels: HashMap<String, serde_json::Value>,
-    /// 关联的智能体 IDs
     #[serde(default)]
     pub agent_ids: Vec<String>,
-    /// 是否启用
     #[serde(default = "default_true")]
     pub enabled: bool,
 }
@@ -566,34 +483,17 @@ fn default_true() -> bool {
     true
 }
 
-/// ============== 设备配置 ==============
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct DevicesConfig {
-    /// 是否启用设备节点
-    #[serde(default)]
-    pub enabled: bool,
-    /// 支持的计算类别
-    #[serde(default)]
-    pub compute_categories: Vec<ComputeCategoryConfig>,
-    /// 支持的平台
-    #[serde(default)]
-    pub platforms: Vec<PlatformConfig>,
-    /// 设备节点配置
-    #[serde(default)]
-    pub nodes: Vec<NodeConfig>,
-    /// 网络适配器配置
-    #[serde(default)]
-    pub adapters: Vec<AdapterConfig>,
-    /// 自定义设备配置
-    #[serde(default)]
-    pub custom_devices: Vec<CustomDeviceConfig>,
-    /// 插件配置
-    #[serde(default)]
-    pub plugins: Vec<PluginConfig>,
-    /// 嵌入式设备配置 (HTTP REST)
-    #[serde(default)]
-    pub embedded_devices: Vec<EmbeddedDeviceConfig>,
+impl WorkspaceConfig {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, path: impl Into<PathBuf>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            path: path.into(),
+            channels: HashMap::new(),
+            agent_ids: Vec::new(),
+            enabled: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -710,17 +610,26 @@ pub struct AdapterConfig {
     pub config: HashMap<String, serde_json::Value>,
 }
 
-impl WorkspaceConfig {
-    pub fn new(id: impl Into<String>, name: impl Into<String>, path: impl Into<PathBuf>) -> Self {
-        Self {
-            id: id.into(),
-            name: name.into(),
-            path: path.into(),
-            channels: HashMap::new(),
-            agent_ids: Vec::new(),
-            enabled: true,
-        }
-    }
+// ============== 设备配置 (迁移到 openclaw-device) ==============
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DevicesConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub compute_categories: Vec<ComputeCategoryConfig>,
+    #[serde(default)]
+    pub platforms: Vec<PlatformConfig>,
+    #[serde(default)]
+    pub nodes: Vec<NodeConfig>,
+    #[serde(default)]
+    pub adapters: Vec<AdapterConfig>,
+    #[serde(default)]
+    pub custom_devices: Vec<CustomDeviceConfig>,
+    #[serde(default)]
+    pub plugins: Vec<PluginConfig>,
+    #[serde(default)]
+    pub embedded_devices: Vec<EmbeddedDeviceConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -875,5 +784,94 @@ mod tests {
         assert_eq!(embedded.device_type, "esp32");
         assert_eq!(embedded.sensors.len(), 1);
         assert_eq!(embedded.commands.len(), 1);
+    }
+
+    #[test]
+    fn test_channel_settings_default() {
+        let settings = ChannelSettings::default();
+        assert!(!settings.enabled);
+        assert!(settings.config.is_none());
+    }
+
+    #[test]
+    fn test_channel_settings_with_config() {
+        let settings = ChannelSettings {
+            enabled: true,
+            config: Some(serde_json::json!({
+                "dingtalk": {
+                    "type": "dingtalk",
+                    "enabled": true,
+                    "config": {
+                        "webhook": "https://example.com/webhook"
+                    }
+                }
+            })),
+            channel_to_agent_map: Default::default(),
+        };
+        assert!(settings.enabled);
+        assert!(settings.config.is_some());
+    }
+
+    #[test]
+    fn test_channel_settings_serialize_deserialize() {
+        let settings = ChannelSettings {
+            enabled: true,
+            config: Some(serde_json::json!({
+                "telegram": {
+                    "type": "telegram",
+                    "enabled": true,
+                    "config": {
+                        "bot_token": "test_token"
+                    }
+                }
+            })),
+            channel_to_agent_map: Default::default(),
+        };
+
+        let json = serde_json::to_string(&settings).unwrap();
+        let parsed: ChannelSettings = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(settings.enabled, parsed.enabled);
+        assert_eq!(settings.config, parsed.config);
+    }
+
+    #[test]
+    fn test_config_with_channel_settings() {
+        let config = Config::default();
+        assert!(!config.channels.enabled);
+        assert!(config.channels.config.is_none());
+    }
+
+    #[test]
+    fn test_config_channel_settings_roundtrip() {
+        let mut config = Config::default();
+        config.channels.enabled = true;
+        config.channels.config = Some(serde_json::json!({
+            "my_dingtalk": {
+                "type": "dingtalk",
+                "enabled": true,
+                "config": {
+                    "webhook": "https://oapi.dingtalk.com/robot/send?access_token=xxx",
+                    "secret": "SECxxx"
+                }
+            },
+            "my_telegram": {
+                "type": "telegram",
+                "enabled": true,
+                "config": {
+                    "bot_token": "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                }
+            }
+        }));
+
+        let json = serde_json::to_string(&config).unwrap();
+        let parsed: Config = serde_json::from_str(&json).unwrap();
+
+        assert!(parsed.channels.enabled);
+        assert!(parsed.channels.config.is_some());
+
+        let channels = parsed.channels.config.unwrap();
+        assert!(channels.get("my_dingtalk").is_some());
+        assert!(channels.get("my_telegram").is_some());
     }
 }

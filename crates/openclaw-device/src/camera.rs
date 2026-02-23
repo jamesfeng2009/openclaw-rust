@@ -5,9 +5,8 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn path_to_str(path: &PathBuf) -> Result<&str, DeviceError> {
-    path.to_str().ok_or_else(|| {
-        DeviceError::OperationFailed("路径包含无效 Unicode 字符".to_string())
-    })
+    path.to_str()
+        .ok_or_else(|| DeviceError::OperationFailed("路径包含无效 Unicode 字符".to_string()))
 }
 
 pub struct CameraManager;
@@ -83,9 +82,11 @@ impl CameraManager {
 
             let output = Command::new("fswebcam")
                 .args([
-                    "-r", "1280x720",
+                    "-r",
+                    "1280x720",
                     "--no-banner",
-                    "-d", &device_path,
+                    "-d",
+                    &device_path,
                     path_to_str(&output_path)?,
                 ])
                 .output();
@@ -95,8 +96,10 @@ impl CameraManager {
                     if output_path.exists() {
                         let data = fs::read(&output_path)
                             .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
-                        let base64_data =
-                            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
+                        let base64_data = base64::Engine::encode(
+                            &base64::engine::general_purpose::STANDARD,
+                            &data,
+                        );
                         fs::remove_file(&output_path).ok();
 
                         Ok(CaptureResult {
@@ -265,13 +268,20 @@ impl CameraManager {
             let result = tokio::task::spawn_blocking(move || {
                 Command::new("ffmpeg")
                     .args([
-                        "-f", "v4l2",
-                        "-framerate", "30",
-                        "-video_size", "1280x720",
-                        "-i", &device_path,
-                        "-t", &duration.to_string(),
-                        "-c:v", "libx264",
-                        "-preset", "ultrafast",
+                        "-f",
+                        "v4l2",
+                        "-framerate",
+                        "30",
+                        "-video_size",
+                        "1280x720",
+                        "-i",
+                        &device_path,
+                        "-t",
+                        &duration.to_string(),
+                        "-c:v",
+                        "libx264",
+                        "-preset",
+                        "ultrafast",
                         path_str,
                     ])
                     .output()

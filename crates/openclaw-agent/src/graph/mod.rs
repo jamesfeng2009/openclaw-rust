@@ -15,13 +15,13 @@
 //! - **依赖管理**: 自动追踪节点依赖关系，保证执行顺序正确
 //! - **灵活模式**: 支持自定义 Graph 定义和预定义模式
 
-pub mod definition;
 pub mod context;
+pub mod definition;
 pub mod executor;
 pub mod patterns;
 
-pub use definition::*;
 pub use context::*;
+pub use definition::*;
 pub use executor::*;
 pub use patterns::*;
 
@@ -29,5 +29,9 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait GraphExecutorTrait: Send + Sync {
-    async fn execute(&self, request_id: String, input: serde_json::Value) -> Result<GraphResponse, String>;
+    async fn execute(
+        &self,
+        request_id: String,
+        input: serde_json::Value,
+    ) -> Result<GraphResponse, String>;
 }

@@ -1,11 +1,13 @@
 pub mod ai {
     use async_trait::async_trait;
-    use openclaw_ai::{ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason, StreamChunk};
-    use openclaw_core::{Message, Result, Role, Content};
+    use futures::stream::{self, Stream};
+    use openclaw_ai::{
+        ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason, StreamChunk,
+    };
+    use openclaw_core::{Content, Message, Result, Role};
     use serde::{Deserialize, Serialize};
     use std::pin::Pin;
     use std::sync::{Arc, Mutex};
-    use futures::stream::{Stream, self};
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct MockChatMessage {
@@ -75,11 +77,16 @@ pub mod ai {
             *self.call_count.lock().unwrap() += 1;
 
             if *self.should_fail.lock().unwrap() {
-                return Err(openclaw_core::OpenClawError::AIProvider("Mock AI error".to_string()));
+                return Err(openclaw_core::OpenClawError::AIProvider(
+                    "Mock AI error".to_string(),
+                ));
             }
 
             let responses = self.responses.lock().unwrap();
-            let content = responses.first().cloned().unwrap_or_else(|| "Default mock response".to_string());
+            let content = responses
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "Default mock response".to_string());
 
             Ok(ChatResponse {
                 id: "mock-chat-1".to_string(),

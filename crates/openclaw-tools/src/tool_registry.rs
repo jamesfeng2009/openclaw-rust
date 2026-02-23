@@ -43,10 +43,15 @@ impl ToolRegistry {
         self.tools.contains_key(name)
     }
 
-    pub async fn execute(&self, name: &str, args: serde_json::Value) -> openclaw_core::Result<serde_json::Value> {
-        let tool = self.tools.get(name)
-            .ok_or_else(|| openclaw_core::OpenClawError::Tool(format!("Tool not found: {}", name)))?;
-        
+    pub async fn execute(
+        &self,
+        name: &str,
+        args: serde_json::Value,
+    ) -> openclaw_core::Result<serde_json::Value> {
+        let tool = self.tools.get(name).ok_or_else(|| {
+            openclaw_core::OpenClawError::Tool(format!("Tool not found: {}", name))
+        })?;
+
         tool.execute(args).await
     }
 }
@@ -98,13 +103,18 @@ mod unit_tests {
             &self.description
         }
 
-        async fn execute(&self, args: serde_json::Value) -> openclaw_core::Result<serde_json::Value> {
+        async fn execute(
+            &self,
+            args: serde_json::Value,
+        ) -> openclaw_core::Result<serde_json::Value> {
             self.execute_count.fetch_add(1, Ordering::SeqCst);
-            
+
             if self.should_panic.load(Ordering::SeqCst) {
-                return Err(openclaw_core::OpenClawError::Tool("Tool panicked".to_string()));
+                return Err(openclaw_core::OpenClawError::Tool(
+                    "Tool panicked".to_string(),
+                ));
             }
-            
+
             Ok(serde_json::json!({
                 "tool": self.name,
                 "args": args,
@@ -124,9 +134,9 @@ mod unit_tests {
     fn test_registry_register_single() {
         let mut registry = ToolRegistry::new();
         let tool = Arc::new(TestTool::new("test", "A test tool"));
-        
+
         registry.register("test".to_string(), tool);
-        
+
         assert!(registry.has_tool("test"));
         assert_eq!(registry.list_tools(), vec!["test"]);
     }
@@ -134,11 +144,20 @@ mod unit_tests {
     #[test]
     fn test_registry_register_multiple() {
         let mut registry = ToolRegistry::new();
-        
-        registry.register("tool1".to_string(), Arc::new(TestTool::new("tool1", "Tool 1")));
-        registry.register("tool2".to_string(), Arc::new(TestTool::new("tool2", "Tool 2")));
-        registry.register("tool3".to_string(), Arc::new(TestTool::new("tool3", "Tool 3")));
-        
+
+        registry.register(
+            "tool1".to_string(),
+            Arc::new(TestTool::new("tool1", "Tool 1")),
+        );
+        registry.register(
+            "tool2".to_string(),
+            Arc::new(TestTool::new("tool2", "Tool 2")),
+        );
+        registry.register(
+            "tool3".to_string(),
+            Arc::new(TestTool::new("tool3", "Tool 3")),
+        );
+
         assert_eq!(registry.list_tools().len(), 3);
         assert!(registry.has_tool("tool1"));
         assert!(registry.has_tool("tool2"));
@@ -148,10 +167,13 @@ mod unit_tests {
     #[test]
     fn test_registry_register_overwrite() {
         let mut registry = ToolRegistry::new();
-        
+
         registry.register("test".to_string(), Arc::new(TestTool::new("test", "First")));
-        registry.register("test".to_string(), Arc::new(TestTool::new("test", "Second")));
-        
+        registry.register(
+            "test".to_string(),
+            Arc::new(TestTool::new("test", "Second")),
+        );
+
         assert_eq!(registry.list_tools().len(), 1);
     }
 
@@ -160,7 +182,7 @@ mod unit_tests {
         let mut registry = ToolRegistry::new();
         let tool = Arc::new(TestTool::new("test", "A test tool"));
         registry.register("test".to_string(), tool);
-        
+
         let retrieved = registry.get("test");
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().name(), "test");
@@ -178,10 +200,10 @@ mod unit_tests {
         let mut registry = ToolRegistry::new();
         let tool = Arc::new(TestTool::new("echo", "Echo tool"));
         registry.register("echo".to_string(), tool);
-        
+
         let args = serde_json::json!({"message": "hello", "count": 42});
         let result = registry.execute("echo", args).await;
-        
+
         assert!(result.is_ok());
         let value = result.unwrap();
         assert_eq!(value["tool"], "echo");
@@ -195,7 +217,7 @@ mod unit_tests {
         let registry = ToolRegistry::new();
         let args = serde_json::json!({});
         let result = registry.execute("nonexistent", args).await;
-        
+
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.to_string().contains("Tool not found"));
@@ -207,12 +229,12 @@ mod unit_tests {
         let tool = Arc::new(TestTool::new("counter", "Counter tool"));
         let tool_clone = tool.clone();
         registry.register("counter".to_string(), tool);
-        
+
         for i in 0..5 {
             let args = serde_json::json!({"iteration": i});
             registry.execute("counter", args).await.unwrap();
         }
-        
+
         assert_eq!(tool_clone.get_execute_count(), 5);
     }
 
@@ -221,10 +243,10 @@ mod unit_tests {
         let mut registry = ToolRegistry::new();
         let tool = Arc::new(TestTool::with_panic("failing", "Failing tool"));
         registry.register("failing".to_string(), tool);
-        
+
         let args = serde_json::json!({});
         let result = registry.execute("failing", args).await;
-        
+
         assert!(result.is_err());
     }
 
@@ -246,7 +268,7 @@ mod unit_tests {
         let mut registry = ToolRegistry::new();
         let tool = Arc::new(TestTool::new("complex", "Complex tool"));
         registry.register("complex".to_string(), tool);
-        
+
         let complex_args = serde_json::json!({
             "nested": {
                 "deep": {
@@ -257,7 +279,7 @@ mod unit_tests {
             "null": null,
             "boolean": true
         });
-        
+
         let result = registry.execute("complex", complex_args).await;
         assert!(result.is_ok());
     }
@@ -272,25 +294,27 @@ mod unit_tests {
     #[tokio::test]
     async fn test_concurrent_execution() {
         use tokio::task;
-        
+
         let mut registry = ToolRegistry::new();
         let tool = Arc::new(TestTool::new("concurrent", "Concurrent tool"));
         let tool_clone = tool.clone();
         registry.register("concurrent".to_string(), tool);
-        
+
         let mut handles = vec![];
         for i in 0..10 {
             let registry_clone = registry.clone();
             let handle = task::spawn(async move {
-                registry_clone.execute("concurrent", serde_json::json!({"i": i})).await
+                registry_clone
+                    .execute("concurrent", serde_json::json!({"i": i}))
+                    .await
             });
             handles.push(handle);
         }
-        
+
         for handle in handles {
             handle.await.unwrap().unwrap();
         }
-        
+
         assert_eq!(tool_clone.get_execute_count(), 10);
     }
 }

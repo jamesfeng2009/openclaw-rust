@@ -1,7 +1,7 @@
 //! Graph Definition - Graph 数据结构定义
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeDef {
@@ -25,17 +25,17 @@ impl NodeDef {
             description: None,
         }
     }
-    
+
     pub fn with_agent(mut self, agent_id: impl Into<String>) -> Self {
         self.agent_id = Some(agent_id.into());
         self
     }
-    
+
     pub fn with_name(mut self, name: impl Into<String>) -> Self {
         self.name = name.into();
         self
     }
-    
+
     pub fn with_config(mut self, config: NodeConfig) -> Self {
         self.config = config;
         self
@@ -93,7 +93,7 @@ impl EdgeDef {
             weight: None,
         }
     }
-    
+
     pub fn with_condition(mut self, condition: ConditionDef) -> Self {
         self.condition = Some(condition);
         self
@@ -113,7 +113,7 @@ impl ConditionDef {
             params: HashMap::new(),
         }
     }
-    
+
     pub fn with_param(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.params.insert(key.into(), value);
         self
@@ -124,11 +124,22 @@ impl ConditionDef {
 #[serde(rename_all = "snake_case")]
 pub enum ConditionType {
     Always,
-    ConfidenceAbove { threshold: f32 },
-    HasResult { key: String },
-    ResultCount { min: Option<usize>, max: Option<usize> },
-    LlmJudge { prompt: String },
-    RetryNeeded { max_retries: usize },
+    ConfidenceAbove {
+        threshold: f32,
+    },
+    HasResult {
+        key: String,
+    },
+    ResultCount {
+        min: Option<usize>,
+        max: Option<usize>,
+    },
+    LlmJudge {
+        prompt: String,
+    },
+    RetryNeeded {
+        max_retries: usize,
+    },
     Failed,
     Succeeded,
 }
@@ -156,7 +167,7 @@ impl GraphDef {
             end: Vec::new(),
         }
     }
-    
+
     pub fn with_node(mut self, node: NodeDef) -> Self {
         if self.start.is_empty() {
             self.start = node.id.clone();
@@ -164,30 +175,30 @@ impl GraphDef {
         self.nodes.push(node);
         self
     }
-    
+
     pub fn with_edge(mut self, edge: EdgeDef) -> Self {
         self.edges.push(edge);
         self
     }
-    
+
     pub fn with_start(mut self, start_id: impl Into<String>) -> Self {
         self.start = start_id.into();
         self
     }
-    
+
     pub fn with_end(mut self, end_id: impl Into<String>) -> Self {
         self.end.push(end_id.into());
         self
     }
-    
+
     pub fn find_node(&self, id: &str) -> Option<&NodeDef> {
         self.nodes.iter().find(|n| n.id == id)
     }
-    
+
     pub fn get_outgoing_edges(&self, node_id: &str) -> Vec<&EdgeDef> {
         self.edges.iter().filter(|e| e.from == node_id).collect()
     }
-    
+
     pub fn get_incoming_edges(&self, node_id: &str) -> Vec<&EdgeDef> {
         self.edges.iter().filter(|e| e.to == node_id).collect()
     }
@@ -217,33 +228,31 @@ impl Default for GraphConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_node_def() {
-        let node = NodeDef::new("test_node", NodeType::Executor)
-            .with_agent("agent_1");
-        
+        let node = NodeDef::new("test_node", NodeType::Executor).with_agent("agent_1");
+
         assert_eq!(node.id, "test_node");
         assert_eq!(node.agent_id, Some("agent_1".to_string()));
     }
-    
+
     #[test]
     fn test_node_def_with_name() {
-        let node = NodeDef::new("node_1", NodeType::Executor)
-            .with_name("Custom Name");
-        
+        let node = NodeDef::new("node_1", NodeType::Executor).with_name("Custom Name");
+
         assert_eq!(node.name, "Custom Name");
     }
-    
+
     #[test]
     fn test_node_config_default() {
         let config = NodeConfig::default();
-        
+
         assert_eq!(config.timeout_ms, Some(30000));
         assert_eq!(config.retry_on_failure, Some(true));
         assert_eq!(config.max_retries, Some(3));
     }
-    
+
     #[test]
     fn test_node_config_custom() {
         let config = NodeConfig {
@@ -252,57 +261,64 @@ mod tests {
             max_retries: Some(5),
             aggregation: Some("sum".to_string()),
         };
-        
+
         assert_eq!(config.timeout_ms, Some(60000));
         assert_eq!(config.retry_on_failure, Some(false));
         assert_eq!(config.max_retries, Some(5));
         assert_eq!(config.aggregation, Some("sum".to_string()));
     }
-    
+
     #[test]
     fn test_edge_def() {
         let edge = EdgeDef::new("from_a", "to_b");
-        
+
         assert_eq!(edge.from, "from_a");
         assert_eq!(edge.to, "to_b");
     }
-    
+
     #[test]
     fn test_edge_def_with_condition() {
         let condition = ConditionDef::new(ConditionType::Always);
-        let edge = EdgeDef::new("from_a", "to_b")
-            .with_condition(condition);
-        
+        let edge = EdgeDef::new("from_a", "to_b").with_condition(condition);
+
         assert!(edge.condition.is_some());
     }
-    
+
     #[test]
     fn test_condition_def() {
         let condition = ConditionDef::new(ConditionType::ConfidenceAbove { threshold: 0.8 })
             .with_param("key".to_string(), serde_json::json!("value"));
-        
-        assert!(matches!(condition.condition_type, ConditionType::ConfidenceAbove { threshold: 0.8 }));
+
+        assert!(matches!(
+            condition.condition_type,
+            ConditionType::ConfidenceAbove { threshold: 0.8 }
+        ));
         assert!(condition.params.contains_key("key"));
     }
-    
+
     #[test]
     fn test_condition_type_variants() {
         let always = ConditionType::Always;
         assert!(matches!(always, ConditionType::Always));
-        
+
         let confidence = ConditionType::ConfidenceAbove { threshold: 0.9 };
-        assert!(matches!(confidence, ConditionType::ConfidenceAbove { threshold: 0.9 }));
-        
-        let has_result = ConditionType::HasResult { key: "result".to_string() };
+        assert!(matches!(
+            confidence,
+            ConditionType::ConfidenceAbove { threshold: 0.9 }
+        ));
+
+        let has_result = ConditionType::HasResult {
+            key: "result".to_string(),
+        };
         assert!(matches!(has_result, ConditionType::HasResult { key: _ }));
-        
+
         let failed = ConditionType::Failed;
         assert!(matches!(failed, ConditionType::Failed));
-        
+
         let succeeded = ConditionType::Succeeded;
         assert!(matches!(succeeded, ConditionType::Succeeded));
     }
-    
+
     #[test]
     fn test_graph_def() {
         let graph = GraphDef::new("test_graph", "Test Graph")
@@ -310,26 +326,26 @@ mod tests {
             .with_node(NodeDef::new("node_b", NodeType::Executor).with_agent("agent_1"))
             .with_edge(EdgeDef::new("node_a", "node_b"))
             .with_end("node_b");
-        
+
         assert_eq!(graph.nodes.len(), 2);
         assert_eq!(graph.edges.len(), 1);
         assert_eq!(graph.start, "node_a");
     }
-    
+
     #[test]
     fn test_graph_def_find_node() {
         let graph = GraphDef::new("test", "Test")
             .with_node(NodeDef::new("node_a", NodeType::Executor))
             .with_node(NodeDef::new("node_b", NodeType::Executor));
-        
+
         let found = graph.find_node("node_a");
         assert!(found.is_some());
         assert_eq!(found.unwrap().id, "node_a");
-        
+
         let not_found = graph.find_node("nonexistent");
         assert!(not_found.is_none());
     }
-    
+
     #[test]
     fn test_graph_def_get_edges() {
         let graph = GraphDef::new("test", "Test")
@@ -339,14 +355,14 @@ mod tests {
             .with_edge(EdgeDef::new("a", "b"))
             .with_edge(EdgeDef::new("a", "c"))
             .with_edge(EdgeDef::new("b", "c"));
-        
+
         let outgoing = graph.get_outgoing_edges("a");
         assert_eq!(outgoing.len(), 2);
-        
+
         let incoming = graph.get_incoming_edges("c");
         assert_eq!(incoming.len(), 2);
     }
-    
+
     #[test]
     fn test_graph_def_with_start() {
         let mut graph = GraphDef::new("test", "Test")
@@ -354,22 +370,22 @@ mod tests {
             .with_node(NodeDef::new("b", NodeType::Executor))
             .with_edge(EdgeDef::new("a", "b"))
             .with_end("b");
-        
+
         graph = graph.with_start("custom_start".to_string());
         assert_eq!(graph.start, "custom_start");
     }
-    
+
     #[test]
     fn test_graph_config_default() {
         let config = GraphConfig::default();
-        
+
         assert_eq!(config.max_parallel_nodes, 10);
         assert_eq!(config.timeout_ms, 300000);
         assert_eq!(config.retry_on_failure, true);
         assert_eq!(config.max_retries, 2);
         assert_eq!(config.continue_on_error, false);
     }
-    
+
     #[test]
     fn test_graph_config_custom() {
         let config = GraphConfig {
@@ -379,14 +395,14 @@ mod tests {
             max_retries: 5,
             continue_on_error: true,
         };
-        
+
         assert_eq!(config.max_parallel_nodes, 5);
         assert_eq!(config.timeout_ms, 600000);
         assert_eq!(config.retry_on_failure, false);
         assert_eq!(config.max_retries, 5);
         assert_eq!(config.continue_on_error, true);
     }
-    
+
     #[test]
     fn test_node_type_default() {
         let node_type = NodeType::default();

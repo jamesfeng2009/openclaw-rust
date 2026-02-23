@@ -2,9 +2,9 @@
 //!
 //! 定义 memory 的核心 trait，实现与具体实现的解耦
 
-use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use openclaw_core::Result;
 
@@ -77,30 +77,30 @@ impl SearchProviders {
             knowledge_graph: None,
         }
     }
-    
+
     pub fn with_vector(mut self, store: Arc<dyn VectorStoreTrait>) -> Self {
         self.vector = Some(store);
         self
     }
-    
+
     pub fn with_text(mut self, search: Arc<dyn TextSearchTrait>) -> Self {
         self.text = Some(search);
         self
     }
-    
+
     pub fn with_knowledge_graph(mut self, kg: Arc<dyn KnowledgeGraphTrait>) -> Self {
         self.knowledge_graph = Some(kg);
         self
     }
-    
+
     pub fn has_vector(&self) -> bool {
         self.vector.is_some()
     }
-    
+
     pub fn has_text(&self) -> bool {
         self.text.is_some()
     }
-    
+
     pub fn has_knowledge_graph(&self) -> bool {
         self.knowledge_graph.is_some()
     }

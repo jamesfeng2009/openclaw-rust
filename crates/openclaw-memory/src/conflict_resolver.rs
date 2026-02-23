@@ -93,20 +93,22 @@ impl ConflictResolver {
         conflicts
     }
 
-    pub fn resolve_conflict(&self, conflict: &Conflict, method: ResolutionMethod) -> ConflictResolution {
+    pub fn resolve_conflict(
+        &self,
+        conflict: &Conflict,
+        method: ResolutionMethod,
+    ) -> ConflictResolution {
         match method {
             ResolutionMethod::Latest => self.resolve_by_time(conflict),
             ResolutionMethod::HigherConfidence => self.resolve_by_confidence(conflict),
             ResolutionMethod::LLMDecision => self.resolve_by_llm(conflict),
-            ResolutionMethod::UserConfirmed => {
-                ConflictResolution {
-                    winner: String::new(),
-                    loser: String::new(),
-                    reason: "等待用户确认".to_string(),
-                    resolved_at: Utc::now(),
-                    method: ResolutionMethod::UserConfirmed,
-                }
-            }
+            ResolutionMethod::UserConfirmed => ConflictResolution {
+                winner: String::new(),
+                loser: String::new(),
+                reason: "等待用户确认".to_string(),
+                resolved_at: Utc::now(),
+                method: ResolutionMethod::UserConfirmed,
+            },
         }
     }
 
@@ -166,13 +168,13 @@ impl ConflictResolver {
 
     pub fn resolve_facts(&self, facts: &[AtomicFact], method: ResolutionMethod) -> Vec<AtomicFact> {
         let conflicts = self.detect_conflicts(facts);
-        
+
         if conflicts.is_empty() {
             return facts.to_vec();
         }
 
         let mut resolved: HashMap<String, &AtomicFact> = HashMap::new();
-        
+
         for fact in facts {
             resolved.insert(fact.id.clone(), fact);
         }
@@ -191,15 +193,19 @@ impl ConflictResolver {
 
     pub fn weighted_resolve(&self, facts: &[AtomicFact]) -> Vec<AtomicFact> {
         let conflicts = self.detect_conflicts(facts);
-        
+
         if conflicts.is_empty() {
             return facts.to_vec();
         }
 
         let mut fact_scores: HashMap<String, f32> = HashMap::new();
-        
+
         for fact in facts {
-            let category_weight = self.category_weights.get(&fact.category).copied().unwrap_or(0.5);
+            let category_weight = self
+                .category_weights
+                .get(&fact.category)
+                .copied()
+                .unwrap_or(0.5);
             let score = fact.confidence * category_weight;
             fact_scores.insert(fact.id.clone(), score);
         }
@@ -207,7 +213,7 @@ impl ConflictResolver {
         for conflict in &conflicts {
             let score_a = fact_scores.get(&conflict.fact_a.id).copied().unwrap_or(0.0);
             let score_b = fact_scores.get(&conflict.fact_b.id).copied().unwrap_or(0.0);
-            
+
             if score_a >= score_b {
                 fact_scores.remove(&conflict.fact_b.id);
             } else {
@@ -215,7 +221,8 @@ impl ConflictResolver {
             }
         }
 
-        facts.iter()
+        facts
+            .iter()
             .filter(|f| fact_scores.contains_key(&f.id))
             .cloned()
             .collect()
@@ -232,7 +239,13 @@ impl Default for ConflictResolver {
 mod tests {
     use super::*;
 
-    fn create_test_fact(id: &str, content: &str, category: FactCategory, created_at: DateTime<Utc>, confidence: f32) -> AtomicFact {
+    fn create_test_fact(
+        id: &str,
+        content: &str,
+        category: FactCategory,
+        created_at: DateTime<Utc>,
+        confidence: f32,
+    ) -> AtomicFact {
         AtomicFact {
             id: id.to_string(),
             content: content.to_string(),
@@ -247,12 +260,24 @@ mod tests {
     #[test]
     fn test_detect_direct_conflict() {
         let resolver = ConflictResolver::new();
-        
-        let fact1 = create_test_fact("1", "用户喜欢Python", FactCategory::UserPreference, Utc::now(), 1.0);
-        let fact2 = create_test_fact("2", "用户不喜欢Python", FactCategory::UserPreference, Utc::now(), 1.0);
-        
+
+        let fact1 = create_test_fact(
+            "1",
+            "用户喜欢Python",
+            FactCategory::UserPreference,
+            Utc::now(),
+            1.0,
+        );
+        let fact2 = create_test_fact(
+            "2",
+            "用户不喜欢Python",
+            FactCategory::UserPreference,
+            Utc::now(),
+            1.0,
+        );
+
         let conflicts = resolver.detect_conflicts(&[fact1, fact2]);
-        
+
         assert_eq!(conflicts.len(), 1);
         assert_eq!(conflicts[0].conflict_type, ConflictType::Direct);
     }
@@ -260,24 +285,46 @@ mod tests {
     #[test]
     fn test_no_conflict_different_category() {
         let resolver = ConflictResolver::new();
-        
-        let fact1 = create_test_fact("1", "用户喜欢Python", FactCategory::UserPreference, Utc::now(), 1.0);
-        let fact2 = create_test_fact("2", "用户在Google工作", FactCategory::WorkInfo, Utc::now(), 1.0);
-        
+
+        let fact1 = create_test_fact(
+            "1",
+            "用户喜欢Python",
+            FactCategory::UserPreference,
+            Utc::now(),
+            1.0,
+        );
+        let fact2 = create_test_fact(
+            "2",
+            "用户在Google工作",
+            FactCategory::WorkInfo,
+            Utc::now(),
+            1.0,
+        );
+
         let conflicts = resolver.detect_conflicts(&[fact1, fact2]);
-        
+
         assert!(conflicts.is_empty());
     }
 
     #[test]
     fn test_resolve_by_latest() {
         let resolver = ConflictResolver::new();
-        
-        let fact1 = create_test_fact("1", "用户喜欢Python", FactCategory::UserPreference, 
-            Utc::now() - chrono::Duration::days(1), 0.8);
-        let fact2 = create_test_fact("2", "用户不喜欢Python", FactCategory::UserPreference, 
-            Utc::now(), 0.9);
-        
+
+        let fact1 = create_test_fact(
+            "1",
+            "用户喜欢Python",
+            FactCategory::UserPreference,
+            Utc::now() - chrono::Duration::days(1),
+            0.8,
+        );
+        let fact2 = create_test_fact(
+            "2",
+            "用户不喜欢Python",
+            FactCategory::UserPreference,
+            Utc::now(),
+            0.9,
+        );
+
         let conflict = Conflict {
             id: "c1".to_string(),
             fact_a: fact1.clone(),
@@ -286,9 +333,9 @@ mod tests {
             resolution: None,
             detected_at: Utc::now(),
         };
-        
+
         let resolution = resolver.resolve_conflict(&conflict, ResolutionMethod::Latest);
-        
+
         assert_eq!(resolution.winner, "2");
         assert_eq!(resolution.method, ResolutionMethod::Latest);
     }
@@ -296,12 +343,22 @@ mod tests {
     #[test]
     fn test_resolve_by_confidence() {
         let resolver = ConflictResolver::new();
-        
-        let fact1 = create_test_fact("1", "用户喜欢Python", FactCategory::UserPreference, 
-            Utc::now(), 0.8);
-        let fact2 = create_test_fact("2", "用户不喜欢Python", FactCategory::UserPreference, 
-            Utc::now(), 0.9);
-        
+
+        let fact1 = create_test_fact(
+            "1",
+            "用户喜欢Python",
+            FactCategory::UserPreference,
+            Utc::now(),
+            0.8,
+        );
+        let fact2 = create_test_fact(
+            "2",
+            "用户不喜欢Python",
+            FactCategory::UserPreference,
+            Utc::now(),
+            0.9,
+        );
+
         let conflict = Conflict {
             id: "c1".to_string(),
             fact_a: fact1.clone(),
@@ -310,9 +367,9 @@ mod tests {
             resolution: None,
             detected_at: Utc::now(),
         };
-        
+
         let resolution = resolver.resolve_conflict(&conflict, ResolutionMethod::HigherConfidence);
-        
+
         assert_eq!(resolution.winner, "2");
         assert_eq!(resolution.method, ResolutionMethod::HigherConfidence);
     }
@@ -320,15 +377,33 @@ mod tests {
     #[test]
     fn test_resolve_facts() {
         let resolver = ConflictResolver::new();
-        
+
         let facts = vec![
-            create_test_fact("1", "用户喜欢Python", FactCategory::UserPreference, Utc::now(), 0.8),
-            create_test_fact("2", "用户不喜欢Python", FactCategory::UserPreference, Utc::now(), 0.9),
-            create_test_fact("3", "用户在Google工作", FactCategory::WorkInfo, Utc::now(), 1.0),
+            create_test_fact(
+                "1",
+                "用户喜欢Python",
+                FactCategory::UserPreference,
+                Utc::now(),
+                0.8,
+            ),
+            create_test_fact(
+                "2",
+                "用户不喜欢Python",
+                FactCategory::UserPreference,
+                Utc::now(),
+                0.9,
+            ),
+            create_test_fact(
+                "3",
+                "用户在Google工作",
+                FactCategory::WorkInfo,
+                Utc::now(),
+                1.0,
+            ),
         ];
-        
+
         let resolved = resolver.resolve_facts(&facts, ResolutionMethod::Latest);
-        
+
         assert_eq!(resolved.len(), 2);
         assert!(resolved.iter().any(|f| f.id == "2"));
         assert!(resolved.iter().any(|f| f.id == "3"));
@@ -337,15 +412,33 @@ mod tests {
     #[test]
     fn test_weighted_resolve() {
         let resolver = ConflictResolver::new();
-        
+
         let facts = vec![
-            create_test_fact("1", "用户喜欢Python", FactCategory::UserPreference, Utc::now(), 0.8),
-            create_test_fact("2", "用户不喜欢Python", FactCategory::UserPreference, Utc::now(), 0.9),
-            create_test_fact("3", "用户决定学习Rust", FactCategory::Decision, Utc::now(), 1.0),
+            create_test_fact(
+                "1",
+                "用户喜欢Python",
+                FactCategory::UserPreference,
+                Utc::now(),
+                0.8,
+            ),
+            create_test_fact(
+                "2",
+                "用户不喜欢Python",
+                FactCategory::UserPreference,
+                Utc::now(),
+                0.9,
+            ),
+            create_test_fact(
+                "3",
+                "用户决定学习Rust",
+                FactCategory::Decision,
+                Utc::now(),
+                1.0,
+            ),
         ];
-        
+
         let resolved = resolver.weighted_resolve(&facts);
-        
+
         assert_eq!(resolved.len(), 2);
         assert!(resolved.iter().any(|f| f.id == "3"));
     }
@@ -353,25 +446,37 @@ mod tests {
     #[test]
     fn test_no_conflicts_returns_original() {
         let resolver = ConflictResolver::new();
-        
+
         let facts = vec![
-            create_test_fact("1", "用户喜欢Python", FactCategory::UserPreference, Utc::now(), 0.8),
-            create_test_fact("2", "用户在Google工作", FactCategory::WorkInfo, Utc::now(), 0.9),
+            create_test_fact(
+                "1",
+                "用户喜欢Python",
+                FactCategory::UserPreference,
+                Utc::now(),
+                0.8,
+            ),
+            create_test_fact(
+                "2",
+                "用户在Google工作",
+                FactCategory::WorkInfo,
+                Utc::now(),
+                0.9,
+            ),
         ];
-        
+
         let resolved = resolver.resolve_facts(&facts, ResolutionMethod::Latest);
-        
+
         assert_eq!(resolved.len(), 2);
     }
 
     #[test]
     fn test_category_weights() {
         let resolver = ConflictResolver::new();
-        
+
         let decision_weight = resolver.category_weights.get(&FactCategory::Decision);
         assert!(decision_weight.is_some());
         assert!(*decision_weight.unwrap() > 1.0);
-        
+
         let other_weight = resolver.category_weights.get(&FactCategory::Other);
         assert!(other_weight.is_some());
         assert!(*other_weight.unwrap() < 1.0);

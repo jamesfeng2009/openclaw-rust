@@ -20,8 +20,8 @@ spi = ["hal"]
 serial = ["hal"]
 
 [dependencies]
-openclaw-core = { path = "../openclaw-core" }
-openclaw-tools = { path = "../openclaw-tools" }
+openclaw-core.workspace = true
+openclaw-tools.workspace = true
 
 async-trait = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

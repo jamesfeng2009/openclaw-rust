@@ -12,8 +12,8 @@ use openclaw_tools::ToolRegistry;
 
 use crate::device_manager::DeviceManager;
 use crate::orchestrator::ServiceOrchestrator;
-use crate::voice_service::VoiceService;
 use crate::vector_store_registry::VectorStoreRegistry;
+use crate::voice_service::VoiceService;
 
 #[derive(Clone)]
 pub struct AppContext {

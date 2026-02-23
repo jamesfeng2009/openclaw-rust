@@ -1,22 +1,22 @@
-use openclaw_core::Config;
+use openclaw_device::DevicesConfig;
 use std::sync::Arc;
 
 pub struct DeviceManager {
     registry: Arc<openclaw_device::DeviceRegistry>,
-    config: Arc<Config>,
+    devices_config: Arc<DevicesConfig>,
 }
 
 impl DeviceManager {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: DevicesConfig) -> Self {
         let registry = openclaw_device::get_or_init_global_registry().clone();
         Self {
             registry,
-            config: Arc::new(config),
+            devices_config: Arc::new(config),
         }
     }
 
     pub async fn init(&self) -> openclaw_core::Result<()> {
-        if !self.config.devices.enabled {
+        if !self.devices_config.enabled {
             tracing::info!("Devices disabled in config");
             return Ok(());
         }
@@ -33,7 +33,7 @@ impl DeviceManager {
     }
 
     async fn load_custom_devices(&self) -> openclaw_core::Result<()> {
-        for device_config in &self.config.devices.custom_devices {
+        for device_config in &self.devices_config.custom_devices {
             if !device_config.enabled {
                 continue;
             }
@@ -74,7 +74,7 @@ impl DeviceManager {
     }
 
     async fn load_plugins(&self) -> openclaw_core::Result<()> {
-        for plugin_config in &self.config.devices.plugins {
+        for plugin_config in &self.devices_config.plugins {
             if !plugin_config.enabled {
                 continue;
             }

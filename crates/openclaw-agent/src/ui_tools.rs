@@ -2,9 +2,9 @@
 //!
 //! 将 Canvas 绘图和 Browser 自动化作为工具集成到 Agent 决策流程中
 
-use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use openclaw_core::Result;
 
@@ -48,20 +48,16 @@ impl CanvasTool for DrawTool {
 
     async fn execute(&self, params: CanvasToolParams) -> Result<CanvasToolResult> {
         match params.action.as_str() {
-            "rectangle" | "circle" | "line" | "text" => {
-                Ok(CanvasToolResult {
-                    success: true,
-                    data: serde_json::json!({ "drawn": true }),
-                    message: format!("Drew {} on canvas", params.action),
-                })
-            }
-            "clear" => {
-                Ok(CanvasToolResult {
-                    success: true,
-                    data: serde_json::json!({ "cleared": true }),
-                    message: "Canvas cleared".to_string(),
-                })
-            }
+            "rectangle" | "circle" | "line" | "text" => Ok(CanvasToolResult {
+                success: true,
+                data: serde_json::json!({ "drawn": true }),
+                message: format!("Drew {} on canvas", params.action),
+            }),
+            "clear" => Ok(CanvasToolResult {
+                success: true,
+                data: serde_json::json!({ "cleared": true }),
+                message: "Canvas cleared".to_string(),
+            }),
             _ => Ok(CanvasToolResult {
                 success: false,
                 data: serde_json::Value::Null,
@@ -118,20 +114,22 @@ impl BrowserTool for WebNavigationTool {
     async fn execute(&self, params: BrowserToolParams) -> Result<BrowserToolResult> {
         match params.action.as_str() {
             "goto" => {
-                let url = params.args.get("url").and_then(|v| v.as_str()).unwrap_or("");
+                let url = params
+                    .args
+                    .get("url")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 Ok(BrowserToolResult {
                     success: true,
                     data: serde_json::json!({ "url": url }),
                     message: format!("Navigated to {}", url),
                 })
             }
-            "back" | "forward" => {
-                Ok(BrowserToolResult {
-                    success: true,
-                    data: serde_json::json!({}),
-                    message: format!("Navigated {}", params.action),
-                })
-            }
+            "back" | "forward" => Ok(BrowserToolResult {
+                success: true,
+                data: serde_json::json!({}),
+                message: format!("Navigated {}", params.action),
+            }),
             _ => Ok(BrowserToolResult {
                 success: false,
                 data: serde_json::Value::Null,
@@ -168,7 +166,11 @@ impl BrowserTool for WebInteractionTool {
     async fn execute(&self, params: BrowserToolParams) -> Result<BrowserToolResult> {
         match params.action.as_str() {
             "click" => {
-                let selector = params.args.get("selector").and_then(|v| v.as_str()).unwrap_or("");
+                let selector = params
+                    .args
+                    .get("selector")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 Ok(BrowserToolResult {
                     success: true,
                     data: serde_json::json!({ "clicked": selector }),
@@ -176,21 +178,27 @@ impl BrowserTool for WebInteractionTool {
                 })
             }
             "type" => {
-                let selector = params.args.get("selector").and_then(|v| v.as_str()).unwrap_or("");
-                let text = params.args.get("text").and_then(|v| v.as_str()).unwrap_or("");
+                let selector = params
+                    .args
+                    .get("selector")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let text = params
+                    .args
+                    .get("text")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 Ok(BrowserToolResult {
                     success: true,
                     data: serde_json::json!({ "typed": text, "into": selector }),
                     message: format!("Typed into {}", selector),
                 })
             }
-            "screenshot" => {
-                Ok(BrowserToolResult {
-                    success: true,
-                    data: serde_json::json!({ "screenshot": "base64_data" }),
-                    message: "Screenshot captured".to_string(),
-                })
-            }
+            "screenshot" => Ok(BrowserToolResult {
+                success: true,
+                data: serde_json::json!({ "screenshot": "base64_data" }),
+                message: "Screenshot captured".to_string(),
+            }),
             _ => Ok(BrowserToolResult {
                 success: false,
                 data: serde_json::Value::Null,
@@ -230,22 +238,36 @@ impl UIToolRegistry {
         &self.browser_tools
     }
 
-    pub async fn execute_canvas(&self, tool_name: &str, params: CanvasToolParams) -> Result<CanvasToolResult> {
+    pub async fn execute_canvas(
+        &self,
+        tool_name: &str,
+        params: CanvasToolParams,
+    ) -> Result<CanvasToolResult> {
         for tool in &self.canvas_tools {
             if tool.name() == tool_name {
                 return tool.execute(params).await;
             }
         }
-        Err(openclaw_core::OpenClawError::Config(format!("Canvas tool not found: {}", tool_name)))
+        Err(openclaw_core::OpenClawError::Config(format!(
+            "Canvas tool not found: {}",
+            tool_name
+        )))
     }
 
-    pub async fn execute_browser(&self, tool_name: &str, params: BrowserToolParams) -> Result<BrowserToolResult> {
+    pub async fn execute_browser(
+        &self,
+        tool_name: &str,
+        params: BrowserToolParams,
+    ) -> Result<BrowserToolResult> {
         for tool in &self.browser_tools {
             if tool.name() == tool_name {
                 return tool.execute(params).await;
             }
         }
-        Err(openclaw_core::OpenClawError::Config(format!("Browser tool not found: {}", tool_name)))
+        Err(openclaw_core::OpenClawError::Config(format!(
+            "Browser tool not found: {}",
+            tool_name
+        )))
     }
 }
 

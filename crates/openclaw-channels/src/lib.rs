@@ -28,6 +28,7 @@
 
 pub mod base;
 pub mod bluebubbles;
+pub mod config;
 pub mod dingtalk;
 pub mod discord;
 pub mod dm_policy;
@@ -53,6 +54,7 @@ pub mod zalo_personal;
 
 pub use base::*;
 pub use bluebubbles::*;
+pub use config::*;
 pub use dingtalk::*;
 pub use discord::*;
 pub use dm_policy::*;

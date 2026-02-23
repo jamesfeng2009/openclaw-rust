@@ -8,18 +8,19 @@
 pub mod agent;
 pub mod aieos;
 pub mod channels;
+pub mod config;
 pub mod decision;
 pub mod dependencies;
 pub mod device_tool_registry;
 pub mod device_tools;
 pub mod graph;
-pub mod real_device_tools;
 pub mod integration;
 pub mod memory_pipeline;
 pub mod orchestrator;
+pub mod ports;
 pub mod presence;
 pub mod provider;
-pub mod ports;
+pub mod real_device_tools;
 pub mod router;
 pub mod sessions;
 pub mod sub_agent;
@@ -34,17 +35,23 @@ pub mod mock;
 
 pub use agent::*;
 pub use aieos::AIEOS;
+pub use config::{AgentDefaults, AgentInstanceConfig, AgentsConfig};
 pub use dependencies::*;
-pub use device_tool_registry::{DeviceTool, DeviceToolRegistry, DeviceToolResult, DeviceToolInfo};
-pub use device_tools::{DeviceCapabilityTool, DeviceToolParams, CameraTool, ScreenTool, LocationTool, SystemTool};
-pub use real_device_tools::*;
+pub use device_tool_registry::{DeviceTool, DeviceToolInfo, DeviceToolRegistry, DeviceToolResult};
+pub use device_tools::{
+    CameraTool, DeviceCapabilityTool, DeviceToolParams, LocationTool, ScreenTool, SystemTool,
+};
 pub use graph::*;
 pub use integration::*;
 pub use memory_pipeline::*;
 pub use orchestrator::*;
+pub use ports::{
+    AIPort, MemoryEntry, MemoryPort, RecallItem, SecurityCheckResult, SecurityPort, ToolInfo,
+    ToolPort,
+};
 pub use presence::*;
 pub use provider::*;
-pub use ports::{AIPort, MemoryPort, SecurityPort, ToolPort, MemoryEntry, SecurityCheckResult, ToolInfo, RecallItem};
+pub use real_device_tools::*;
 pub use router::*;
 pub use sessions::*;
 pub use sub_agent::*;

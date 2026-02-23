@@ -57,10 +57,7 @@ impl LocationManager {
         {
             #[cfg(target_os = "linux")]
             {
-                if let Ok(output) = Command::new("gpspipe")
-                    .args(["-w", "-n", "5"])
-                    .output()
-                {
+                if let Ok(output) = Command::new("gpspipe").args(["-w", "-n", "5"]).output() {
                     let output_str = String::from_utf8_lossy(&output.stdout);
                     if let Some(lat) = output_str
                         .lines()
@@ -124,7 +121,9 @@ impl LocationManager {
                     let output_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
                     let parts: Vec<&str> = output_str.split(',').collect();
                     if parts.len() == 2 {
-                        if let (Ok(lat), Ok(lon)) = (parts[0].parse::<f64>(), parts[1].parse::<f64>()) {
+                        if let (Ok(lat), Ok(lon)) =
+                            (parts[0].parse::<f64>(), parts[1].parse::<f64>())
+                        {
                             return Ok(LocationResult {
                                 success: true,
                                 latitude: Some(lat),

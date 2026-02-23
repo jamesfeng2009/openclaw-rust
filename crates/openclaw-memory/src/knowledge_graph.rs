@@ -236,9 +236,19 @@ impl KnowledgeGraph {
         let mut entities = Vec::new();
         let mut relations = Vec::new();
 
-        self.bfs_collect(entity_id, depth, &mut visited, &mut entities, &mut relations).await;
+        self.bfs_collect(
+            entity_id,
+            depth,
+            &mut visited,
+            &mut entities,
+            &mut relations,
+        )
+        .await;
 
-        Subgraph { entities, relations }
+        Subgraph {
+            entities,
+            relations,
+        }
     }
 
     async fn bfs_collect(
@@ -274,7 +284,8 @@ impl KnowledgeGraph {
                     visited,
                     entities,
                     relations,
-                )).await;
+                ))
+                .await;
             }
         }
 
@@ -289,7 +300,8 @@ impl KnowledgeGraph {
                     visited,
                     entities,
                     relations,
-                )).await;
+                ))
+                .await;
             }
         }
     }
@@ -316,7 +328,9 @@ impl KnowledgeGraph {
             entity_types: {
                 let mut types: HashMap<String, usize> = HashMap::new();
                 for entity in entities.values() {
-                    *types.entry(format!("{:?}", entity.entity_type)).or_insert(0) += 1;
+                    *types
+                        .entry(format!("{:?}", entity.entity_type))
+                        .or_insert(0) += 1;
                 }
                 types
             },
@@ -412,8 +426,18 @@ impl KnowledgeGraphBuilder {
         target: &str,
         relation_type: RelationType,
     ) -> Self {
-        let source_id = self.graph.find_entities_by_name(source).await.first().map(|e| e.id.clone());
-        let target_id = self.graph.find_entities_by_name(target).await.first().map(|e| e.id.clone());
+        let source_id = self
+            .graph
+            .find_entities_by_name(source)
+            .await
+            .first()
+            .map(|e| e.id.clone());
+        let target_id = self
+            .graph
+            .find_entities_by_name(target)
+            .await
+            .first()
+            .map(|e| e.id.clone());
 
         if let (Some(s), Some(t)) = (source_id, target_id) {
             let relation = Relation::new(s, t, relation_type);
@@ -435,9 +459,9 @@ mod tests {
     async fn test_add_entity() {
         let graph = KnowledgeGraph::new();
         let entity = Entity::new("张三".to_string(), EntityType::Person);
-        
+
         graph.add_entity(entity.clone()).await.unwrap();
-        
+
         let retrieved = graph.get_entity(&entity.id).await;
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().name, "张三");
@@ -446,10 +470,10 @@ mod tests {
     #[tokio::test]
     async fn test_find_entities_by_name() {
         let graph = KnowledgeGraph::new();
-        
+
         let entity = Entity::new("Python".to_string(), EntityType::Skill);
         graph.add_entity(entity).await.unwrap();
-        
+
         let results = graph.find_entities_by_name("Python").await;
         assert_eq!(results.len(), 1);
     }
@@ -457,20 +481,16 @@ mod tests {
     #[tokio::test]
     async fn test_add_relation() {
         let graph = KnowledgeGraph::new();
-        
+
         let person = Entity::new("李四".to_string(), EntityType::Person);
         let skill = Entity::new("Rust".to_string(), EntityType::Skill);
-        
+
         graph.add_entity(person.clone()).await.unwrap();
         graph.add_entity(skill.clone()).await.unwrap();
-        
-        let relation = Relation::new(
-            person.id.clone(),
-            skill.id.clone(),
-            RelationType::HasSkill,
-        );
+
+        let relation = Relation::new(person.id.clone(), skill.id.clone(), RelationType::HasSkill);
         graph.add_relation(relation).await.unwrap();
-        
+
         let relations = graph.get_relations_from(&person.id).await;
         assert_eq!(relations.len(), 1);
     }
@@ -478,18 +498,32 @@ mod tests {
     #[tokio::test]
     async fn test_find_path() {
         let graph = KnowledgeGraph::new();
-        
+
         let a = Entity::new("A".to_string(), EntityType::Person);
         let b = Entity::new("B".to_string(), EntityType::Person);
         let c = Entity::new("C".to_string(), EntityType::Person);
-        
+
         graph.add_entity(a.clone()).await.unwrap();
         graph.add_entity(b.clone()).await.unwrap();
         graph.add_entity(c.clone()).await.unwrap();
-        
-        graph.add_relation(Relation::new(a.id.clone(), b.id.clone(), RelationType::Knows)).await.unwrap();
-        graph.add_relation(Relation::new(b.id.clone(), c.id.clone(), RelationType::Knows)).await.unwrap();
-        
+
+        graph
+            .add_relation(Relation::new(
+                a.id.clone(),
+                b.id.clone(),
+                RelationType::Knows,
+            ))
+            .await
+            .unwrap();
+        graph
+            .add_relation(Relation::new(
+                b.id.clone(),
+                c.id.clone(),
+                RelationType::Knows,
+            ))
+            .await
+            .unwrap();
+
         let path = graph.find_path(&a.id, &c.id).await;
         assert!(path.is_some());
         assert_eq!(path.unwrap().len(), 2);
@@ -498,18 +532,25 @@ mod tests {
     #[tokio::test]
     async fn test_get_subgraph() {
         let graph = KnowledgeGraph::new();
-        
+
         let root = Entity::new("root".to_string(), EntityType::Person);
         let child1 = Entity::new("child1".to_string(), EntityType::Skill);
-        
+
         graph.add_entity(root.clone()).await.unwrap();
         graph.add_entity(child1.clone()).await.unwrap();
-        
-        graph.add_relation(Relation::new(root.id.clone(), child1.id.clone(), RelationType::HasSkill)).await.unwrap();
-        
+
+        graph
+            .add_relation(Relation::new(
+                root.id.clone(),
+                child1.id.clone(),
+                RelationType::HasSkill,
+            ))
+            .await
+            .unwrap();
+
         let outgoing = graph.get_relations_from(&root.id).await;
         assert_eq!(outgoing.len(), 1);
-        
+
         let root_entity = graph.get_entity(&root.id).await;
         assert!(root_entity.is_some());
     }
@@ -519,20 +560,32 @@ mod tests {
         let entity = Entity::new("测试用户".to_string(), EntityType::Person)
             .with_property("email", "test@example.com")
             .with_confidence(0.9);
-        
+
         assert_eq!(entity.name, "测试用户");
-        assert_eq!(entity.properties.get("email"), Some(&"test@example.com".to_string()));
+        assert_eq!(
+            entity.properties.get("email"),
+            Some(&"test@example.com".to_string())
+        );
         assert!((entity.confidence - 0.9).abs() < 0.001);
     }
 
     #[tokio::test]
     async fn test_stats() {
         let graph = KnowledgeGraph::new();
-        
-        graph.add_entity(Entity::new("p1".to_string(), EntityType::Person)).await.unwrap();
-        graph.add_entity(Entity::new("p2".to_string(), EntityType::Person)).await.unwrap();
-        graph.add_entity(Entity::new("s1".to_string(), EntityType::Skill)).await.unwrap();
-        
+
+        graph
+            .add_entity(Entity::new("p1".to_string(), EntityType::Person))
+            .await
+            .unwrap();
+        graph
+            .add_entity(Entity::new("p2".to_string(), EntityType::Person))
+            .await
+            .unwrap();
+        graph
+            .add_entity(Entity::new("s1".to_string(), EntityType::Skill))
+            .await
+            .unwrap();
+
         let stats = graph.stats().await;
         assert_eq!(stats.entity_count, 3);
         assert_eq!(stats.entity_types.get("Person"), Some(&2));
@@ -542,14 +595,17 @@ mod tests {
     #[tokio::test]
     async fn test_clear() {
         let graph = KnowledgeGraph::new();
-        
-        graph.add_entity(Entity::new("test".to_string(), EntityType::Person)).await.unwrap();
-        
+
+        graph
+            .add_entity(Entity::new("test".to_string(), EntityType::Person))
+            .await
+            .unwrap();
+
         let stats_before = graph.stats().await;
         assert_eq!(stats_before.entity_count, 1);
-        
+
         graph.clear().await;
-        
+
         let stats_after = graph.stats().await;
         assert_eq!(stats_after.entity_count, 0);
     }

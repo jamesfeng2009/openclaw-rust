@@ -255,9 +255,7 @@ impl UnifiedConfig {
                     ProviderEntry::WithKey { api_key, api_base } => {
                         (Some(api_key.clone()), api_base.clone())
                     }
-                    ProviderEntry::NoKey { api_base } => {
-                        (None, api_base.clone())
-                    }
+                    ProviderEntry::NoKey { api_base } => (None, api_base.clone()),
                 };
                 let provider_type = match name.as_str() {
                     "openai" => crate::config::ProviderType::OpenAI,
@@ -297,8 +295,8 @@ impl UnifiedConfig {
             port: 8080,
             log_level: "info".to_string(),
             enable_agents: true,
-            enable_channels: self.channels.telegram.enabled 
-                || self.channels.discord.enabled 
+            enable_channels: self.channels.telegram.enabled
+                || self.channels.discord.enabled
                 || self.channels.whatsapp.enabled
                 || self.channels.feishu.enabled
                 || self.channels.dingtalk.enabled,
@@ -322,11 +320,8 @@ impl UnifiedConfig {
             ai: ai_config,
             memory: crate::config::MemoryConfig::default(),
             vector: crate::config::VectorConfig::default(),
-            channels: crate::config::ChannelsConfig::default(),
+            channels: crate::config::ChannelSettings::default(),
             security: security_config,
-            agents: crate::config::AgentsConfig::default(),
-            devices: crate::config::DevicesConfig::default(),
-            workspaces: crate::config::WorkspacesConfig::default(),
             voice: None,
             browser: None,
         }
@@ -348,14 +343,22 @@ mod tests {
             },
             providers: ProvidersSection {
                 entries: [
-                    ("openai".to_string(), ProviderEntry::WithKey {
-                        api_key: "test-key".to_string(),
-                        api_base: Some("https://api.openai.com".to_string()),
-                    }),
-                    ("anthropic".to_string(), ProviderEntry::NoKey {
-                        api_base: Some("https://api.anthropic.com".to_string()),
-                    }),
-                ].into_iter().collect(),
+                    (
+                        "openai".to_string(),
+                        ProviderEntry::WithKey {
+                            api_key: "test-key".to_string(),
+                            api_base: Some("https://api.openai.com".to_string()),
+                        },
+                    ),
+                    (
+                        "anthropic".to_string(),
+                        ProviderEntry::NoKey {
+                            api_base: Some("https://api.anthropic.com".to_string()),
+                        },
+                    ),
+                ]
+                .into_iter()
+                .collect(),
             },
             agents: AgentsSection {
                 defaults: DefaultAgentConfig {
@@ -367,7 +370,11 @@ mod tests {
                 agents: HashMap::new(),
             },
             channels: ChannelsSection {
-                telegram: ChannelConfig { enabled: true, token: Some("bot_token".to_string()), ..Default::default() },
+                telegram: ChannelConfig {
+                    enabled: true,
+                    token: Some("bot_token".to_string()),
+                    ..Default::default()
+                },
                 discord: ChannelConfig::default(),
                 whatsapp: ChannelConfig::default(),
                 feishu: ChannelConfig::default(),
@@ -398,14 +405,25 @@ mod tests {
         assert_eq!(config.server.enable_agents, true);
         assert_eq!(config.server.enable_channels, true);
         assert_eq!(config.server.enable_voice, true);
-        
+
         assert_eq!(config.ai.default_provider, "openai");
         assert_eq!(config.ai.providers.len(), 2);
-        
-        let openai_provider = config.ai.providers.iter().find(|p| p.name == "openai").unwrap();
-        assert_eq!(openai_provider.provider_type, crate::config::ProviderType::OpenAI);
+
+        let openai_provider = config
+            .ai
+            .providers
+            .iter()
+            .find(|p| p.name == "openai")
+            .unwrap();
+        assert_eq!(
+            openai_provider.provider_type,
+            crate::config::ProviderType::OpenAI
+        );
         assert_eq!(openai_provider.api_key, Some("test-key".to_string()));
-        assert_eq!(openai_provider.base_url, Some("https://api.openai.com".to_string()));
+        assert_eq!(
+            openai_provider.base_url,
+            Some("https://api.openai.com".to_string())
+        );
         assert_eq!(openai_provider.default_model, "gpt-4");
     }
 

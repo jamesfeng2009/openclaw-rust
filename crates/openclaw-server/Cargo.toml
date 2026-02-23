@@ -24,6 +24,7 @@ tokio-stream.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+serde_yaml.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
@@ -37,8 +38,6 @@ uuid.workspace = true
 chrono.workspace = true
 base64.workspace = true
 
-[dev-dependencies]
-
 [features]
 default = []
 per_session_memory = ["testing"]
@@ -46,3 +45,6 @@ testing = ["openclaw-agent/testing"]
 lancedb = ["openclaw-vector/lancedb"]
 qdrant = ["openclaw-vector/qdrant"]
 pgvector = ["openclaw-vector/pgvector"]
+
+[dev-dependencies]
+tempfile.workspace = true

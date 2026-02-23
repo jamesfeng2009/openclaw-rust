@@ -2,8 +2,8 @@
 //!
 //! 通过 trait 抽象来解耦 Agent 与具体实现，允许运行时注入依赖
 
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
 
 use openclaw_core::Result;
 
@@ -86,27 +86,27 @@ impl AgentDependencies {
             vector_store: None,
         }
     }
-    
+
     pub fn with_ai(mut self, provider: Arc<dyn AIProviderTrait>) -> Self {
         self.ai_provider = Some(provider);
         self
     }
-    
+
     pub fn with_memory(mut self, memory: Arc<dyn MemoryTrait>) -> Self {
         self.memory = Some(memory);
         self
     }
-    
+
     pub fn with_security(mut self, security: Arc<dyn SecurityTrait>) -> Self {
         self.security = Some(security);
         self
     }
-    
+
     pub fn with_tools(mut self, tools: Arc<dyn ToolRegistryTrait>) -> Self {
         self.tools = Some(tools);
         self
     }
-    
+
     pub fn with_vector_store(mut self, store: Arc<dyn VectorStoreTrait>) -> Self {
         self.vector_store = Some(store);
         self

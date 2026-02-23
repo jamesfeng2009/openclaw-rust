@@ -5,8 +5,8 @@ use chrono::Utc;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use openclaw_core::{Content, Message, Result};
 use openclaw_ai::{AIProvider, ChatRequest};
+use openclaw_core::{Content, Message, Result};
 use openclaw_memory::MemoryManager;
 use openclaw_security::{PipelineResult, SecurityPipeline};
 use openclaw_tools::ToolResult as OpenClawToolResult;
@@ -332,22 +332,18 @@ impl Agent for BaseAgent {
             if let Some(executor) = tool_executor.as_ref() {
                 let result = self.execute_tool(executor, name, arguments).await;
                 return match result {
-                    Ok(tool_result) => {
-                        Ok(TaskResult::success(
-                            task.id,
-                            self.id().to_string(),
-                            TaskOutput::ToolResult {
-                                result: tool_result.output,
-                            },
-                        ))
-                    }
-                    Err(e) => {
-                        Ok(TaskResult::failure(
-                            task.id,
-                            self.id().to_string(),
-                            format!("Tool execution failed: {}", e),
-                        ))
-                    }
+                    Ok(tool_result) => Ok(TaskResult::success(
+                        task.id,
+                        self.id().to_string(),
+                        TaskOutput::ToolResult {
+                            result: tool_result.output,
+                        },
+                    )),
+                    Err(e) => Ok(TaskResult::failure(
+                        task.id,
+                        self.id().to_string(),
+                        format!("Tool execution failed: {}", e),
+                    )),
                 };
             }
         }
@@ -475,19 +471,19 @@ impl Agent for BaseAgent {
     ) -> std::result::Result<OpenClawToolResult, String> {
         // 尝试从 registry 获取 skill
         let all_skills = executor.get_all_skills();
-        
+
         // 查找匹配的 skill
         let skill_found = all_skills.iter().any(|s| s.id == name || s.name == name);
-        
+
         if skill_found {
             let params = arguments.clone();
             // 执行 skill 逻辑 - 这里简化处理，返回成功结果
             // 实际实现应该调用 skill 的执行逻辑
             return Ok(OpenClawToolResult::success(
-                serde_json::json!({ "executed": name, "params": params, "status": "simulated" })
+                serde_json::json!({ "executed": name, "params": params, "status": "simulated" }),
             ));
         }
-        
+
         // 如果 skill 不存在，返回错误
         Err(format!("Tool '{}' not found or not available", name))
     }
@@ -804,12 +800,14 @@ mod tests {
 
         let mock_provider: Arc<dyn AIProvider> = Arc::new(MockAiProvider::new());
         let memory_manager = Arc::new(openclaw_memory::MemoryManager::default());
-        agent.inject_dependencies(
-            mock_provider.clone(),
-            Some(memory_manager),
-            Arc::new(openclaw_security::SecurityPipeline::default()),
-            None,
-        ).await;
+        agent
+            .inject_dependencies(
+                mock_provider.clone(),
+                Some(memory_manager),
+                Arc::new(openclaw_security::SecurityPipeline::default()),
+                None,
+            )
+            .await;
 
         let ai_provider = agent.get_ai_provider().await;
         assert!(ai_provider.is_some());

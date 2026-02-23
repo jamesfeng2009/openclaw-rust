@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::agentic_rag_api::create_agentic_rag_router;
 use crate::app_context::AppContext;
 use crate::browser_api::{BrowserApiState, create_browser_router};
 use crate::canvas_api::{CanvasApiState, create_canvas_router};
@@ -19,7 +20,6 @@ use crate::device_api::create_device_router;
 use crate::orchestrator::ServiceOrchestrator;
 use crate::sse::error_string_stream_to_sse;
 use crate::voice_service::VoiceService;
-use crate::agentic_rag_api::create_agentic_rag_router;
 
 pub fn create_router(
     context: Arc<AppContext>,
@@ -157,15 +157,21 @@ async fn chat_stream_handler(
     State(state): State<Arc<RwLock<ApiState>>>,
     Query(params): Query<StreamQueryParams>,
 ) -> impl axum::response::IntoResponse {
-    let session_id = params.session_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let session_id = params
+        .session_id
+        .clone()
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let agent_id_param = params.agent_id.clone();
     let message_param = params.message.clone();
-    
+
     let results: Vec<Result<String, String>> = {
         let state = state.read().await;
         let guard = state.orchestrator.read().await;
         if let Some(ref orchestrator) = *guard {
-            match orchestrator.process_chat_stream(&agent_id_param, &message_param, &session_id).await {
+            match orchestrator
+                .process_chat_stream(&agent_id_param, &message_param, &session_id)
+                .await
+            {
                 Ok(r) => r,
                 Err(e) => vec![Err(e)],
             }
@@ -173,7 +179,7 @@ async fn chat_stream_handler(
             vec![Err("No orchestrator available".to_string())]
         }
     };
-    
+
     let stream = tokio_stream::iter(results);
     error_string_stream_to_sse(stream)
 }
@@ -188,29 +194,35 @@ async fn chat_handler(
     State(state): State<Arc<RwLock<ApiState>>>,
     Json(request): Json<ChatRequest>,
 ) -> Json<ChatResponse> {
-    let session_id = request.session_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    
+    let session_id = request
+        .session_id
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
     let state = state.read().await;
-    
+
     if let Some(ref orchestrator) = *state.orchestrator.read().await {
         let agents = orchestrator.list_agents().await;
-        
+
         let agent_id = if let Some(ref requested_agent_id) = request.agent_id {
             if agents.iter().any(|a| a.config.id == *requested_agent_id) {
                 requested_agent_id.clone()
             } else {
-                agents.first()
+                agents
+                    .first()
                     .map(|a| a.config.id.clone())
                     .unwrap_or_else(|| "default".to_string())
             }
         } else {
-            agents.first()
+            agents
+                .first()
                 .map(|a| a.config.id.clone())
                 .unwrap_or_else(|| "default".to_string())
         };
-        
-        let result = orchestrator.process_agent_message(&agent_id, &request.message, &session_id).await;
-        
+
+        let result = orchestrator
+            .process_agent_message(&agent_id, &request.message, &session_id)
+            .await;
+
         match result {
             Ok(reply) => {
                 return Json(ChatResponse {
@@ -236,7 +248,7 @@ async fn chat_handler(
             }
         }
     }
-    
+
     Json(ChatResponse {
         reply: "Error: No orchestrator available".to_string(),
         session_id,
@@ -262,24 +274,30 @@ pub struct ModelInfo {
 
 async fn list_models(State(state): State<Arc<RwLock<ApiState>>>) -> Json<ModelsResponse> {
     let state = state.read().await;
-    
+
     if let Some(ref orchestrator) = *state.orchestrator.read().await
-        && let Some(provider) = orchestrator.get_ai_provider().await {
-            match provider.models().await {
-                Ok(models) => {
-                    let model_infos: Vec<ModelInfo> = models.into_iter().map(|id| ModelInfo {
+        && let Some(provider) = orchestrator.get_ai_provider().await
+    {
+        match provider.models().await {
+            Ok(models) => {
+                let model_infos: Vec<ModelInfo> = models
+                    .into_iter()
+                    .map(|id| ModelInfo {
                         id: id.clone(),
                         name: id,
                         provider: "dynamic".to_string(),
-                    }).collect();
-                    return Json(ModelsResponse { models: model_infos });
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to get models from provider: {}", e);
-                }
+                    })
+                    .collect();
+                return Json(ModelsResponse {
+                    models: model_infos,
+                });
+            }
+            Err(e) => {
+                tracing::warn!("Failed to get models from provider: {}", e);
             }
         }
-    
+    }
+
     Json(ModelsResponse {
         models: vec![
             ModelInfo {
@@ -342,13 +360,16 @@ async fn create_channel(
         enabled: input.enabled,
         config: input.config,
     };
-    
+
     let state = state.read().await;
     if let Some(ref orchestrator) = *state.orchestrator.read().await
-        && let Err(e) = orchestrator.create_channel(input.name, input.channel_type).await {
-            tracing::warn!("Failed to create channel in orchestrator: {}", e);
-        }
-    
+        && let Err(e) = orchestrator
+            .create_channel(input.name, input.channel_type)
+            .await
+    {
+        tracing::warn!("Failed to create channel in orchestrator: {}", e);
+    }
+
     Json(channel)
 }
 
@@ -360,7 +381,9 @@ async fn delete_channel(
     if let Some(ref orchestrator) = *state.orchestrator.read().await {
         match orchestrator.delete_channel(&id).await {
             Ok(_) => return Json(serde_json::json!({ "success": true, "channel_id": id })),
-            Err(e) => return Json(serde_json::json!({ "success": false, "error": format!("{}", e) })),
+            Err(e) => {
+                return Json(serde_json::json!({ "success": false, "error": format!("{}", e) }));
+            }
         }
     }
     Json(serde_json::json!({ "success": false, "error": "No orchestrator available" }))
@@ -376,7 +399,13 @@ async fn list_agents(State(state): State<Arc<RwLock<ApiState>>>) -> Json<Vec<Age
                 id: info.config.id,
                 name: info.config.name,
                 status: format!("{:?}", info.status),
-                capabilities: Some(info.config.capabilities.iter().map(|c| format!("{:?}", c)).collect()),
+                capabilities: Some(
+                    info.config
+                        .capabilities
+                        .iter()
+                        .map(|c| format!("{:?}", c))
+                        .collect(),
+                ),
                 error: None,
             })
             .collect();
@@ -393,15 +422,22 @@ async fn get_agent(
     let state = state.read().await;
     if let Some(ref orchestrator) = *state.orchestrator.read().await {
         let agent_infos = orchestrator.list_agents().await;
-        let agent = agent_infos.into_iter().find(|info| info.config.id == id).map(|info| {
-            AgentInfo {
+        let agent = agent_infos
+            .into_iter()
+            .find(|info| info.config.id == id)
+            .map(|info| AgentInfo {
                 id: info.config.id,
                 name: info.config.name,
                 status: format!("{:?}", info.status),
-                capabilities: Some(info.config.capabilities.iter().map(|c| format!("{:?}", c)).collect()),
+                capabilities: Some(
+                    info.config
+                        .capabilities
+                        .iter()
+                        .map(|c| format!("{:?}", c))
+                        .collect(),
+                ),
                 error: None,
-            }
-        });
+            });
         Json(agent)
     } else {
         Json(None)
@@ -413,7 +449,9 @@ async fn create_agent(
     Json(input): Json<AgentInfo>,
 ) -> Json<AgentInfo> {
     let agent_id = uuid::Uuid::new_v4().to_string();
-    let agent_type = input.capabilities.as_ref()
+    let agent_type = input
+        .capabilities
+        .as_ref()
         .and_then(|c| c.first())
         .map(|s| match s.as_str() {
             "coder" => AgentType::Coder,
@@ -422,7 +460,7 @@ async fn create_agent(
             _ => AgentType::DataAnalyst,
         })
         .unwrap_or(AgentType::DataAnalyst);
-    
+
     let agent = BaseAgent::from_type(agent_id.clone(), input.name.clone(), agent_type);
     let mut agent_info = AgentInfo {
         id: agent_id.clone(),
@@ -431,34 +469,41 @@ async fn create_agent(
         capabilities: input.capabilities,
         error: None,
     };
-    
+
     let state = state.read().await;
     if let Some(ref orchestrator) = *state.orchestrator.read().await {
-        orchestrator.register_agent(agent_id, Arc::new(agent) as Arc<dyn Agent>).await;
+        orchestrator
+            .register_agent(agent_id, Arc::new(agent) as Arc<dyn Agent>)
+            .await;
     } else {
         agent_info.error = Some("No orchestrator available".to_string());
         agent_info.status = "failed".to_string();
     }
-    
+
     Json(agent_info)
 }
 
-
 async fn list_sessions(State(state): State<Arc<RwLock<ApiState>>>) -> Json<Vec<SessionInfo>> {
     let state = state.read().await;
-    
+
     if let Some(ref orchestrator) = *state.orchestrator.read().await {
-        let sessions = orchestrator.list_sessions(None, None).await.unwrap_or_default();
-        let session_infos: Vec<SessionInfo> = sessions.into_iter().map(|s| SessionInfo {
-            id: s.id.to_string(),
-            name: s.name,
-            agent_id: Some(s.agent_id.to_string()),
-            channel_id: s.channel_type,
-            state: format!("{:?}", s.state),
-        }).collect();
+        let sessions = orchestrator
+            .list_sessions(None, None)
+            .await
+            .unwrap_or_default();
+        let session_infos: Vec<SessionInfo> = sessions
+            .into_iter()
+            .map(|s| SessionInfo {
+                id: s.id.to_string(),
+                name: s.name,
+                agent_id: Some(s.agent_id.to_string()),
+                channel_id: s.channel_type,
+                state: format!("{:?}", s.state),
+            })
+            .collect();
         return Json(session_infos);
     }
-    
+
     Json(Vec::new())
 }
 
@@ -467,19 +512,20 @@ async fn get_session(
     Path(id): Path<String>,
 ) -> Json<Option<SessionInfo>> {
     let state = state.read().await;
-    
+
     if let Some(ref orchestrator) = *state.orchestrator.read().await
         && let Ok(sessions) = orchestrator.list_sessions(None, None).await
-            && let Some(s) = sessions.into_iter().find(|s| s.id.to_string() == id) {
-                return Json(Some(SessionInfo {
-                    id: s.id.to_string(),
-                    name: s.name,
-                    agent_id: Some(s.agent_id.to_string()),
-                    channel_id: s.channel_type,
-                    state: format!("{:?}", s.state),
-                }));
-            }
-    
+        && let Some(s) = sessions.into_iter().find(|s| s.id.to_string() == id)
+    {
+        return Json(Some(SessionInfo {
+            id: s.id.to_string(),
+            name: s.name,
+            agent_id: Some(s.agent_id.to_string()),
+            channel_id: s.channel_type,
+            state: format!("{:?}", s.state),
+        }));
+    }
+
     Json(None)
 }
 
@@ -495,17 +541,20 @@ async fn create_session(
     Json(input): Json<CreateSessionRequest>,
 ) -> Json<SessionInfo> {
     let state = state.read().await;
-    
+
     if let Some(ref orchestrator) = *state.orchestrator.read().await {
         let agent_id = input.agent_id.unwrap_or_else(|| "default".to_string());
         let name = input.name.unwrap_or_else(|| "新会话".to_string());
-        
-        match orchestrator.create_session(
-            name.clone(),
-            agent_id.clone(),
-            openclaw_core::session::SessionScope::Main,
-            input.channel_id.clone(),
-        ).await {
+
+        match orchestrator
+            .create_session(
+                name.clone(),
+                agent_id.clone(),
+                openclaw_core::session::SessionScope::Main,
+                input.channel_id.clone(),
+            )
+            .await
+        {
             Ok(session) => {
                 return Json(SessionInfo {
                     id: session.id.to_string(),
@@ -526,7 +575,7 @@ async fn create_session(
             }
         }
     }
-    
+
     Json(SessionInfo {
         id: uuid::Uuid::new_v4().to_string(),
         name: input.name.unwrap_or_else(|| "新会话".to_string()),
@@ -541,7 +590,7 @@ async fn close_session(
     Path(id): Path<String>,
 ) -> Json<serde_json::Value> {
     let state = state.read().await;
-    
+
     if let Some(ref orchestrator) = *state.orchestrator.read().await {
         match orchestrator.close_session(&id).await {
             Ok(_) => Json(serde_json::json!({ "success": true, "session_id": id })),
@@ -574,24 +623,20 @@ async fn send_agent_message(
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
     let state = state.read().await;
-    
+
     if let Some(ref orchestrator) = *state.orchestrator.read().await {
         match orchestrator
             .process_agent_message(&input.agent_id, &input.message, &session_id)
             .await
         {
-            Ok(response) => {
-                Json(AgentMessageResponse {
-                    message: response,
-                    session_id,
-                })
-            }
-            Err(e) => {
-                Json(AgentMessageResponse {
-                    message: format!("Error: {}", e),
-                    session_id,
-                })
-            }
+            Ok(response) => Json(AgentMessageResponse {
+                message: response,
+                session_id,
+            }),
+            Err(e) => Json(AgentMessageResponse {
+                message: format!("Error: {}", e),
+                session_id,
+            }),
         }
     } else {
         Json(AgentMessageResponse {
@@ -629,15 +674,13 @@ async fn tts_handler(
     Json(input): Json<TtsRequest>,
 ) -> Json<serde_json::Value> {
     let voice_service = &state.read().await.voice_service;
-    
+
     match voice_service.speak(&input.text).await {
-        Some(Ok(_audio_data)) => {
-            Json(serde_json::json!({
-                "success": true,
-                "message": "TTS audio generated (base64 encoding not available)",
-                "format": "mp3"
-            }))
-        }
+        Some(Ok(_audio_data)) => Json(serde_json::json!({
+            "success": true,
+            "message": "TTS audio generated (base64 encoding not available)",
+            "format": "mp3"
+        })),
         Some(Err(e)) => Json(serde_json::json!({
             "success": false,
             "error": format!("TTS error: {}", e)
@@ -661,14 +704,14 @@ async fn stt_handler(
     Json(input): Json<SttRequest>,
 ) -> Json<serde_json::Value> {
     let voice_service = &state.read().await.voice_service;
-    
+
     if input.audio.is_empty() {
         return Json(serde_json::json!({
             "success": false,
             "error": "Empty audio data"
         }));
     }
-    
+
     use base64::Engine;
     let audio_data = match base64::engine::general_purpose::STANDARD.decode(&input.audio) {
         Ok(data) => data,
@@ -679,8 +722,11 @@ async fn stt_handler(
             }));
         }
     };
-    
-    match voice_service.speech_to_text(&audio_data, input.language.as_deref()).await {
+
+    match voice_service
+        .speech_to_text(&audio_data, input.language.as_deref())
+        .await
+    {
         Ok(text) => Json(serde_json::json!({
             "success": true,
             "text": text
@@ -688,6 +734,6 @@ async fn stt_handler(
         Err(e) => Json(serde_json::json!({
             "success": false,
             "error": format!("STT error: {}", e)
-        }))
+        })),
     }
 }

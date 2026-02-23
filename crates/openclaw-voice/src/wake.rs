@@ -440,7 +440,10 @@ mod tests {
         }
 
         let result = detector.check_wake_word("hello world");
-        assert!(result.is_none(), "Should not detect wake word in 'hello world'");
+        assert!(
+            result.is_none(),
+            "Should not detect wake word in 'hello world'"
+        );
     }
 
     #[test]
@@ -471,6 +474,9 @@ mod tests {
         assert!(result.is_some(), "Should detect exact match");
 
         let result = detector.check_wake_word("Hey OpenClaw, what time is it?");
-        assert!(result.is_none(), "Should not detect partial match due to high threshold");
+        assert!(
+            result.is_none(),
+            "Should not detect partial match due to high threshold"
+        );
     }
 }

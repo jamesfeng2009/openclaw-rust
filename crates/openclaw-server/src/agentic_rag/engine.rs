@@ -28,10 +28,12 @@ impl AgenticRAGEngine {
         vector_store: Option<Arc<dyn openclaw_vector::VectorStore>>,
         embedding_provider: Option<Arc<dyn openclaw_memory::embedding::EmbeddingProvider>>,
     ) -> Result<Self> {
-        let planner: Arc<dyn QueryPlanner> = Arc::new(super::planner::DefaultQueryPlanner::new(llm.clone()));
-        
-        let reflector: Arc<dyn ResultReflector> = Arc::new(super::reflector::DefaultResultReflector::new(llm.clone()));
-        
+        let planner: Arc<dyn QueryPlanner> =
+            Arc::new(super::planner::DefaultQueryPlanner::new(llm.clone()));
+
+        let reflector: Arc<dyn ResultReflector> =
+            Arc::new(super::reflector::DefaultResultReflector::new(llm.clone()));
+
         let loop_controller: Arc<dyn LoopController> = Arc::new(DefaultLoopController);
 
         let mut executor = MultiSourceRetrievalExecutor::new();
@@ -107,7 +109,11 @@ impl AgenticRAGEngine {
         let confidence = if state.retrieved_context.is_empty() {
             0.0
         } else {
-            state.retrieved_context.iter().map(|r| r.relevance_score).sum::<f32>()
+            state
+                .retrieved_context
+                .iter()
+                .map(|r| r.relevance_score)
+                .sum::<f32>()
                 / state.retrieved_context.len() as f32
         };
 
@@ -122,7 +128,8 @@ impl AgenticRAGEngine {
                 .map(|t| ActionTrace {
                     action: t.action.to_string(),
                     reasoning: t.reasoning,
-                    timestamp: t.timestamp
+                    timestamp: t
+                        .timestamp
                         .duration_since(std::time::UNIX_EPOCH)
                         .map(|d| d.as_millis() as u64)
                         .unwrap_or(0),
@@ -140,12 +147,15 @@ impl AgenticRAGEngine {
 
         for suggestion in &reflection.suggestions {
             let refined_query = format!("{} {}", query, suggestion);
-            
-            let sources: Vec<SourceType> = self.config.sources.iter()
+
+            let sources: Vec<SourceType> = self
+                .config
+                .sources
+                .iter()
                 .filter(|s| s.enabled)
                 .map(|s| s.source_type.clone())
                 .collect();
-            
+
             let results = self
                 .executor
                 .execute_all(
@@ -155,24 +165,29 @@ impl AgenticRAGEngine {
                     self.config.executor.enable_parallel,
                 )
                 .await?;
-            
+
             refined_results.extend(results);
         }
 
         Ok(refined_results)
     }
 
-    pub async fn retrieve(&self, query: &str, sources: &[SourceType]) -> Result<Vec<RetrievalResult>> {
+    pub async fn retrieve(
+        &self,
+        query: &str,
+        sources: &[SourceType],
+    ) -> Result<Vec<RetrievalResult>> {
         self.executor
-            .execute_all(query, sources, &self.config.executor, self.config.executor.enable_parallel)
+            .execute_all(
+                query,
+                sources,
+                &self.config.executor,
+                self.config.executor.enable_parallel,
+            )
             .await
     }
 
-    pub async fn verify(
-        &self,
-        query: &str,
-        results: &[RetrievalResult],
-    ) -> Result<Reflection> {
+    pub async fn verify(&self, query: &str, results: &[RetrievalResult]) -> Result<Reflection> {
         self.reflector
             .reflect(query, results, &self.config.reflector)
             .await

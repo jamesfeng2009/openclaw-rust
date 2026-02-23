@@ -14,6 +14,7 @@ use crate::types::{MemoryConfig, MemoryContent, MemoryItem, MemoryLevel, MemoryR
 use crate::working::WorkingMemory;
 
 /// 记忆管理器 - 统一管理三层记忆
+#[derive(Clone)]
 pub struct MemoryManager {
     working: WorkingMemory,
     short_term: Vec<MemoryItem>,
@@ -60,9 +61,15 @@ impl MemoryManager {
     /// 自动召回相关记忆
     pub async fn recall(&self, query: &str) -> Result<RecallResult> {
         if let Some(provider) = &self.embedding_provider {
-            let recall_tool = SimpleMemoryRecall::new(provider.clone());
-            let result = recall_tool.recall(query, None).await?;
-            Ok(result)
+            if let Some(vector_store) = &self.long_term {
+                let recall_tool = SimpleMemoryRecall::new(provider.clone(), vector_store.clone());
+                let result = recall_tool.recall(query, None).await?;
+                Ok(result)
+            } else {
+                Err(OpenClawError::Memory(
+                    "Vector store not configured".to_string(),
+                ))
+            }
         } else {
             Err(OpenClawError::Memory(
                 "Embedding provider not configured".to_string(),

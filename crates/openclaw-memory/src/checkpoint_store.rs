@@ -1,6 +1,6 @@
 use std::path::PathBuf;
-use tokio::sync::RwLock;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use super::checkpoint::{AgentState, Checkpoint};
 
@@ -19,15 +19,18 @@ impl CheckpointStore {
 
     pub async fn save_checkpoint(&self, checkpoint: Checkpoint) -> Result<(), String> {
         let mut checkpoints = self.checkpoints.write().await;
-        
-        if let Some(existing) = checkpoints.iter_mut().find(|c| c.agent_id == checkpoint.agent_id && c.session_id == checkpoint.session_id) {
+
+        if let Some(existing) = checkpoints
+            .iter_mut()
+            .find(|c| c.agent_id == checkpoint.agent_id && c.session_id == checkpoint.session_id)
+        {
             if checkpoint.sequence_number > existing.sequence_number {
                 *existing = checkpoint;
             }
         } else {
             checkpoints.push(checkpoint);
         }
-        
+
         self.persist_to_disk(&checkpoints).await?;
         Ok(())
     }
@@ -75,11 +78,11 @@ impl CheckpointStore {
     async fn persist_to_disk(&self, checkpoints: &[Checkpoint]) -> Result<(), String> {
         let json = serde_json::to_string_pretty(checkpoints)
             .map_err(|e| format!("Failed to serialize checkpoints: {}", e))?;
-        
+
         tokio::fs::write(&self.storage_path, json)
             .await
             .map_err(|e| format!("Failed to write checkpoints to disk: {}", e))?;
-        
+
         Ok(())
     }
 
@@ -103,10 +106,7 @@ impl CheckpointStore {
 
     pub async fn list_agents(&self) -> Vec<String> {
         let checkpoints = self.checkpoints.read().await;
-        let mut agents: Vec<String> = checkpoints
-            .iter()
-            .map(|c| c.agent_id.clone())
-            .collect();
+        let mut agents: Vec<String> = checkpoints.iter().map(|c| c.agent_id.clone()).collect();
         agents.sort();
         agents.dedup();
         agents
@@ -133,17 +133,12 @@ mod tests {
     #[tokio::test]
     async fn test_save_and_load_checkpoint() {
         let store = CheckpointStore::new(std::path::PathBuf::from("/tmp/test_checkpoints.json"));
-        
+
         let state = AgentState::new("agent-1".to_string());
-        let checkpoint = Checkpoint::new(
-            "agent-1".to_string(),
-            "session-1".to_string(),
-            state,
-            1,
-        );
-        
+        let checkpoint = Checkpoint::new("agent-1".to_string(), "session-1".to_string(), state, 1);
+
         store.save_checkpoint(checkpoint.clone()).await.unwrap();
-        
+
         let loaded = store.load_checkpoint("agent-1", "session-1").await;
         assert!(loaded.is_some());
     }
@@ -151,15 +146,17 @@ mod tests {
     #[tokio::test]
     async fn test_get_latest_checkpoint() {
         let store = CheckpointStore::new(std::path::PathBuf::from("/tmp/test_checkpoints2.json"));
-        
+
         let state1 = AgentState::new("agent-1".to_string());
-        let checkpoint1 = Checkpoint::new("agent-1".to_string(), "session-1".to_string(), state1, 1);
+        let checkpoint1 =
+            Checkpoint::new("agent-1".to_string(), "session-1".to_string(), state1, 1);
         store.save_checkpoint(checkpoint1).await.unwrap();
-        
+
         let state2 = AgentState::new("agent-1".to_string());
-        let checkpoint2 = Checkpoint::new("agent-1".to_string(), "session-1".to_string(), state2, 2);
+        let checkpoint2 =
+            Checkpoint::new("agent-1".to_string(), "session-1".to_string(), state2, 2);
         store.save_checkpoint(checkpoint2).await.unwrap();
-        
+
         let latest = store.get_latest_checkpoint("agent-1").await;
         assert!(latest.is_some());
         assert_eq!(latest.unwrap().sequence_number, 2);
@@ -168,15 +165,17 @@ mod tests {
     #[tokio::test]
     async fn test_list_agents() {
         let store = CheckpointStore::new(std::path::PathBuf::from("/tmp/test_checkpoints3.json"));
-        
+
         let state1 = AgentState::new("agent-1".to_string());
-        let checkpoint1 = Checkpoint::new("agent-1".to_string(), "session-1".to_string(), state1, 1);
+        let checkpoint1 =
+            Checkpoint::new("agent-1".to_string(), "session-1".to_string(), state1, 1);
         store.save_checkpoint(checkpoint1).await.unwrap();
-        
+
         let state2 = AgentState::new("agent-2".to_string());
-        let checkpoint2 = Checkpoint::new("agent-2".to_string(), "session-1".to_string(), state2, 1);
+        let checkpoint2 =
+            Checkpoint::new("agent-2".to_string(), "session-1".to_string(), state2, 1);
         store.save_checkpoint(checkpoint2).await.unwrap();
-        
+
         let agents = store.list_agents().await;
         assert_eq!(agents.len(), 2);
     }
@@ -184,14 +183,14 @@ mod tests {
     #[tokio::test]
     async fn test_delete_checkpoint() {
         let store = CheckpointStore::new(std::path::PathBuf::from("/tmp/test_checkpoints4.json"));
-        
+
         let state = AgentState::new("agent-1".to_string());
         let checkpoint = Checkpoint::new("agent-1".to_string(), "session-1".to_string(), state, 1);
         let checkpoint_id = checkpoint.id.clone();
         store.save_checkpoint(checkpoint).await.unwrap();
-        
+
         store.delete_checkpoint(&checkpoint_id).await.unwrap();
-        
+
         let loaded = store.load_checkpoint("agent-1", "session-1").await;
         assert!(loaded.is_none());
     }

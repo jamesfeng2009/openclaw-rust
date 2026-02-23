@@ -9,7 +9,8 @@ use tokio::sync::RwLock;
 use crate::base::Channel;
 use openclaw_core::{OpenClawError, Result};
 
-pub type ChannelCreator = Box<dyn Fn(serde_json::Value) -> Result<Arc<RwLock<dyn Channel>>> + Send + Sync>;
+pub type ChannelCreator =
+    Box<dyn Fn(serde_json::Value) -> Result<Arc<RwLock<dyn Channel>>> + Send + Sync>;
 
 pub struct ChannelFactoryRegistry {
     creators: RwLock<HashMap<String, ChannelCreator>>,
@@ -30,7 +31,11 @@ impl ChannelFactoryRegistry {
         creators.insert(channel_type, Box::new(creator));
     }
 
-    pub async fn create(&self, channel_type: &str, config: serde_json::Value) -> Result<Arc<RwLock<dyn Channel>>> {
+    pub async fn create(
+        &self,
+        channel_type: &str,
+        config: serde_json::Value,
+    ) -> Result<Arc<RwLock<dyn Channel>>> {
         let creators = self.creators.read().await;
         let creator = creators.get(channel_type).ok_or_else(|| {
             OpenClawError::Config(format!(

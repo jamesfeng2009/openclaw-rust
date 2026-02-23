@@ -21,11 +21,7 @@ pub struct RetrievalResult {
 
 #[async_trait]
 pub trait RetrievalExecutor: Send + Sync {
-    async fn execute(
-        &self,
-        query: &str,
-        config: &ExecutorConfig,
-    ) -> Result<Vec<RetrievalResult>>;
+    async fn execute(&self, query: &str, config: &ExecutorConfig) -> Result<Vec<RetrievalResult>>;
 
     async fn execute_with_context(
         &self,
@@ -53,11 +49,7 @@ impl MemoryRetrievalExecutor {
 
 #[async_trait]
 impl RetrievalExecutor for MemoryRetrievalExecutor {
-    async fn execute(
-        &self,
-        query: &str,
-        _config: &ExecutorConfig,
-    ) -> Result<Vec<RetrievalResult>> {
+    async fn execute(&self, query: &str, _config: &ExecutorConfig) -> Result<Vec<RetrievalResult>> {
         let result = self.memory_manager.recall(query).await?;
 
         Ok(result
@@ -120,11 +112,7 @@ impl VectorDBRetrievalExecutor {
 
 #[async_trait]
 impl RetrievalExecutor for VectorDBRetrievalExecutor {
-    async fn execute(
-        &self,
-        query: &str,
-        config: &ExecutorConfig,
-    ) -> Result<Vec<RetrievalResult>> {
+    async fn execute(&self, query: &str, config: &ExecutorConfig) -> Result<Vec<RetrievalResult>> {
         let query_embedding = self.embedding_provider.embed(query).await?;
 
         let search_result = self
@@ -145,9 +133,7 @@ impl RetrievalExecutor for VectorDBRetrievalExecutor {
                     .as_object()
                     .map(|obj| {
                         obj.iter()
-                            .filter_map(|(k, v)| {
-                                v.as_str().map(|s| (k.clone(), s.to_string()))
-                            })
+                            .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
                             .collect()
                     })
                     .unwrap_or_default();
@@ -212,9 +198,7 @@ impl MultiSourceRetrievalExecutor {
                 if let Some(executor) = self.executors.get(source) {
                     let q = query.to_string();
                     let c = config.clone();
-                    futures.push(async move {
-                        executor.execute(&q, &c).await
-                    });
+                    futures.push(async move { executor.execute(&q, &c).await });
                 }
             }
 

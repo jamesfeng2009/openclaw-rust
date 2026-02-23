@@ -6,14 +6,14 @@ use uuid::Uuid;
 #[cfg(feature = "per_session_memory")]
 use std::collections::VecDeque;
 
-use openclaw_ai::AIProvider;
 use openclaw_agent::aieos::{AIEOSParser, AIEOSPromptGenerator};
 use openclaw_agent::sessions::{MemorySessionStorage, SessionManager};
 use openclaw_agent::task::TaskOutput;
 use openclaw_agent::task::{TaskInput, TaskRequest, TaskType};
 use openclaw_agent::{Agent, AgentConfig as OpenclawAgentConfig, AgentInfo, AgentType, BaseAgent};
+use openclaw_ai::AIProvider;
 use openclaw_canvas::CanvasManager;
-use openclaw_channels::{register_default_channels, ChannelManager, ChannelMessage, SendMessage};
+use openclaw_channels::{ChannelManager, ChannelMessage, SendMessage, register_default_channels};
 use openclaw_core::{Config, Content, Message, OpenClawError, Result, Role};
 #[cfg(feature = "per_session_memory")]
 use openclaw_memory::MemoryConfig;
@@ -21,6 +21,7 @@ use openclaw_memory::MemoryManager;
 use openclaw_security::SecurityPipeline;
 
 use crate::agentic_rag::AgenticRAGEngine;
+use crate::channel_message_handler::{self, create_channel_handler, OrchestratorMessageProcessor};
 use crate::ports::{AiPortAdapter, MemoryPortAdapter, SecurityPortAdapter, ToolPortAdapter};
 
 #[cfg(feature = "per_session_memory")]
@@ -83,6 +84,7 @@ impl Default for SessionMemoryCache {
     }
 }
 
+#[derive(Clone)]
 pub struct ServiceOrchestrator {
     agent_service: AgentServiceState,
     channel_service: ChannelServiceState,
@@ -144,7 +146,7 @@ impl SessionServiceState {
             manager: Arc::new(manager),
         }
     }
-    
+
     pub fn with_default() -> Self {
         let storage = Arc::new(MemorySessionStorage::new());
         let manager = SessionManager::new(storage);
@@ -193,24 +195,24 @@ impl ServiceOrchestrator {
     pub fn new(config: OrchestratorConfig) -> Self {
         let storage = Arc::new(MemorySessionStorage::new());
         let session_manager = SessionManager::new(storage);
-        
+
         let channel_factory = Arc::new(openclaw_channels::ChannelFactoryRegistry::new());
-        
+
         if config.enable_channels {
             let factory_clone = channel_factory.clone();
             tokio::spawn(async move {
                 register_default_channels(&factory_clone).await;
             });
         }
-        
+
         let channel_manager = if config.enable_channels {
             openclaw_channels::ChannelManager::with_factory(channel_factory.clone())
         } else {
             openclaw_channels::ChannelManager::new()
         };
-        
+
         let channel_factory_for_service = channel_factory.clone();
-        
+
         Self {
             agent_service: AgentServiceState::default(),
             channel_service: ChannelServiceState {
@@ -228,9 +230,9 @@ impl ServiceOrchestrator {
             channel_factory,
             agentic_rag_engine: Arc::new(RwLock::new(None)),
             #[cfg(feature = "per_session_memory")]
-            session_memory_cache: Arc::new(tokio::sync::RwLock::new(
-                SessionMemoryCache::new(config.max_session_memories)
-            )),
+            session_memory_cache: Arc::new(tokio::sync::RwLock::new(SessionMemoryCache::new(
+                config.max_session_memories,
+            ))),
         }
     }
 
@@ -240,6 +242,16 @@ impl ServiceOrchestrator {
         }
 
         if self.config.enable_channels {
+            let handler = create_channel_handler(Arc::new(OrchestratorMessageProcessor {
+                orchestrator: Arc::new(self.clone()),
+            }));
+            self.channel_service
+                .manager
+                .read()
+                .await
+                .add_handler(handler)
+                .await;
+
             self.channel_service
                 .manager
                 .read()
@@ -290,71 +302,72 @@ impl ServiceOrchestrator {
     pub async fn register_agent(&self, id: String, agent: Arc<dyn Agent>) {
         let (should_inject, agent_to_inject) = {
             let mut agents = self.agent_service.agents.write().await;
-            
+
             let should_inject = {
                 let provider = self.ai_provider.read().await;
                 let memory = self.memory_manager.read().await;
                 let pipeline = self.security_pipeline.read().await;
                 provider.is_some() && memory.is_some() && pipeline.is_some()
             };
-            
+
             let agent_to_inject = if should_inject {
                 Some(agent.clone())
             } else {
                 None
             };
-            
+
             agents.insert(id.clone(), agent);
-            
+
             (should_inject, agent_to_inject)
         };
-        
-        if should_inject
-            && let Some(agent_to_inject) = agent_to_inject {
-                let ai_provider = self.ai_provider.clone();
-                let memory_manager = self.memory_manager.clone();
-                let security_pipeline = self.security_pipeline.clone();
-                let tool_executor = self.tool_executor.clone();
-                tokio::spawn(async move {
-                    let ai = {
-                        let p = ai_provider.read().await;
-                        p.clone()
-                    };
-                    let mem = {
-                        let m = memory_manager.read().await;
-                        m.clone()
-                    };
-                    let sec = {
-                        let s = security_pipeline.read().await;
-                        s.clone()
-                    };
-                    let tools = {
-                        let t = tool_executor.read().await;
-                        t.clone()
-                    };
-                    
-                    if let (Some(ai), Some(sec)) = (ai, sec) {
-                        let ai_port = Arc::new(AiPortAdapter { provider: ai }) as Arc<dyn openclaw_agent::ports::AIPort>;
-                        
-                        let memory_port = mem.as_ref().map(|m| {
-                            Arc::new(MemoryPortAdapter::new(m.clone())) as Arc<dyn openclaw_agent::ports::MemoryPort>
-                        });
-                        
-                        let security_port = Arc::new(SecurityPortAdapter { pipeline: sec }) as Arc<dyn openclaw_agent::ports::SecurityPort>;
-                        
-                        let tool_port = tools.as_ref().map(|t|
-                            Arc::new(ToolPortAdapter { registry: t.clone() }) as Arc<dyn openclaw_agent::ports::ToolPort>
-                        );
-                        
-                        agent_to_inject.inject_ports(
-                            Some(ai_port),
-                            memory_port,
-                            Some(security_port),
-                            tool_port,
-                        ).await;
-                    }
-                });
-            }
+
+        if should_inject && let Some(agent_to_inject) = agent_to_inject {
+            let ai_provider = self.ai_provider.clone();
+            let memory_manager = self.memory_manager.clone();
+            let security_pipeline = self.security_pipeline.clone();
+            let tool_executor = self.tool_executor.clone();
+            tokio::spawn(async move {
+                let ai = {
+                    let p = ai_provider.read().await;
+                    p.clone()
+                };
+                let mem = {
+                    let m = memory_manager.read().await;
+                    m.clone()
+                };
+                let sec = {
+                    let s = security_pipeline.read().await;
+                    s.clone()
+                };
+                let tools = {
+                    let t = tool_executor.read().await;
+                    t.clone()
+                };
+
+                if let (Some(ai), Some(sec)) = (ai, sec) {
+                    let ai_port = Arc::new(AiPortAdapter { provider: ai })
+                        as Arc<dyn openclaw_agent::ports::AIPort>;
+
+                    let memory_port = mem.as_ref().map(|m| {
+                        Arc::new(MemoryPortAdapter::new(Arc::clone(&m)))
+                            as Arc<dyn openclaw_agent::ports::MemoryPort>
+                    });
+
+                    let security_port = Arc::new(SecurityPortAdapter { pipeline: sec })
+                        as Arc<dyn openclaw_agent::ports::SecurityPort>;
+
+                    let tool_port = tools.as_ref().map(|t| {
+                        Arc::new(ToolPortAdapter {
+                            registry: t.clone(),
+                        }) as Arc<dyn openclaw_agent::ports::ToolPort>
+                    });
+
+                    agent_to_inject
+                        .inject_ports(Some(ai_port), memory_port, Some(security_port), tool_port)
+                        .await;
+                }
+            });
+        }
     }
 
     pub async fn inject_dependencies(
@@ -376,7 +389,7 @@ impl ServiceOrchestrator {
             let mut pipeline = self.security_pipeline.write().await;
             *pipeline = Some(security_pipeline.clone());
         }
-        
+
         let agents: Vec<Arc<dyn Agent>> = {
             let agents = self.agent_service.agents.read().await;
             agents.values().cloned().collect()
@@ -384,18 +397,21 @@ impl ServiceOrchestrator {
 
         let mem_lock = memory_manager.clone();
         for agent in agents {
-            let ai_port = Arc::new(AiPortAdapter { provider: ai_provider.clone() }) as Arc<dyn openclaw_agent::ports::AIPort>;
-            let memory_port = mem_lock.clone().map(|m| {
-                Arc::new(MemoryPortAdapter::new(m.clone())) as Arc<dyn openclaw_agent::ports::MemoryPort>
-            });
-            let security_port = Arc::new(SecurityPortAdapter { pipeline: security_pipeline.clone() }) as Arc<dyn openclaw_agent::ports::SecurityPort>;
-            
-            agent.inject_ports(
-                Some(ai_port),
-                memory_port,
-                Some(security_port),
-                None,
-            ).await;
+            let ai_port = Arc::new(AiPortAdapter {
+                provider: ai_provider.clone(),
+            }) as Arc<dyn openclaw_agent::ports::AIPort>;
+            let memory_port: Option<Arc<dyn openclaw_agent::ports::MemoryPort>> =
+                mem_lock.clone().map(|m| {
+                    Arc::new(MemoryPortAdapter::new(Arc::clone(&m)))
+                        as Arc<dyn openclaw_agent::ports::MemoryPort>
+                });
+            let security_port = Arc::new(SecurityPortAdapter {
+                pipeline: security_pipeline.clone(),
+            }) as Arc<dyn openclaw_agent::ports::SecurityPort>;
+
+            agent
+                .inject_ports(Some(ai_port), memory_port, Some(security_port), None)
+                .await;
         }
 
         tracing::info!("Dependencies injected to all agents");
@@ -414,12 +430,14 @@ impl ServiceOrchestrator {
         };
 
         for agent in agents {
-            agent.inject_ports(
-                ai_port.clone(),
-                memory_port.clone(),
-                security_port.clone(),
-                tool_port.clone(),
-            ).await;
+            agent
+                .inject_ports(
+                    ai_port.clone(),
+                    memory_port.clone(),
+                    security_port.clone(),
+                    tool_port.clone(),
+                )
+                .await;
         }
 
         tracing::info!("Ports injected to all agents");
@@ -456,7 +474,10 @@ impl ServiceOrchestrator {
         state: Option<openclaw_agent::sessions::SessionState>,
     ) -> openclaw_agent::Result<Vec<openclaw_agent::sessions::Session>> {
         let agent_id: Option<openclaw_agent::types::AgentId> = agent_id.map(|s| s.to_string());
-        self.session_service.manager.list_sessions(agent_id, state).await
+        self.session_service
+            .manager
+            .list_sessions(agent_id, state)
+            .await
     }
 
     pub async fn create_session(
@@ -472,22 +493,24 @@ impl ServiceOrchestrator {
             openclaw_core::session::SessionScope::PerChannelPeer => None,
             openclaw_core::session::SessionScope::PerAccountChannelPeer => None,
         };
-        
+
         let agent_id_owned = agent_id.clone();
-        self.session_service.manager
+        self.session_service
+            .manager
             .create_session(name, agent_id_owned, scope, channel_type, peer_id)
             .await
     }
 
     pub async fn close_session(&self, session_id: &str) -> openclaw_agent::Result<()> {
-        let uuid = uuid::Uuid::parse_str(session_id)
-            .map_err(|_| openclaw_agent::OpenClawError::Config(format!("Invalid session ID: {}", session_id)))?;
-        
+        let uuid = uuid::Uuid::parse_str(session_id).map_err(|_| {
+            openclaw_agent::OpenClawError::Config(format!("Invalid session ID: {}", session_id))
+        })?;
+
         #[cfg(feature = "per_session_memory")]
         {
             self.cleanup_session_memory(&uuid).await;
         }
-        
+
         self.session_service.manager.close_session(&uuid).await
     }
 
@@ -496,20 +519,23 @@ impl ServiceOrchestrator {
         if !self.config.enable_per_session_memory {
             return None;
         }
-        
+
         let mut cache = self.session_memory_cache.write().await;
-        
+
         if let Some(memory) = cache.get(session_id) {
             return Some(memory);
         }
-        
-        let config = self.config.memory_config.clone()
+
+        let config = self
+            .config
+            .memory_config
+            .clone()
             .unwrap_or_else(|| MemoryConfig::default());
-        
+
         let session_memory = Arc::new(MemoryManager::new(config));
-        
+
         cache.insert(*session_id, session_memory.clone());
-        
+
         tracing::debug!("Created new session memory for session: {}", session_id);
         Some(session_memory)
     }
@@ -517,15 +543,19 @@ impl ServiceOrchestrator {
     #[cfg(feature = "per_session_memory")]
     async fn cleanup_session_memory(&self, session_id: &Uuid) {
         let mut cache = self.session_memory_cache.write().await;
-        
+
         if let Some(memory) = cache.remove(session_id) {
             tracing::debug!("Cleaning up session memory for session: {}", session_id);
         }
     }
 
-    pub async fn get_session(&self, session_id: &str) -> openclaw_agent::Result<Option<openclaw_agent::sessions::Session>> {
-        let uuid = uuid::Uuid::parse_str(session_id)
-            .map_err(|_| openclaw_agent::OpenClawError::Config(format!("Invalid session ID: {}", session_id)))?;
+    pub async fn get_session(
+        &self,
+        session_id: &str,
+    ) -> openclaw_agent::Result<Option<openclaw_agent::sessions::Session>> {
+        let uuid = uuid::Uuid::parse_str(session_id).map_err(|_| {
+            openclaw_agent::OpenClawError::Config(format!("Invalid session ID: {}", session_id))
+        })?;
         self.session_service.manager.get_session(&uuid).await
     }
 
@@ -535,7 +565,8 @@ impl ServiceOrchestrator {
         message: &str,
         session_id: &str,
     ) -> Result<String> {
-        self.process_message(agent_id, message.to_string(), Some(session_id.to_string())).await
+        self.process_message(agent_id, message.to_string(), Some(session_id.to_string()))
+            .await
     }
 
     pub async fn process_message(
@@ -552,7 +583,11 @@ impl ServiceOrchestrator {
         let msg = Message::new(Role::User, vec![Content::Text { text: message }]);
 
         let task = TaskRequest::new(TaskType::Conversation, TaskInput::Message { message: msg })
-            .with_session_id(session_id.clone().unwrap_or_else(|| format!("agent-{}", agent_id)));
+            .with_session_id(
+                session_id
+                    .clone()
+                    .unwrap_or_else(|| format!("agent-{}", agent_id)),
+            );
 
         #[cfg(feature = "per_session_memory")]
         {
@@ -560,20 +595,26 @@ impl ServiceOrchestrator {
                 if let Some(ref sid) = session_id {
                     if let Ok(uuid) = uuid::Uuid::parse_str(sid) {
                         if let Some(session_memory) = self.get_session_memory(&uuid).await {
-                            let ai_port = Arc::new(AiPortAdapter { 
-                                provider: self.ai_provider.read().await.clone().unwrap()
-                            }) as Arc<dyn openclaw_agent::ports::AIPort>;
-                            let memory_port = Arc::new(MemoryPortAdapter::new(session_memory.clone())) as Arc<dyn openclaw_agent::ports::MemoryPort>;
-                            let security_port = Arc::new(SecurityPortAdapter { 
-                                pipeline: self.security_pipeline.read().await.clone().unwrap()
-                            }) as Arc<dyn openclaw_agent::ports::SecurityPort>;
-                            
-                            agent.inject_ports(
-                                Some(ai_port),
-                                Some(memory_port),
-                                Some(security_port),
-                                None,
-                            ).await;
+                            let ai_port = Arc::new(AiPortAdapter {
+                                provider: self.ai_provider.read().await.clone().unwrap(),
+                            })
+                                as Arc<dyn openclaw_agent::ports::AIPort>;
+                            let memory_port =
+                                Arc::new(MemoryPortAdapter::new(session_memory.clone()))
+                                    as Arc<dyn openclaw_agent::ports::MemoryPort>;
+                            let security_port = Arc::new(SecurityPortAdapter {
+                                pipeline: self.security_pipeline.read().await.clone().unwrap(),
+                            })
+                                as Arc<dyn openclaw_agent::ports::SecurityPort>;
+
+                            agent
+                                .inject_ports(
+                                    Some(ai_port),
+                                    Some(memory_port),
+                                    Some(security_port),
+                                    None,
+                                )
+                                .await;
                         }
                     }
                 }
@@ -635,8 +676,8 @@ impl ServiceOrchestrator {
         message: &str,
         session_id: &str,
     ) -> std::result::Result<Vec<std::result::Result<String, String>>, String> {
-        use openclaw_ai::types::ChatRequest;
         use futures::StreamExt;
+        use openclaw_ai::types::ChatRequest;
         use tokio::sync::mpsc;
 
         let _agent = match self.get_agent(agent_id).await {
@@ -644,9 +685,18 @@ impl ServiceOrchestrator {
             None => return Err(format!("Agent not found: {}", agent_id)),
         };
 
-        let _task = TaskRequest::new(TaskType::Conversation, TaskInput::Message { 
-            message: Message::new(Role::User, vec![Content::Text { text: message.to_string() }])
-        }).with_session_id(session_id.to_string());
+        let _task = TaskRequest::new(
+            TaskType::Conversation,
+            TaskInput::Message {
+                message: Message::new(
+                    Role::User,
+                    vec![Content::Text {
+                        text: message.to_string(),
+                    }],
+                ),
+            },
+        )
+        .with_session_id(session_id.to_string());
 
         let ai_port = match self.ai_provider.read().await.clone() {
             Some(p) => p,
@@ -655,19 +705,24 @@ impl ServiceOrchestrator {
 
         let messages = vec![Message::new(
             Role::User,
-            vec![Content::Text { text: message.to_string() }],
+            vec![Content::Text {
+                text: message.to_string(),
+            }],
         )];
 
         let mut request = ChatRequest::new("default", messages);
         request.stream = true;
-        
+
         let stream = match ai_port.chat_stream(request).await {
             Ok(s) => s,
             Err(e) => return Err(format!("Failed to get stream: {:?}", e)),
         };
-        
-        let (tx, mut rx): (tokio::sync::mpsc::Sender<std::result::Result<String, String>>, _) = mpsc::channel(100);
-        
+
+        let (tx, mut rx): (
+            tokio::sync::mpsc::Sender<std::result::Result<String, String>>,
+            _,
+        ) = mpsc::channel(100);
+
         tokio::spawn(async move {
             let mut stream = stream;
             while let Some(chunk_result) = stream.next().await {
@@ -679,12 +734,12 @@ impl ServiceOrchestrator {
                 }
             }
         });
-        
+
         let mut results = Vec::new();
         while let Some(result) = rx.recv().await {
             results.push(result);
         }
-        
+
         Ok(results)
     }
 
@@ -707,13 +762,17 @@ impl ServiceOrchestrator {
         manager.list_channels().await
     }
 
-    pub async fn create_channel(&self, name: String, channel_type: String) -> openclaw_core::Result<()> {
+    pub async fn create_channel(
+        &self,
+        name: String,
+        channel_type: String,
+    ) -> openclaw_core::Result<()> {
         let config = serde_json::json!({
             "enabled": true
         });
-        
+
         let channel = self.channel_factory.create(&channel_type, config).await?;
-        
+
         let manager = self.channel_service.manager.read().await;
         manager.register_channel(name, channel).await;
         Ok(())
@@ -803,7 +862,7 @@ impl ServiceOrchestrator {
         Ok(canvas_id)
     }
 
-    pub async fn init_agents_from_config(&self, config: &Config) -> Result<()> {
+    pub async fn init_agents_from_config(&self, config: &crate::server_config::ServerConfig) -> Result<()> {
         let agents_config = &config.agents;
 
         for agent_cfg in &agents_config.list {
@@ -880,7 +939,7 @@ mod tests {
         assert!(!config.enable_channels);
         assert!(!config.enable_voice);
         assert!(!config.enable_canvas);
-        
+
         #[cfg(feature = "per_session_memory")]
         {
             assert!(!config.enable_per_session_memory);
@@ -899,7 +958,7 @@ mod tests {
                 max_session_memories: 50,
                 ..Default::default()
             };
-            
+
             assert!(config.enable_per_session_memory);
             assert!(config.memory_config.is_some());
             assert_eq!(config.max_session_memories, 50);
@@ -908,27 +967,28 @@ mod tests {
 
     #[tokio::test]
     async fn test_orchestrator_inject_ports() {
-        use openclaw_agent::mock::mock::MockAiProvider;
+        use crate::ports::{AiPortAdapter, SecurityPortAdapter};
         use openclaw_agent::Agent;
+        use openclaw_agent::mock::mock::MockAiProvider;
         use openclaw_memory::MemoryManager;
         use openclaw_security::SecurityPipeline;
-        use crate::ports::{AiPortAdapter, SecurityPortAdapter};
-        
+
         let orchestrator = ServiceOrchestrator::new(OrchestratorConfig::default());
-        
+
         let ai_provider: Arc<dyn AIProvider> = Arc::new(MockAiProvider::new());
         let security_pipeline = Arc::new(SecurityPipeline::default());
-        
-        let ai_port = Arc::new(AiPortAdapter { provider: ai_provider }) as Arc<dyn openclaw_agent::ports::AIPort>;
-        let security_port = Arc::new(SecurityPortAdapter { pipeline: security_pipeline }) as Arc<dyn openclaw_agent::ports::SecurityPort>;
-        
-        orchestrator.inject_ports(
-            Some(ai_port),
-            None,
-            Some(security_port),
-            None,
-        ).await;
-        
+
+        let ai_port = Arc::new(AiPortAdapter {
+            provider: ai_provider,
+        }) as Arc<dyn openclaw_agent::ports::AIPort>;
+        let security_port = Arc::new(SecurityPortAdapter {
+            pipeline: security_pipeline,
+        }) as Arc<dyn openclaw_agent::ports::SecurityPort>;
+
+        orchestrator
+            .inject_ports(Some(ai_port), None, Some(security_port), None)
+            .await;
+
         let provider = orchestrator.get_ai_provider().await;
         assert!(provider.is_some());
     }
@@ -975,10 +1035,10 @@ mod tests {
             let mut cache = SessionMemoryCache::new(10);
             let session_id = Uuid::new_v4();
             let memory = Arc::new(MemoryManager::default());
-            
+
             cache.insert(session_id, memory.clone());
             assert_eq!(cache.len(), 1);
-            
+
             let retrieved = cache.get(&session_id);
             assert!(retrieved.is_some());
             assert!(Arc::ptr_eq(&retrieved.unwrap(), &memory));
@@ -989,14 +1049,14 @@ mod tests {
             let mut cache = SessionMemoryCache::new(10);
             let session_id = Uuid::new_v4();
             let memory = Arc::new(MemoryManager::default());
-            
+
             cache.insert(session_id, memory);
             assert_eq!(cache.len(), 1);
-            
+
             let removed = cache.remove(&session_id);
             assert!(removed.is_some());
             assert_eq!(cache.len(), 0);
-            
+
             let retrieved = cache.get(&session_id);
             assert!(retrieved.is_none());
         }
@@ -1004,18 +1064,18 @@ mod tests {
         #[test]
         fn test_session_memory_cache_lru_eviction() {
             let mut cache = SessionMemoryCache::new(2);
-            
+
             let id1 = Uuid::new_v4();
             let id2 = Uuid::new_v4();
             let id3 = Uuid::new_v4();
-            
+
             cache.insert(id1, Arc::new(MemoryManager::default()));
             cache.insert(id2, Arc::new(MemoryManager::default()));
             assert_eq!(cache.len(), 2);
-            
+
             cache.insert(id3, Arc::new(MemoryManager::default()));
             assert_eq!(cache.len(), 2);
-            
+
             assert!(cache.get(&id1).is_none());
             assert!(cache.get(&id2).is_some());
             assert!(cache.get(&id3).is_some());
@@ -1027,10 +1087,10 @@ mod tests {
             let session_id = Uuid::new_v4();
             let memory1 = Arc::new(MemoryManager::default());
             let memory2 = Arc::new(MemoryManager::default());
-            
+
             cache.insert(session_id, memory1);
             cache.insert(session_id, memory2);
-            
+
             assert_eq!(cache.len(), 1);
         }
 
@@ -1038,10 +1098,10 @@ mod tests {
         async fn test_orchestrator_get_session_memory() {
             let config = make_per_session_config(10);
             let orchestrator = ServiceOrchestrator::new(config);
-            
+
             let session_id = Uuid::new_v4();
             let memory = orchestrator.get_session_memory(&session_id).await;
-            
+
             assert!(memory.is_some());
         }
 
@@ -1049,12 +1109,12 @@ mod tests {
         async fn test_orchestrator_get_session_memory_cached() {
             let config = make_per_session_config(10);
             let orchestrator = ServiceOrchestrator::new(config);
-            
+
             let session_id = Uuid::new_v4();
-            
+
             let memory1 = orchestrator.get_session_memory(&session_id).await;
             let memory2 = orchestrator.get_session_memory(&session_id).await;
-            
+
             assert!(memory1.is_some());
             assert!(memory2.is_some());
         }
@@ -1063,13 +1123,13 @@ mod tests {
         async fn test_orchestrator_cleanup_session_memory() {
             let config = make_per_session_config(10);
             let orchestrator = ServiceOrchestrator::new(config);
-            
+
             let session_id = Uuid::new_v4();
-            
+
             let _ = orchestrator.get_session_memory(&session_id).await;
-            
+
             orchestrator.cleanup_session_memory(&session_id).await;
-            
+
             let cache = orchestrator.session_memory_cache.read().await;
             assert!(cache.get(&session_id).is_none());
         }
@@ -1078,13 +1138,13 @@ mod tests {
         async fn test_orchestrator_close_session_cleans_memory() {
             let config = make_per_session_config(10);
             let orchestrator = ServiceOrchestrator::new(config);
-            
+
             let session_id = Uuid::new_v4();
-            
+
             let _ = orchestrator.get_session_memory(&session_id).await;
-            
+
             orchestrator.cleanup_session_memory(&session_id).await;
-            
+
             let cache = orchestrator.session_memory_cache.read().await;
             assert!(cache.get(&session_id).is_none());
         }
@@ -1093,30 +1153,33 @@ mod tests {
         async fn test_per_session_memory_isolation() {
             let config = make_per_session_config(10);
             let orchestrator = ServiceOrchestrator::new(config);
-            
+
             let session_id1 = Uuid::new_v4();
             let session_id2 = Uuid::new_v4();
-            
+
             let memory1 = orchestrator.get_session_memory(&session_id1).await;
             let memory2 = orchestrator.get_session_memory(&session_id2).await;
-            
+
             assert!(memory1.is_some());
             assert!(memory2.is_some());
-            
+
             let mem1_ptr = Arc::as_ptr(&memory1.unwrap());
             let mem2_ptr = Arc::as_ptr(&memory2.unwrap());
-            assert_ne!(mem1_ptr, mem2_ptr, "Each session should have its own MemoryManager");
+            assert_ne!(
+                mem1_ptr, mem2_ptr,
+                "Each session should have its own MemoryManager"
+            );
         }
 
         #[tokio::test]
         async fn test_multiple_sessions_with_lru_eviction() {
             let config = make_per_session_config(2);
             let orchestrator = ServiceOrchestrator::new(config);
-            
+
             let session_id1 = Uuid::new_v4();
-            
+
             let _ = orchestrator.get_session_memory(&session_id1).await;
-            
+
             let cache = orchestrator.session_memory_cache.read().await;
             assert_eq!(cache.len(), 1);
         }
@@ -1125,18 +1188,21 @@ mod tests {
         async fn test_session_memory_persists_across_get_calls() {
             let config = make_per_session_config(10);
             let orchestrator = ServiceOrchestrator::new(config);
-            
+
             let session_id = Uuid::new_v4();
-            
+
             let memory1 = orchestrator.get_session_memory(&session_id).await;
             assert!(memory1.is_some());
-            
+
             let memory2 = orchestrator.get_session_memory(&session_id).await;
             assert!(memory2.is_some());
-            
+
             let mem1_ptr = Arc::as_ptr(&memory1.unwrap());
             let mem2_ptr = Arc::as_ptr(&memory2.unwrap());
-            assert_eq!(mem1_ptr, mem2_ptr, "Same session should return same MemoryManager");
+            assert_eq!(
+                mem1_ptr, mem2_ptr,
+                "Same session should return same MemoryManager"
+            );
         }
 
         #[tokio::test]
@@ -1145,11 +1211,14 @@ mod tests {
             let mut config = config;
             config.enable_per_session_memory = false;
             let orchestrator = ServiceOrchestrator::new(config);
-            
+
             let session_id = Uuid::new_v4();
-            
+
             let memory = orchestrator.get_session_memory(&session_id).await;
-            assert!(memory.is_none(), "No session memory should be created when disabled");
+            assert!(
+                memory.is_none(),
+                "No session memory should be created when disabled"
+            );
         }
     }
 }

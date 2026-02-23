@@ -142,7 +142,12 @@ impl DefaultResultReflector {
         let context_str = results
             .iter()
             .take(5)
-            .map(|r| format!("- {}\n  Source: {:?}\n  Relevance: {:.2}", r.content, r.source, r.relevance_score))
+            .map(|r| {
+                format!(
+                    "- {}\n  Source: {:?}\n  Relevance: {:.2}",
+                    r.content, r.source, r.relevance_score
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n\n");
 
@@ -299,35 +304,37 @@ mod tests {
     #[test]
     fn test_verify_simple_with_empty_results() {
         let results: Vec<RetrievalResult> = vec![];
-        
-        let config = ReflectorConfig::default();
-        
-        // Test with empty results - should return insufficient
-        let total: f32 = results.iter().map(|r| r.relevance_score).sum();
-        let avg_score = if results.is_empty() { 0.0 } else { total / results.len() as f32 };
-        assert!(avg_score < config.min_confidence);
-    }
-    
-    #[test]
-    fn test_reflection_with_single_result() {
-        let results = vec![
-            RetrievalResult {
-                id: "1".to_string(),
-                content: "Content 1".to_string(),
-                source: SourceType::Memory,
-                relevance_score: 0.9,
-                metadata: HashMap::new(),
-            },
-        ];
 
         let config = ReflectorConfig::default();
-        
+
+        // Test with empty results - should return insufficient
+        let total: f32 = results.iter().map(|r| r.relevance_score).sum();
+        let avg_score = if results.is_empty() {
+            0.0
+        } else {
+            total / results.len() as f32
+        };
+        assert!(avg_score < config.min_confidence);
+    }
+
+    #[test]
+    fn test_reflection_with_single_result() {
+        let results = vec![RetrievalResult {
+            id: "1".to_string(),
+            content: "Content 1".to_string(),
+            source: SourceType::Memory,
+            relevance_score: 0.9,
+            metadata: HashMap::new(),
+        }];
+
+        let config = ReflectorConfig::default();
+
         // Single result should not be sufficient (need at least 2)
         let total: f32 = results.iter().map(|r| r.relevance_score).sum();
         let avg_score = total / results.len() as f32;
         let count = results.len();
         let is_sufficient = avg_score >= config.min_confidence && count >= 2;
-        
+
         assert!(!is_sufficient);
         assert!(avg_score >= config.min_confidence);
     }

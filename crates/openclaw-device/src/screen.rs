@@ -5,17 +5,14 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn path_to_str(path: &PathBuf) -> Result<&str, DeviceError> {
-    path.to_str().ok_or_else(|| {
-        DeviceError::OperationFailed("路径包含无效 Unicode 字符".to_string())
-    })
+    path.to_str()
+        .ok_or_else(|| DeviceError::OperationFailed("路径包含无效 Unicode 字符".to_string()))
 }
 
 fn path_to_string(path: &PathBuf) -> Result<String, DeviceError> {
     path.to_str()
         .map(|s| s.to_string())
-        .ok_or_else(|| {
-            DeviceError::OperationFailed("路径包含无效 Unicode 字符".to_string())
-        })
+        .ok_or_else(|| DeviceError::OperationFailed("路径包含无效 Unicode 字符".to_string()))
 }
 
 pub struct ScreenManager;
@@ -38,12 +35,7 @@ impl ScreenManager {
             let output_path = output_dir.join(format!("screen_{}.png", timestamp));
 
             let output = Command::new("screencapture")
-                .args([
-                    "-x",
-                    "-D",
-                    &display.to_string(),
-                    path_to_str(&output_path)?,
-                ])
+                .args(["-x", "-D", &display.to_string(), path_to_str(&output_path)?])
                 .output()
                 .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
 
@@ -82,7 +74,11 @@ impl ScreenManager {
 
             let output_path = output_dir.join(format!("screen_{}.png", timestamp));
 
-            let screenshot_cmd = if Command::new("gnome-screenshot").arg("--version").output().is_ok() {
+            let screenshot_cmd = if Command::new("gnome-screenshot")
+                .arg("--version")
+                .output()
+                .is_ok()
+            {
                 "gnome-screenshot"
             } else if Command::new("scrot").arg("--version").output().is_ok() {
                 "scrot"
@@ -94,7 +90,9 @@ impl ScreenManager {
                     data: None,
                     mime_type: "image/png".to_string(),
                     timestamp,
-                    error: Some("无可用截图工具，请安装 gnome-screenshot, scrot 或 imagemagick".to_string()),
+                    error: Some(
+                        "无可用截图工具，请安装 gnome-screenshot, scrot 或 imagemagick".to_string(),
+                    ),
                 });
             };
 
@@ -112,9 +110,7 @@ impl ScreenManager {
                     .arg(path_str)
                     .output()
             } else {
-                Command::new("scrot")
-                    .arg(path_str)
-                    .output()
+                Command::new("scrot").arg(path_str).output()
             };
 
             match result {
@@ -122,8 +118,10 @@ impl ScreenManager {
                     if output_path.exists() {
                         let data = fs::read(&output_path)
                             .map_err(|e| DeviceError::OperationFailed(e.to_string()))?;
-                        let base64_data =
-                            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
+                        let base64_data = base64::Engine::encode(
+                            &base64::engine::general_purpose::STANDARD,
+                            &data,
+                        );
                         fs::remove_file(&output_path).ok();
 
                         Ok(CaptureResult {
@@ -311,13 +309,20 @@ impl ScreenManager {
             let result = tokio::task::spawn_blocking(move || {
                 let output = Command::new("ffmpeg")
                     .args([
-                        "-f", "x11grab",
-                        "-framerate", "30",
-                        "-video_size", "1920x1080",
-                        "-i", ":0.0",
-                        "-t", &duration.to_string(),
-                        "-c:v", "libx264",
-                        "-preset", "ultrafast",
+                        "-f",
+                        "x11grab",
+                        "-framerate",
+                        "30",
+                        "-video_size",
+                        "1920x1080",
+                        "-i",
+                        ":0.0",
+                        "-t",
+                        &duration.to_string(),
+                        "-c:v",
+                        "libx264",
+                        "-preset",
+                        "ultrafast",
                         &path_str,
                     ])
                     .output()

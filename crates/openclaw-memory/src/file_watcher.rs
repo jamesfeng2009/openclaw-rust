@@ -18,11 +18,7 @@ impl Default for FileWatcherConfig {
         Self {
             watch_paths: vec![],
             poll_interval_ms: 5000,
-            ignored_patterns: vec![
-                "*.tmp".to_string(),
-                "*.swp".to_string(),
-                ".git".to_string(),
-            ],
+            ignored_patterns: vec!["*.tmp".to_string(), "*.swp".to_string(), ".git".to_string()],
             auto_reindex: true,
         }
     }
@@ -245,7 +241,10 @@ impl MemoryFileIndexer {
             last_indexed: std::time::SystemTime::now(),
         };
 
-        self.index.write().await.insert(path.to_path_buf(), info.clone());
+        self.index
+            .write()
+            .await
+            .insert(path.to_path_buf(), info.clone());
 
         Ok(info)
     }
@@ -282,7 +281,10 @@ impl MemoryFileIndexer {
         Ok(())
     }
 
-    async fn index_directory(dir: &Path, index: &Arc<RwLock<HashMap<PathBuf, MemoryFileInfo>>>) -> Result<(), String> {
+    async fn index_directory(
+        dir: &Path,
+        index: &Arc<RwLock<HashMap<PathBuf, MemoryFileInfo>>>,
+    ) -> Result<(), String> {
         let mut dirs_to_scan = vec![dir.to_path_buf()];
 
         while let Some(current_dir) = dirs_to_scan.pop() {
@@ -370,7 +372,7 @@ mod tests {
         let hash1 = MemoryFileIndexer::simple_hash("hello");
         let hash2 = MemoryFileIndexer::simple_hash("hello");
         let hash3 = MemoryFileIndexer::simple_hash("world");
-        
+
         assert_eq!(hash1, hash2);
         assert_ne!(hash1, hash3);
     }

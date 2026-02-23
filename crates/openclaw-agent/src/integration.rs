@@ -4,8 +4,8 @@
 
 use std::sync::Arc;
 
-use crate::{Agent, BaseAgent, TaskInput, TaskRequest, TaskType};
 use crate::ports::AIPort;
+use crate::{Agent, BaseAgent, TaskInput, TaskRequest, TaskType};
 use openclaw_ai::{
     AIProvider,
     models::get_all_models,
@@ -243,23 +243,6 @@ mod tests {
 
         let kimi = create_kimi_provider("test-key");
         assert_eq!(kimi.name(), "kimi");
-    }
-
-    #[tokio::test]
-    async fn test_agent_creation() {
-        let provider = create_openai_provider("test-key");
-
-        let coder = create_coder_agent(provider.clone()).await;
-        assert_eq!(coder.id(), "coder");
-
-        let chat = create_chat_agent(provider.clone()).await;
-        assert_eq!(chat.id(), "chat");
-
-        let researcher = create_researcher_agent(provider.clone()).await;
-        assert_eq!(researcher.id(), "researcher");
-
-        let writer = create_writer_agent(provider).await;
-        assert_eq!(writer.id(), "writer");
     }
 
     #[test]

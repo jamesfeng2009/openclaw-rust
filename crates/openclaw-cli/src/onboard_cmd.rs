@@ -38,7 +38,7 @@ pub struct OnboardConfig {
     pub user_name: Option<String>,
     pub providers: HashMap<String, ProviderConfig>,
     pub agents: AgentsConfig,
-    pub channels: ChannelsConfig,
+    pub channels: openclaw_channels::ChannelConfigs,
     pub features: FeaturesConfig,
     #[serde(default)]
     pub security: SecurityConfig,
@@ -81,36 +81,6 @@ fn default_model() -> String {
 
 fn default_provider() -> String {
     "openai".to_string()
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct ChannelsConfig {
-    #[serde(default)]
-    pub telegram: ChannelConfig,
-    #[serde(default)]
-    pub discord: ChannelConfig,
-    #[serde(default)]
-    pub whatsapp: ChannelConfig,
-    #[serde(default)]
-    pub feishu: ChannelConfig,
-    #[serde(default)]
-    pub dingtalk: ChannelConfig,
-    #[serde(default)]
-    pub wecom: ChannelConfig,
-    #[serde(default)]
-    pub slack: ChannelConfig,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct ChannelConfig {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub token: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub api_key: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_from: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

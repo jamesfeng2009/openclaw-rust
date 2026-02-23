@@ -60,9 +60,11 @@ impl QueryPlanner for DefaultQueryPlanner {
 
         if config.enable_query_rewrite {
             let rewritten = self.rewrite_query(query, context).await?;
-            
+
             if config.enable_hypothesis {
-                let sub_queries = self.generate_sub_queries(&rewritten, &enabled_sources, config).await?;
+                let sub_queries = self
+                    .generate_sub_queries(&rewritten, &enabled_sources, config)
+                    .await?;
                 Ok(RetrievalPlan {
                     query_rewrite: rewritten,
                     sub_queries,
@@ -75,7 +77,10 @@ impl QueryPlanner for DefaultQueryPlanner {
                     query_rewrite: rewritten,
                     sub_queries: vec![SubQuery {
                         query: rewritten_clone,
-                        source: enabled_sources.first().cloned().unwrap_or(SourceType::Memory),
+                        source: enabled_sources
+                            .first()
+                            .cloned()
+                            .unwrap_or(SourceType::Memory),
                         description: "Primary query".to_string(),
                     }],
                     sources: enabled_sources,
@@ -87,7 +92,10 @@ impl QueryPlanner for DefaultQueryPlanner {
                 query_rewrite: query.to_string(),
                 sub_queries: vec![SubQuery {
                     query: query.to_string(),
-                    source: enabled_sources.first().cloned().unwrap_or(SourceType::Memory),
+                    source: enabled_sources
+                        .first()
+                        .cloned()
+                        .unwrap_or(SourceType::Memory),
                     description: "Direct query".to_string(),
                 }],
                 sources: enabled_sources,
@@ -165,13 +173,13 @@ Generate sub-queries:"#,
         self.parse_sub_queries(content, sources)
     }
 
-    fn parse_sub_queries(
-        &self,
-        response: &str,
-        sources: &[SourceType],
-    ) -> Result<Vec<SubQuery>> {
-        let json_str = response.trim().trim_start_matches("```json").trim_end_matches("```").trim();
-        
+    fn parse_sub_queries(&self, response: &str, sources: &[SourceType]) -> Result<Vec<SubQuery>> {
+        let json_str = response
+            .trim()
+            .trim_start_matches("```json")
+            .trim_end_matches("```")
+            .trim();
+
         if let Ok(arr) = serde_json::from_str::<Vec<serde_json::Value>>(json_str) {
             Ok(arr
                 .into_iter()
@@ -217,7 +225,7 @@ mod tests {
             sources: vec![SourceType::Memory],
             max_iterations: 3,
         };
-        
+
         assert_eq!(plan.query_rewrite, "test query");
         assert_eq!(plan.max_iterations, 3);
     }

@@ -1,8 +1,8 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::collections::HashMap;
 
-use openclaw_vector::{VectorStore, StoreBackend};
+use openclaw_vector::{StoreBackend, VectorStore};
 
 pub type VectorStoreCreator = dyn Send + Sync + Fn() -> Arc<dyn VectorStore>;
 
@@ -37,21 +37,22 @@ impl VectorStoreRegistry {
 
     pub async fn register_defaults(&self, enabled_backends: Option<Vec<String>>) {
         use openclaw_vector::MemoryStore;
-        
+
         self.register("memory".to_string(), || {
             Arc::new(MemoryStore::new()) as Arc<dyn VectorStore>
-        }).await;
-        
+        })
+        .await;
+
         let backends = enabled_backends.unwrap_or_default();
-        
+
         if backends.contains(&"lancedb".to_string()) {
             self.register_lancedb().await;
         }
-        
+
         if backends.contains(&"qdrant".to_string()) {
             self.register_qdrant().await;
         }
-        
+
         if backends.contains(&"pgvector".to_string()) {
             self.register_pgvector().await;
         }
@@ -62,8 +63,12 @@ impl VectorStoreRegistry {
         {
             use openclaw_vector::LanceDbStore;
             self.register("lancedb".to_string(), || {
-                Arc::new(LanceDbStore::new(&std::path::PathBuf::from("./data/lancedb"), "default").unwrap()) as Arc<dyn VectorStore>
-            }).await;
+                Arc::new(
+                    LanceDbStore::new(&std::path::PathBuf::from("./data/lancedb"), "default")
+                        .unwrap(),
+                ) as Arc<dyn VectorStore>
+            })
+            .await;
         }
     }
 
@@ -76,7 +81,8 @@ impl VectorStoreRegistry {
                 Ok(s) => {
                     self.register("qdrant".to_string(), move || {
                         Arc::new(s.clone()) as Arc<dyn VectorStore>
-                    }).await;
+                    })
+                    .await;
                 }
                 Err(_) => {}
             }
@@ -88,8 +94,12 @@ impl VectorStoreRegistry {
         {
             use openclaw_vector::PgVectorStore;
             self.register("pgvector".to_string(), || {
-                Arc::new(PgVectorStore::new("postgres://localhost:5432/openclaw", "vectors", 384).unwrap()) as Arc<dyn VectorStore>
-            }).await;
+                Arc::new(
+                    PgVectorStore::new("postgres://localhost:5432/openclaw", "vectors", 384)
+                        .unwrap(),
+                ) as Arc<dyn VectorStore>
+            })
+            .await;
         }
     }
 }
@@ -123,14 +133,16 @@ mod tests {
     #[tokio::test]
     async fn test_vector_store_registry_register_and_create() {
         let registry = VectorStoreRegistry::new();
-        
-        registry.register("test".to_string(), || {
-            Arc::new(openclaw_vector::MemoryStore::new()) as Arc<dyn VectorStore>
-        }).await;
-        
+
+        registry
+            .register("test".to_string(), || {
+                Arc::new(openclaw_vector::MemoryStore::new()) as Arc<dyn VectorStore>
+            })
+            .await;
+
         let list = registry.list().await;
         assert!(list.contains(&"test".to_string()));
-        
+
         let store = registry.create("test").await;
         assert!(store.is_some());
     }
@@ -138,7 +150,7 @@ mod tests {
     #[tokio::test]
     async fn test_vector_store_registry_create_nonexistent() {
         let registry = VectorStoreRegistry::new();
-        
+
         let store = registry.create("nonexistent").await;
         assert!(store.is_none());
     }
@@ -146,12 +158,12 @@ mod tests {
     #[tokio::test]
     async fn test_vector_store_registry_register_defaults() {
         let registry = VectorStoreRegistry::new();
-        
+
         registry.register_defaults(None).await;
-        
+
         let list = registry.list().await;
         assert!(list.contains(&"memory".to_string()));
-        
+
         let store = registry.create("memory").await;
         assert!(store.is_some());
     }
@@ -164,8 +176,8 @@ mod tests {
 
     #[test]
     fn test_create_vector_store_unknown() {
-        let store = create_vector_store(&StoreBackend::LanceDB { 
-            path: std::path::PathBuf::from("/tmp/test") 
+        let store = create_vector_store(&StoreBackend::LanceDB {
+            path: std::path::PathBuf::from("/tmp/test"),
         });
         assert!(store.is_none());
     }
@@ -173,8 +185,10 @@ mod tests {
     #[tokio::test]
     async fn test_register_defaults_with_memory_only() {
         let registry = VectorStoreRegistry::new();
-        registry.register_defaults(Some(vec!["memory".to_string()])).await;
-        
+        registry
+            .register_defaults(Some(vec!["memory".to_string()]))
+            .await;
+
         let list = registry.list().await;
         assert!(list.contains(&"memory".to_string()));
     }
@@ -183,7 +197,7 @@ mod tests {
     async fn test_register_defaults_empty_list() {
         let registry = VectorStoreRegistry::new();
         registry.register_defaults(Some(vec![])).await;
-        
+
         let list = registry.list().await;
         assert!(list.contains(&"memory".to_string()));
     }
@@ -191,14 +205,16 @@ mod tests {
     #[tokio::test]
     async fn test_register_custom_backend() {
         let registry = VectorStoreRegistry::new();
-        
-        registry.register("custom".to_string(), || {
-            Arc::new(openclaw_vector::MemoryStore::new()) as Arc<dyn VectorStore>
-        }).await;
-        
+
+        registry
+            .register("custom".to_string(), || {
+                Arc::new(openclaw_vector::MemoryStore::new()) as Arc<dyn VectorStore>
+            })
+            .await;
+
         let list = registry.list().await;
         assert!(list.contains(&"custom".to_string()));
-        
+
         let store = registry.create("custom").await;
         assert!(store.is_some());
     }

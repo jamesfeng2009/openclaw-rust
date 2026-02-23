@@ -87,14 +87,18 @@ impl Default for MemoryStore {
 #[async_trait]
 impl VectorStore for MemoryStore {
     async fn upsert(&self, item: VectorItem) -> Result<()> {
-        let mut data = self.data.write()
+        let mut data = self
+            .data
+            .write()
             .map_err(|_| openclaw_core::OpenClawError::VectorStore("Lock poisoned".to_string()))?;
         data.insert(item.id.clone(), item);
         Ok(())
     }
 
     async fn upsert_batch(&self, items: Vec<VectorItem>) -> Result<usize> {
-        let mut data = self.data.write()
+        let mut data = self
+            .data
+            .write()
             .map_err(|_| openclaw_core::OpenClawError::VectorStore("Lock poisoned".to_string()))?;
         let count = items.len();
         for item in items {
@@ -104,7 +108,9 @@ impl VectorStore for MemoryStore {
     }
 
     async fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>> {
-        let data = self.data.read()
+        let data = self
+            .data
+            .read()
             .map_err(|_| openclaw_core::OpenClawError::VectorStore("Lock poisoned".to_string()))?;
 
         let mut results: Vec<SearchResult> = data
@@ -142,20 +148,26 @@ impl VectorStore for MemoryStore {
     }
 
     async fn get(&self, id: &str) -> Result<Option<VectorItem>> {
-        let data = self.data.read()
+        let data = self
+            .data
+            .read()
             .map_err(|_| openclaw_core::OpenClawError::VectorStore("Lock poisoned".to_string()))?;
         Ok(data.get(id).cloned())
     }
 
     async fn delete(&self, id: &str) -> Result<()> {
-        let mut data = self.data.write()
+        let mut data = self
+            .data
+            .write()
             .map_err(|_| openclaw_core::OpenClawError::VectorStore("Lock poisoned".to_string()))?;
         data.remove(id);
         Ok(())
     }
 
     async fn delete_by_filter(&self, filter: Filter) -> Result<usize> {
-        let mut data = self.data.write()
+        let mut data = self
+            .data
+            .write()
             .map_err(|_| openclaw_core::OpenClawError::VectorStore("Lock poisoned".to_string()))?;
         let ids_to_remove: Vec<String> = data
             .values()
@@ -171,7 +183,9 @@ impl VectorStore for MemoryStore {
     }
 
     async fn stats(&self) -> Result<StoreStats> {
-        let data = self.data.read()
+        let data = self
+            .data
+            .read()
             .map_err(|_| openclaw_core::OpenClawError::VectorStore("Lock poisoned".to_string()))?;
         Ok(StoreStats {
             total_vectors: data.len(),
@@ -181,7 +195,9 @@ impl VectorStore for MemoryStore {
     }
 
     async fn clear(&self) -> Result<()> {
-        let mut data = self.data.write()
+        let mut data = self
+            .data
+            .write()
             .map_err(|_| openclaw_core::OpenClawError::VectorStore("Lock poisoned".to_string()))?;
         data.clear();
         Ok(())
@@ -214,7 +230,7 @@ mod tests {
     #[tokio::test]
     async fn test_upsert_lock_poison_handling() {
         let store = MemoryStore::new();
-        
+
         let item = VectorItem::new(vec![1.0, 0.0, 0.0], json!({"test": "data"}));
         let result = store.upsert(item).await;
         assert!(result.is_ok(), "upsert should succeed with valid lock");
@@ -223,10 +239,10 @@ mod tests {
     #[tokio::test]
     async fn test_search_lock_poison_handling() {
         let store = MemoryStore::new();
-        
+
         let item = VectorItem::new(vec![1.0, 0.0, 0.0], json!({"test": "data"}));
         store.upsert(item).await.unwrap();
-        
+
         let query = SearchQuery::new(vec![1.0, 0.0, 0.0]);
         let result = store.search(query).await;
         assert!(result.is_ok(), "search should succeed with valid lock");
@@ -235,10 +251,10 @@ mod tests {
     #[tokio::test]
     async fn test_get_lock_poison_handling() {
         let store = MemoryStore::new();
-        
+
         let item = VectorItem::new(vec![1.0, 0.0, 0.0], json!({"test": "data"}));
         store.upsert(item).await.unwrap();
-        
+
         let result = store.get("test").await;
         assert!(result.is_ok(), "get should succeed with valid lock");
     }
@@ -246,10 +262,10 @@ mod tests {
     #[tokio::test]
     async fn test_delete_lock_poison_handling() {
         let store = MemoryStore::new();
-        
+
         let item = VectorItem::new(vec![1.0, 0.0, 0.0], json!({"test": "data"}));
         store.upsert(item).await.unwrap();
-        
+
         let result = store.delete("test").await;
         assert!(result.is_ok(), "delete should succeed with valid lock");
     }
@@ -257,10 +273,10 @@ mod tests {
     #[tokio::test]
     async fn test_stats_lock_poison_handling() {
         let store = MemoryStore::new();
-        
+
         let item = VectorItem::new(vec![1.0, 0.0, 0.0], json!({"test": "data"}));
         store.upsert(item).await.unwrap();
-        
+
         let result = store.stats().await;
         assert!(result.is_ok(), "stats should succeed with valid lock");
         let stats = result.unwrap();
@@ -270,13 +286,13 @@ mod tests {
     #[tokio::test]
     async fn test_clear_lock_poison_handling() {
         let store = MemoryStore::new();
-        
+
         let item = VectorItem::new(vec![1.0, 0.0, 0.0], json!({"test": "data"}));
         store.upsert(item).await.unwrap();
-        
+
         let result = store.clear().await;
         assert!(result.is_ok(), "clear should succeed with valid lock");
-        
+
         let stats = store.stats().await.unwrap();
         assert_eq!(stats.total_vectors, 0);
     }
@@ -284,30 +300,24 @@ mod tests {
     #[tokio::test]
     async fn test_concurrent_access() {
         use tokio::task;
-        
+
         let store = Arc::new(MemoryStore::new());
         let store_clone = store.clone();
-        
+
         let handle = task::spawn(async move {
             for i in 0..100 {
-                let item = VectorItem::new(
-                    vec![i as f32, 0.0, 0.0],
-                    json!({"index": i})
-                );
+                let item = VectorItem::new(vec![i as f32, 0.0, 0.0], json!({"index": i}));
                 store_clone.upsert(item).await.unwrap();
             }
         });
-        
+
         for i in 0..100 {
-            let item = VectorItem::new(
-                vec![i as f32, 0.0, 0.0],
-                json!({"index": i})
-            );
+            let item = VectorItem::new(vec![i as f32, 0.0, 0.0], json!({"index": i}));
             store.upsert(item).await.unwrap();
         }
-        
+
         handle.await.unwrap();
-        
+
         let stats = store.stats().await.unwrap();
         assert_eq!(stats.total_vectors, 200);
     }

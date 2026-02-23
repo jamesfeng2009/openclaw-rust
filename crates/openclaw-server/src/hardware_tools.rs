@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use std::sync::Arc;
 use openclaw_core::Result as OpenClawResult;
 use openclaw_device::{CameraManager, DeviceCapabilities, ScreenManager, SensorType};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub enum HardwareError {
@@ -24,7 +24,10 @@ impl std::error::Error for HardwareError {}
 
 #[async_trait]
 pub trait CameraCapture: Send + Sync {
-    async fn capture_photo(&self, device_index: Option<u32>) -> Result<CaptureResult, HardwareError>;
+    async fn capture_photo(
+        &self,
+        device_index: Option<u32>,
+    ) -> Result<CaptureResult, HardwareError>;
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -78,13 +81,15 @@ impl openclaw_tools::Tool for CameraTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> OpenClawResult<serde_json::Value> {
-        let action = args.get("action")
+        let action = args
+            .get("action")
             .and_then(|v| v.as_str())
             .unwrap_or("capture");
 
         match action {
             "capture" => {
-                let device_index = args.get("device_index")
+                let device_index = args
+                    .get("device_index")
                     .and_then(|v| v.as_u64())
                     .map(|v| v as u32);
 
@@ -99,17 +104,21 @@ impl openclaw_tools::Tool for CameraTool {
 
                 if let Some(ref camera) = self.camera_manager {
                     match camera.capture_photo(device_index).await {
-                        Ok(result) => return Ok(serde_json::json!({
-                            "success": result.success,
-                            "data": result.data,
-                            "mime_type": result.mime_type,
-                            "timestamp": result.timestamp,
-                            "error": result.error
-                        })),
-                        Err(e) => return Ok(serde_json::json!({
-                            "success": false,
-                            "error": e.to_string()
-                        })),
+                        Ok(result) => {
+                            return Ok(serde_json::json!({
+                                "success": result.success,
+                                "data": result.data,
+                                "mime_type": result.mime_type,
+                                "timestamp": result.timestamp,
+                                "error": result.error
+                            }));
+                        }
+                        Err(e) => {
+                            return Ok(serde_json::json!({
+                                "success": false,
+                                "error": e.to_string()
+                            }));
+                        }
                     }
                 }
 
@@ -154,29 +163,35 @@ impl openclaw_tools::Tool for ScreenTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> OpenClawResult<serde_json::Value> {
-        let action = args.get("action")
+        let action = args
+            .get("action")
             .and_then(|v| v.as_str())
             .unwrap_or("capture");
 
         match action {
             "capture" => {
-                let display_id = args.get("display")
+                let display_id = args
+                    .get("display")
                     .and_then(|v| v.as_u64())
                     .map(|v| v as u32);
 
                 if let Some(ref screen) = self.screen_manager {
                     match screen.screenshot(display_id).await {
-                        Ok(result) => return Ok(serde_json::json!({
-                            "success": result.success,
-                            "data": result.data,
-                            "mime_type": result.mime_type,
-                            "timestamp": result.timestamp,
-                            "error": result.error
-                        })),
-                        Err(e) => return Ok(serde_json::json!({
-                            "success": false,
-                            "error": e.to_string()
-                        })),
+                        Ok(result) => {
+                            return Ok(serde_json::json!({
+                                "success": result.success,
+                                "data": result.data,
+                                "mime_type": result.mime_type,
+                                "timestamp": result.timestamp,
+                                "error": result.error
+                            }));
+                        }
+                        Err(e) => {
+                            return Ok(serde_json::json!({
+                                "success": false,
+                                "error": e.to_string()
+                            }));
+                        }
                     }
                 }
 

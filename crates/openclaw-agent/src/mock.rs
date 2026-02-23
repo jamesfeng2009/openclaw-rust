@@ -1,14 +1,14 @@
 #[cfg(feature = "testing")]
 pub mod mock {
     use async_trait::async_trait;
+    use futures::stream::{self, Stream};
     use openclaw_ai::{
-        ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason,
-        StreamChunk, TokenUsage, AIProvider,
+        AIProvider, ChatRequest, ChatResponse, EmbeddingRequest, EmbeddingResponse, FinishReason,
+        StreamChunk, TokenUsage,
     };
-    use openclaw_core::{Message, Result, Role, Content};
+    use openclaw_core::{Content, Message, Result, Role};
     use std::pin::Pin;
     use std::sync::{Arc, Mutex};
-    use futures::stream::{Stream, self};
 
     #[derive(Clone)]
     pub struct MockAiProvider {
@@ -96,10 +96,13 @@ pub mod mock {
             _request: ChatRequest,
         ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>> + Send>>> {
             use futures::stream;
-            
+
             let responses = self.responses.lock().unwrap();
-            let content = responses.first().cloned().unwrap_or_else(|| "Default mock response".to_string());
-            
+            let content = responses
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "Default mock response".to_string());
+
             let chunks: Vec<Result<StreamChunk>> = content
                 .chars()
                 .collect::<Vec<_>>()
@@ -118,7 +121,7 @@ pub mod mock {
                     })
                 })
                 .collect();
-            
+
             let last_chunk = Ok(StreamChunk {
                 id: "mock-chunk-end".to_string(),
                 model: "mock-model".to_string(),
@@ -130,10 +133,10 @@ pub mod mock {
                 finished: true,
                 finish_reason: Some(FinishReason::Stop),
             });
-            
+
             let mut all_chunks = chunks;
             all_chunks.push(last_chunk);
-            
+
             Ok(Box::pin(stream::iter(all_chunks)))
         }
 

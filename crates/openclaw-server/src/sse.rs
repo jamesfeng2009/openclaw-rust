@@ -1,6 +1,9 @@
 use axum::{
-    response::{sse::{Event, Sse}, IntoResponse, Response},
     http::header,
+    response::{
+        IntoResponse, Response,
+        sse::{Event, Sse},
+    },
 };
 use futures::stream::{Stream, StreamExt};
 use std::convert::Infallible;
@@ -13,7 +16,9 @@ where
     Sse::new(stream)
 }
 
-pub fn result_string_stream_to_sse(stream: impl Stream<Item = Result<String, std::convert::Infallible>> + Send + 'static) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+pub fn result_string_stream_to_sse(
+    stream: impl Stream<Item = Result<String, std::convert::Infallible>> + Send + 'static,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let stream = stream.map(|result: Result<String, Infallible>| {
         let data = match result {
             Ok(s) => s,
@@ -24,7 +29,9 @@ pub fn result_string_stream_to_sse(stream: impl Stream<Item = Result<String, std
     Sse::new(stream)
 }
 
-pub fn error_string_stream_to_sse<E: std::fmt::Debug>(stream: impl Stream<Item = Result<String, E>> + Send + 'static) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+pub fn error_string_stream_to_sse<E: std::fmt::Debug>(
+    stream: impl Stream<Item = Result<String, E>> + Send + 'static,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let stream = stream.map(|result| {
         let data = match result {
             Ok(s) => s,
@@ -39,8 +46,9 @@ pub fn error_string_stream_to_sse<E: std::fmt::Debug>(stream: impl Stream<Item =
 pub async fn sse_response() -> Response {
     (
         [(header::CONTENT_TYPE, "text/event-stream")],
-        "Starting SSE stream..."
-    ).into_response()
+        "Starting SSE stream...",
+    )
+        .into_response()
 }
 
 #[cfg(test)]

@@ -9,7 +9,7 @@ use chrono::{DateTime, Datelike, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tokio::time::{interval, Duration as TokioDuration};
+use tokio::time::{Duration as TokioDuration, interval};
 use tracing::{error, info, warn};
 
 use crate::conflict_resolver::ConflictResolver;
@@ -140,11 +140,17 @@ impl MemoryMaintenanceScheduler {
                 let now = Utc::now();
                 let hour = now.hour();
 
-                if schedule.nightly_integration_enabled 
-                    && hour == schedule.nightly_integration_hour 
+                if schedule.nightly_integration_enabled && hour == schedule.nightly_integration_hour
                 {
                     info!("Running nightly memory integration");
-                    match Self::run_nightly_integration(&stats, &conflict_resolver, &fact_extractor, &memory_items).await {
+                    match Self::run_nightly_integration(
+                        &stats,
+                        &conflict_resolver,
+                        &fact_extractor,
+                        &memory_items,
+                    )
+                    .await
+                    {
                         Ok(count) => {
                             info!("Nightly integration completed: {} items processed", count);
                         }
@@ -157,7 +163,8 @@ impl MemoryMaintenanceScheduler {
 
                 if schedule.weekly_compression_enabled
                     && hour == schedule.weekly_compression_hour
-                    && now.weekday().num_days_from_monday() as u32 == schedule.weekly_compression_day
+                    && now.weekday().num_days_from_monday() as u32
+                        == schedule.weekly_compression_day
                 {
                     info!("Running weekly memory compression");
                     match Self::run_weekly_compression(&stats, &memory_items).await {
@@ -183,9 +190,18 @@ impl MemoryMaintenanceScheduler {
 
                     if should_resolve {
                         info!("Running conflict resolution");
-                        match Self::run_conflict_resolution(&stats, &conflict_resolver, &memory_items).await {
+                        match Self::run_conflict_resolution(
+                            &stats,
+                            &conflict_resolver,
+                            &memory_items,
+                        )
+                        .await
+                        {
                             Ok(count) => {
-                                info!("Conflict resolution completed: {} conflicts resolved", count);
+                                info!(
+                                    "Conflict resolution completed: {} conflicts resolved",
+                                    count
+                                );
                             }
                             Err(e) => {
                                 error!("Conflict resolution failed: {}", e);
@@ -223,7 +239,13 @@ impl MemoryMaintenanceScheduler {
 
                     if should_cleanup {
                         info!("Running expiration cleanup");
-                        match Self::run_expiration_cleanup(&stats, &memory_items, schedule.expiration_days).await {
+                        match Self::run_expiration_cleanup(
+                            &stats,
+                            &memory_items,
+                            schedule.expiration_days,
+                        )
+                        .await
+                        {
                             Ok(count) => {
                                 info!("Expiration cleanup completed: {} items archived", count);
                             }
@@ -257,7 +279,7 @@ impl MemoryMaintenanceScheduler {
         memory_items: &Arc<RwLock<Vec<MemoryItem>>>,
     ) -> Result<usize, String> {
         let items = memory_items.read().await;
-        
+
         if items.is_empty() {
             return Ok(0);
         }
@@ -284,8 +306,9 @@ impl MemoryMaintenanceScheduler {
         memory_items: &Arc<RwLock<Vec<MemoryItem>>>,
     ) -> Result<usize, String> {
         let items = memory_items.read().await;
-        
-        let long_term_items: Vec<_> = items.iter()
+
+        let long_term_items: Vec<_> = items
+            .iter()
             .filter(|i| i.level == crate::types::MemoryLevel::LongTerm)
             .collect();
 
@@ -306,8 +329,9 @@ impl MemoryMaintenanceScheduler {
         memory_items: &Arc<RwLock<Vec<MemoryItem>>>,
     ) -> Result<usize, String> {
         let items = memory_items.read().await;
-        
-        let facts: Vec<_> = items.iter()
+
+        let facts: Vec<_> = items
+            .iter()
             .filter_map(|item| {
                 if let crate::types::MemoryContent::Summary { text, .. } = &item.content {
                     Some(crate::fact_extractor::AtomicFact::new(
@@ -343,7 +367,7 @@ impl MemoryMaintenanceScheduler {
         stats_lock.monthly_runs += 1;
         stats_lock.last_monthly = Some(Utc::now());
         stats_lock.items_reindexed += 100;
-        
+
         Ok(100)
     }
 
@@ -355,16 +379,16 @@ impl MemoryMaintenanceScheduler {
         let mut items = memory_items.write().await;
         let now = Utc::now();
         let cutoff = now - chrono::Duration::days(expiration_days as i64);
-        
+
         let original_len = items.len();
         items.retain(|item| item.last_accessed > cutoff);
         let archived_count = original_len - items.len();
-        
+
         let mut stats_lock = stats.write().await;
         stats_lock.expiration_runs += 1;
         stats_lock.last_expiration = Some(Utc::now());
         stats_lock.items_archived += archived_count as u64;
-        
+
         Ok(archived_count)
     }
 
@@ -492,8 +516,11 @@ mod tests {
         let schedule = MaintenanceSchedule::default();
         let json = serde_json::to_string(&schedule).unwrap();
         let deserialized: MaintenanceSchedule = serde_json::from_str(&json).unwrap();
-        
-        assert_eq!(deserialized.nightly_integration_enabled, schedule.nightly_integration_enabled);
+
+        assert_eq!(
+            deserialized.nightly_integration_enabled,
+            schedule.nightly_integration_enabled
+        );
         assert_eq!(deserialized.expiration_days, schedule.expiration_days);
     }
 
@@ -502,7 +529,7 @@ mod tests {
         let stats = MaintenanceStats::default();
         let json = serde_json::to_string(&stats).unwrap();
         let deserialized: MaintenanceStats = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.nightly_runs, stats.nightly_runs);
         assert_eq!(deserialized.errors.len(), stats.errors.len());
     }

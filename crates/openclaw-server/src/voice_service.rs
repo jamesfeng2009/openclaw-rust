@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use openclaw_voice::{SpeechToText, TextToSpeech, VoiceAgent, TalkModeConfig};
+use openclaw_voice::{SpeechToText, TalkModeConfig, TextToSpeech, VoiceAgent};
 
 pub struct VoiceService {
     enabled: Arc<RwLock<bool>>,
@@ -44,13 +44,19 @@ impl VoiceService {
         *self.voice_agent.write().await = Some(agent);
     }
 
-    pub async fn speech_to_text(&self, audio_data: &[u8], language: Option<&str>) -> openclaw_core::Result<String> {
+    pub async fn speech_to_text(
+        &self,
+        audio_data: &[u8],
+        language: Option<&str>,
+    ) -> openclaw_core::Result<String> {
         let stt = self.stt.read().await;
         if let Some(stt_provider) = stt.as_ref() {
             let result = stt_provider.transcribe(audio_data, language).await?;
             Ok(result.text)
         } else {
-            Err(openclaw_core::OpenClawError::Execution("STT not initialized".to_string()))
+            Err(openclaw_core::OpenClawError::Execution(
+                "STT not initialized".to_string(),
+            ))
         }
     }
 
@@ -119,10 +125,10 @@ mod tests {
     #[tokio::test]
     async fn test_voice_service_enable_disable() {
         let service = VoiceService::new();
-        
+
         service.enable().await;
         assert!(service.is_enabled().await);
-        
+
         service.disable().await;
         assert!(!service.is_enabled().await);
     }
@@ -130,10 +136,10 @@ mod tests {
     #[tokio::test]
     async fn test_voice_service_toggle() {
         let service = VoiceService::new();
-        
+
         let enabled = service.toggle().await;
         assert!(enabled);
-        
+
         let enabled = service.toggle().await;
         assert!(!enabled);
     }
@@ -141,7 +147,7 @@ mod tests {
     #[tokio::test]
     async fn test_voice_service_speech_to_text_not_initialized() {
         let service = VoiceService::new();
-        
+
         let result = service.speech_to_text(b"test audio", Some("en")).await;
         assert!(result.is_err());
     }

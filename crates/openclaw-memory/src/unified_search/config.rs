@@ -28,11 +28,7 @@ impl Default for UnifiedSearchConfig {
 }
 
 impl UnifiedSearchConfig {
-    pub fn new(
-        vector_weight: f32,
-        bm25_weight: f32,
-        knowledge_graph_weight: f32,
-    ) -> Self {
+    pub fn new(vector_weight: f32, bm25_weight: f32, knowledge_graph_weight: f32) -> Self {
         Self {
             vector_weight,
             bm25_weight,

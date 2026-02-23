@@ -304,7 +304,7 @@ mod tests {
         let strategy = RecallStrategy::new(config);
 
         let now = Utc::now().timestamp();
-        
+
         let recent = strategy.calculate_recency_score(now, now);
         assert_eq!(recent, 1.0);
 
@@ -321,7 +321,15 @@ mod tests {
     #[test]
     fn test_recall_config_weights() {
         let config = RecallConfig::default();
-        assert!((config.vector_weight + config.bm25_weight + config.recency_weight + config.importance_weight - 1.0).abs() < 0.001);
+        assert!(
+            (config.vector_weight
+                + config.bm25_weight
+                + config.recency_weight
+                + config.importance_weight
+                - 1.0)
+                .abs()
+                < 0.001
+        );
     }
 
     #[test]
