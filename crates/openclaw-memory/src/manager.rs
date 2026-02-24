@@ -68,23 +68,22 @@ impl MemoryManager {
     /// 自动召回相关记忆
     pub async fn recall(&self, query: &str) -> Result<RecallResult> {
         if let Some(strategy) = &self.recall_strategy {
-            let result = strategy.recall(query, None).await?;
-            Ok(result)
-        } else if let Some(provider) = &self.embedding_provider {
+            return strategy.recall(query, None).await;
+        }
+        
+        if let Some(provider) = &self.embedding_provider {
             if let Some(vector_store) = &self.long_term {
                 let recall_tool = SimpleMemoryRecall::new(provider.clone(), vector_store.clone());
-                let result = recall_tool.recall(query, None).await?;
-                Ok(result)
-            } else {
-                Err(OpenClawError::Memory(
-                    "Vector store not configured".to_string(),
-                ))
+                return recall_tool.recall(query, None).await;
             }
-        } else {
-            Err(OpenClawError::Memory(
-                "Embedding provider not configured".to_string(),
-            ))
+            return Err(OpenClawError::Memory(
+                "Vector store not configured".to_string(),
+            ));
         }
+        
+        Err(OpenClawError::Memory(
+            "Embedding provider or recall strategy not configured".to_string(),
+        ))
     }
 
     /// 添加消息到记忆

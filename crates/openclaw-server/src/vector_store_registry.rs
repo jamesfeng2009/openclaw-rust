@@ -191,10 +191,20 @@ mod tests {
         assert!(store.is_some());
     }
 
+    #[cfg(feature = "lancedb")]
     #[test]
-    fn test_create_vector_store_unknown() {
+    fn test_create_vector_store_lancedb() {
         let store = create_vector_store(&StoreBackend::LanceDB {
             path: std::path::PathBuf::from("/tmp/test"),
+        });
+        assert!(store.is_some());
+    }
+
+    #[test]
+    fn test_create_vector_store_unknown() {
+        let store = create_vector_store(&StoreBackend::SQLite {
+            path: std::path::PathBuf::from("/tmp/test"),
+            table: "test".to_string(),
         });
         assert!(store.is_none());
     }
