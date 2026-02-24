@@ -11,9 +11,32 @@ repository.workspace = true
 default = []
 hal = []
 framework = []
+
+# RISC-V 平台
+riscv = []
+esp32 = ["riscv"]
+k210 = ["riscv"]
+sipeed = ["k210"]
+
+# 传感器驱动
+sensor-bme280 = ["riscv"]
+sensor-mpu6050 = ["riscv"]
+
+# 显示驱动
+display-ssd1306 = ["riscv"]
+display-st7789 = ["riscv"]
+
+# 无线驱动
+wireless-espnow = ["esp32"]
+wireless-ble = ["riscv"]
+wireless-lora = ["riscv"]
+
+# 框架
 ros2 = ["framework"]
 mqtt = ["framework"]
 can = ["framework"]
+
+# HAL
 gpio = ["hal"]
 i2c = ["hal"]
 spi = ["hal"]

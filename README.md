@@ -96,8 +96,9 @@ Matrix (去中心化) | WebChat (自定义 Webhook) | Email | SMS
 - **嵌入式设备**:
   - ARM: Raspberry Pi, OrangePi, Jetson, Coral
   - Arduino: Uno, Nano, Mega, Due
-  - ESP32: ESP32-S3, ESP32-C6, ESP32-P4
+  - ESP32: ESP32-S3, ESP32-C3, ESP32-C6, ESP32-P4
   - STM32: STM32F1, STM32F4, STM32H7
+  - RISC-V: Kendryte K210, Sipeed MaixCDK, Allwinner D1, StarFive JH7100, HiFive Unmatched
 
 ### 扩展集成
 

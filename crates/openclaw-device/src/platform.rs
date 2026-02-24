@@ -74,6 +74,11 @@ pub enum Platform {
     RpiPicoW,
     Nrf52,
     RiscV,
+    KendryteK210,
+    SipeedMaixCDK,
+    AllwinnerD1,
+    StarFiveJH7100,
+    HifiveUnmatched,
 
     Unknown,
 }
@@ -137,7 +142,12 @@ impl Platform {
             | Self::RpiPico
             | Self::RpiPicoW
             | Self::Nrf52
-            | Self::RiscV => ComputeCategory::Embedded,
+            | Self::RiscV
+            | Self::KendryteK210
+            | Self::SipeedMaixCDK
+            | Self::AllwinnerD1
+            | Self::StarFiveJH7100
+            | Self::HifiveUnmatched => ComputeCategory::Embedded,
 
             Self::Unknown => ComputeCategory::Edge,
         }
@@ -192,8 +202,135 @@ impl Platform {
             Self::RpiPicoW => "rpi_pico_w",
             Self::Nrf52 => "nrf52",
             Self::RiscV => "risc_v",
+            Self::KendryteK210 => "kendryte_k210",
+            Self::SipeedMaixCDK => "sipeed_maix_cdk",
+            Self::AllwinnerD1 => "allwinner_d1",
+            Self::StarFiveJH7100 => "starfive_jh7100",
+            Self::HifiveUnmatched => "hifive_unmatched",
             Self::Unknown => "unknown",
         }
+    }
+
+    pub fn is_riscv(&self) -> bool {
+        matches!(
+            self,
+            Self::RiscV
+                | Self::KendryteK210
+                | Self::SipeedMaixCDK
+                | Self::AllwinnerD1
+                | Self::StarFiveJH7100
+                | Self::HifiveUnmatched
+        )
+    }
+
+    pub fn riscv_abi(&self) -> Option<&'static str> {
+        match self {
+            Self::KendryteK210 | Self::SipeedMaixCDK => Some("rv64gc"),
+            Self::AllwinnerD1 | Self::StarFiveJH7100 | Self::HifiveUnmatched => Some("rv64gc"),
+            Self::RiscV => Some("generic"),
+            _ => None,
+        }
+    }
+
+    pub fn is_esp32(&self) -> bool {
+        matches!(
+            self,
+            Self::Esp32 | Self::Esp32S2 | Self::Esp32S3 | Self::Esp32C3 | Self::Esp32C6 | Self::Esp32P4
+        )
+    }
+
+    pub fn is_stm32(&self) -> bool {
+        matches!(self, Self::Stm32F1 | Self::Stm32F4 | Self::Stm32H7)
+    }
+
+    pub fn is_arduino(&self) -> bool {
+        matches!(
+            self,
+            Self::ArduinoUno | Self::ArduinoNano | Self::ArduinoMega | Self::ArduinoDue
+        )
+    }
+}
+
+#[cfg(test)]
+mod platform_tests {
+    use super::*;
+
+    #[test]
+    fn test_kendryte_k210_is_riscv() {
+        let platform = Platform::KendryteK210;
+        assert!(platform.is_riscv());
+        assert_eq!(platform.riscv_abi(), Some("rv64gc"));
+        assert!(!platform.is_esp32());
+        assert!(!platform.is_stm32());
+        assert!(!platform.is_arduino());
+    }
+
+    #[test]
+    fn test_sipeed_maix_cdk_is_riscv() {
+        let platform = Platform::SipeedMaixCDK;
+        assert!(platform.is_riscv());
+        assert_eq!(platform.riscv_abi(), Some("rv64gc"));
+    }
+
+    #[test]
+    fn test_esp32c3_is_riscv_and_esp32() {
+        let platform = Platform::Esp32C3;
+        assert!(platform.is_esp32());
+        assert!(!platform.is_riscv());
+        assert_eq!(platform.category(), ComputeCategory::Embedded);
+    }
+
+    #[test]
+    fn test_stm32f4_is_stm32() {
+        let platform = Platform::Stm32F4;
+        assert!(platform.is_stm32());
+        assert!(!platform.is_esp32());
+        assert!(!platform.is_riscv());
+    }
+
+    #[test]
+    fn test_arduino_uno_is_arduino() {
+        let platform = Platform::ArduinoUno;
+        assert!(platform.is_arduino());
+        assert!(!platform.is_stm32());
+        assert!(!platform.is_esp32());
+    }
+
+    #[test]
+    fn test_allwinner_d1_riscv_abi() {
+        let platform = Platform::AllwinnerD1;
+        assert!(platform.is_riscv());
+        assert_eq!(platform.riscv_abi(), Some("rv64gc"));
+    }
+
+    #[test]
+    fn test_starfive_jh7100_riscv_abi() {
+        let platform = Platform::StarFiveJH7100;
+        assert!(platform.is_riscv());
+        assert_eq!(platform.riscv_abi(), Some("rv64gc"));
+    }
+
+    #[test]
+    fn test_hifive_unmatched_riscv_abi() {
+        let platform = Platform::HifiveUnmatched;
+        assert!(platform.is_riscv());
+        assert_eq!(platform.riscv_abi(), Some("rv64gc"));
+    }
+
+    #[test]
+    fn test_generic_riscv() {
+        let platform = Platform::RiscV;
+        assert!(platform.is_riscv());
+        assert_eq!(platform.riscv_abi(), Some("generic"));
+    }
+
+    #[test]
+    fn test_linux_server_not_embedded() {
+        let platform = Platform::LinuxServer;
+        assert!(!platform.is_riscv());
+        assert!(!platform.is_esp32());
+        assert!(!platform.is_stm32());
+        assert!(!platform.is_arduino());
     }
 }
 

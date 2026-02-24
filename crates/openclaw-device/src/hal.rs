@@ -7,6 +7,9 @@ pub mod i2c;
 pub mod serial;
 pub mod spi;
 
+#[cfg(feature = "riscv")]
+pub mod riscv;
+
 pub use gpio::{GpioError, GpioMode, GpioPin, GpioResult, GpioState};
 pub use i2c::{I2cBus, I2cDevice, I2cError, I2cResult};
 pub use serial::{SerialConfig, SerialError, SerialPort, SerialResult};
