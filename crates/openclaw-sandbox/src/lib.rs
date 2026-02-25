@@ -15,6 +15,7 @@ pub mod rate_limit;
 pub mod sandbox;
 pub mod types;
 pub mod wasm;
+pub mod wasm_runtime;
 
 pub use capability::*;
 pub use credential::*;
@@ -28,6 +29,10 @@ pub use rate_limit::*;
 pub use sandbox::SandboxManager as SandboxManagerImpl;
 pub use types::*;
 pub use wasm::*;
+pub use wasm_runtime::{
+    WasmRuntimeType, WasmRuntimeConfig, create_wasm_runtime,
+    WasmRuntime, WasmModule, WasmExecutionInput, WasmExecutionResult, WasmError,
+};
 
 pub use capability::MemoryCapabilityService;
 pub use credential::MemoryCredentialService;
