@@ -86,6 +86,12 @@ pub trait Agent: Send + Sync {
     async fn get_tool_port(&self) -> Option<Arc<dyn ToolPort>>;
     async fn get_device_port(&self) -> Option<Arc<dyn DevicePort>>;
 
+    /// 初始化安全模块
+    async fn init_safety(&self, config: crate::safety::AgentSafetyConfig);
+
+    /// 获取安全模块
+    async fn get_safety(&self) -> Option<Arc<crate::safety::AgentSafetyWrapper>>;
+
     /// 执行工具
     async fn execute_tool(
         &self,
@@ -97,6 +103,8 @@ pub trait Agent: Send + Sync {
     /// 获取系统提示词
     fn system_prompt(&self) -> Option<&str>;
 }
+
+use crate::safety::AgentSafetyWrapper;
 
 /// 基础 Agent 实现
 pub struct BaseAgent {
@@ -114,6 +122,7 @@ pub struct BaseAgent {
     security_port: Arc<tokio::sync::RwLock<Option<Arc<dyn SecurityPort>>>>,
     tool_port: Arc<tokio::sync::RwLock<Option<Arc<dyn ToolPort>>>>,
     device_port: Arc<tokio::sync::RwLock<Option<Arc<dyn DevicePort>>>>,
+    safety_wrapper: Arc<tokio::sync::RwLock<Option<Arc<AgentSafetyWrapper>>>>,
 }
 
 impl BaseAgent {
@@ -133,6 +142,7 @@ impl BaseAgent {
             security_port: Arc::new(RwLock::new(None)),
             tool_port: Arc::new(RwLock::new(None)),
             device_port: Arc::new(RwLock::new(None)),
+            safety_wrapper: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -282,6 +292,14 @@ impl Agent for BaseAgent {
     async fn process(&self, task: TaskRequest) -> Result<TaskResult> {
         let started_at = Utc::now();
         let session_id = format!("agent-{}", self.id());
+        let task_id_str = task.id.to_string();
+
+        // 获取安全模块
+        let safety = self.get_safety().await;
+        if let Some(ref safety) = safety {
+            safety.init_session_tree().await;
+            let _ = safety.start_task(&task_id_str).await;
+        }
 
         let security_pipeline = self.security_pipeline.read().await.clone();
         let ai_provider = self.ai_provider.read().await.clone();
@@ -371,6 +389,17 @@ impl Agent for BaseAgent {
             None
         };
 
+        // 调用 AI 前检查安全状态
+        if let Some(ref safety) = safety {
+            if let Err(e) = safety.check_safety().await {
+                return Ok(TaskResult::failure(
+                    task.id,
+                    self.id().to_string(),
+                    format!("Safety check failed before AI call: {}", e),
+                ));
+            }
+        }
+
         // 调用 AI
         let ai_result = ai_provider.chat(chat_request).await;
 
@@ -380,6 +409,14 @@ impl Agent for BaseAgent {
                 // 记录进度
                 if let (Some(pipeline), Some(op_id)) = (&security_pipeline, &operation_id) {
                     pipeline.record_progress(op_id).await;
+                }
+
+                // 记录 Turn
+                if let Some(ref safety) = safety {
+                    let tokens_used = response.usage.total_tokens as u64;
+                    if let Err(e) = safety.record_turn(tokens_used).await {
+                        tracing::warn!("Safety turn recording failed: {}", e);
+                    }
                 }
 
                 // 安全检查：输出验证
@@ -506,6 +543,15 @@ impl Agent for BaseAgent {
         *self.security_port.write().await = security_port;
         *self.tool_port.write().await = tool_port;
         *self.device_port.write().await = device_port;
+    }
+
+    async fn init_safety(&self, config: crate::safety::AgentSafetyConfig) {
+        let wrapper = Arc::new(crate::safety::AgentSafetyWrapper::new(config));
+        *self.safety_wrapper.write().await = Some(wrapper);
+    }
+
+    async fn get_safety(&self) -> Option<Arc<crate::safety::AgentSafetyWrapper>> {
+        self.safety_wrapper.read().await.clone()
     }
 
     async fn get_ai_port(&self) -> Option<Arc<dyn AIPort>> {
