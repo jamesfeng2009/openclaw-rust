@@ -1,6 +1,7 @@
 //! OpenClaw Server - HTTP/WebSocket 服务
 
 pub mod adapters;
+pub mod acp_service;
 pub mod agent_service;
 pub mod agentic_rag;
 pub mod agentic_rag_api;
@@ -29,3 +30,4 @@ pub use gateway_service::Gateway;
 pub use app_context::AppContext;
 pub use server_config::ServerConfig;
 pub use service_factory::{ServiceFactory, DefaultServiceFactory};
+pub use acp_service::{AcpService, RouterResult};

@@ -12,6 +12,8 @@ use openclaw_memory::MemoryManager;
 
 use crate::agent::Agent;
 use crate::device_tool_registry::DeviceToolRegistry;
+use crate::evo::registry::{SharedSkillRegistry, DynamicSkill};
+use crate::evo::EvolutionEngine;
 use crate::task::{TaskOutput, TaskRequest, TaskResult, TaskStatus, TaskType};
 use crate::team::{AgentTeam, TeamConfig};
 use crate::types::Capability;
@@ -56,6 +58,10 @@ pub struct Orchestrator {
     config: OrchestratorConfig,
     /// 活跃任务
     active_tasks: RwLock<HashMap<uuid::Uuid, TaskRequest>>,
+    /// 共享技能注册表 (Evo 进化)
+    shared_skill_registry: Option<Arc<SharedSkillRegistry>>,
+    /// 进化引擎 (Evo)
+    evolution_engine: Option<Arc<EvolutionEngine>>,
 }
 
 impl Orchestrator {
@@ -68,6 +74,8 @@ impl Orchestrator {
             device_tool_registry: None,
             config: OrchestratorConfig::default(),
             active_tasks: RwLock::new(HashMap::new()),
+            shared_skill_registry: None,
+            evolution_engine: None,
         }
     }
 
@@ -106,6 +114,15 @@ impl Orchestrator {
     /// 设置配置
     pub fn with_config(mut self, config: OrchestratorConfig) -> Self {
         self.config = config;
+        self
+    }
+
+    /// 启用 Evo 进化功能
+    pub fn with_evolution(mut self) -> Self {
+        let registry = SharedSkillRegistry::new();
+        let engine = EvolutionEngine::new();
+        self.shared_skill_registry = Some(Arc::new(registry));
+        self.evolution_engine = Some(Arc::new(engine));
         self
     }
 
@@ -323,7 +340,69 @@ impl Orchestrator {
 
         // 调用 Agent 处理任务
         debug!("Agent {} processing task {}", agent_id, task.id);
-        agent.process(task).await
+        let result = agent.process(task.clone()).await;
+
+        // 如果失败且启用了进化，尝试触发进化
+        if let Ok(ref task_result) = result {
+            if task_result.status == TaskStatus::Failed && self.should_try_evolution(task_result) {
+                if let Some(evolution_result) = self.try_evolution(agent_id, &task).await {
+                    if evolution_result {
+                        // 进化成功，重试任务
+                        info!("Evolution successful, retrying task {}", task.id);
+                        return agent.process(task).await;
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
+    /// 检查是否应该触发进化
+    fn should_try_evolution(&self, result: &TaskResult) -> bool {
+        if self.shared_skill_registry.is_none() || self.evolution_engine.is_none() {
+            return false;
+        }
+        
+        if let Some(error) = &result.error {
+            error.contains("tool") 
+                || error.contains("not found") 
+                || error.contains("cannot")
+                || error.contains("unknown")
+        } else {
+            false
+        }
+    }
+
+    /// 尝试触发进化
+    async fn try_evolution(&self, agent_id: &str, task: &TaskRequest) -> Option<bool> {
+        use crate::evo::registry::DynamicSkill;
+        
+        let registry = self.shared_skill_registry.as_ref()?;
+        let engine = self.evolution_engine.as_ref()?;
+
+        let context = format!("Task: {:?}, Error: {:?}", task.task_type, task.input);
+        
+        let result = engine.evolve(&context).await;
+        
+        if result.status == crate::evo::EvolutionStatus::Completed {
+            let skill_code = result.skill.as_ref()?.code.clone();
+            let skill_lang = format!("{:?}", result.skill.as_ref()?.language);
+            
+            let dynamic_skill = DynamicSkill::new(
+                uuid::Uuid::new_v4().to_string(),
+                "generated_skill".to_string(),
+                skill_code,
+                skill_lang,
+                agent_id.to_string(),
+            );
+            
+            registry.register_skill(dynamic_skill).await;
+            info!("Evolution: registered new skill");
+            return Some(true);
+        }
+        
+        Some(false)
     }
 
     /// 聚合多个结果

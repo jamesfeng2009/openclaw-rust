@@ -365,6 +365,9 @@ impl Default for SkillSandbox {
     }
 }
 
+pub mod registry;
+pub mod adapter;
+
 #[cfg(test)]
 mod tests {
     use super::*;

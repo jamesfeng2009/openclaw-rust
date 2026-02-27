@@ -33,11 +33,32 @@ async fn register_discord(registry: &ChannelFactoryRegistry) {
     use crate::discord::{DiscordChannel, DiscordConfig};
 
     let creator =
-        move |_config: serde_json::Value| -> Result<Arc<tokio::sync::RwLock<dyn crate::Channel>>> {
-            let discord_config = DiscordConfig {
-                bot_token: String::new(),
-                webhook_url: None,
-                enabled: true,
+        move |config: serde_json::Value| -> Result<Arc<tokio::sync::RwLock<dyn crate::Channel>>> {
+            let discord_config = if let Some(obj) = config.as_object() {
+                DiscordConfig {
+                    bot_token: obj.get("token")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    webhook_url: obj.get("webhook_url")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
+                    enabled: obj.get("enabled")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(true),
+                    #[cfg(feature = "discord")]
+                    use_gateway: obj.get("use_gateway")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false),
+                }
+            } else {
+                DiscordConfig {
+                    bot_token: String::new(),
+                    webhook_url: None,
+                    enabled: true,
+                    #[cfg(feature = "discord")]
+                    use_gateway: false,
+                }
             };
             let channel = DiscordChannel::new(discord_config);
             Ok(Arc::new(tokio::sync::RwLock::new(channel)))

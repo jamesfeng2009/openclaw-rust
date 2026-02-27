@@ -8,6 +8,9 @@ use crate::aieos::AIEOS;
 /// Agent ID 类型
 pub type AgentId = String;
 
+/// Persona ID 类型 - 用于记忆隔离
+pub type PersonaId = String;
+
 /// Agent 类型
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]

@@ -19,7 +19,10 @@ openclaw-agent.workspace = true
 openclaw-device.workspace = true
 openclaw-voice.workspace = true
 openclaw-tools.workspace = true
+openclaw-acp.workspace = true
 openclaw-sandbox = { workspace = true, features = ["full-security"] }
+reqwest = { workspace = true }
+regex.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 async-trait.workspace = true

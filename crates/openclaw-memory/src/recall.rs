@@ -4,11 +4,12 @@
 
 use async_trait::async_trait;
 use openclaw_core::{Message, Result};
-use openclaw_vector::SearchQuery;
+use openclaw_vector::{Filter, SearchQuery};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::embedding::EmbeddingProvider;
+use crate::types::MemoryNamespace;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecallConfig {
@@ -43,7 +44,7 @@ pub struct RecallItem {
 
 #[async_trait]
 pub trait MemoryRecall: Send + Sync {
-    async fn recall(&self, query: &str, context: Option<&[Message]>) -> Result<RecallResult>;
+    async fn recall(&self, query: &str, namespace: Option<&MemoryNamespace>, context: Option<&[Message]>) -> Result<RecallResult>;
 }
 
 pub struct SimpleMemoryRecall {
@@ -72,13 +73,19 @@ impl SimpleMemoryRecall {
 
 #[async_trait]
 impl MemoryRecall for SimpleMemoryRecall {
-    async fn recall(&self, query: &str, _context: Option<&[Message]>) -> Result<RecallResult> {
+    async fn recall(&self, query: &str, namespace: Option<&MemoryNamespace>, _context: Option<&[Message]>) -> Result<RecallResult> {
         let query_embedding = self.embedding.embed(query).await?;
+
+        let filter = namespace.map(|ns| {
+            let user_filter = Filter::eq("user_id", serde_json::Value::String(ns.user_id.clone()));
+            let persona_filter = Filter::eq("persona_id", serde_json::Value::String(ns.persona_id.clone()));
+            user_filter.and(persona_filter)
+        });
 
         let search_query = SearchQuery {
             vector: query_embedding,
             limit: self.config.max_items,
-            filter: None,
+            filter,
             min_score: Some(self.config.min_similarity),
         };
 
@@ -157,7 +164,7 @@ mod tests {
         let vector_store: Arc<dyn VectorStore> = Arc::new(MemoryStore::new());
 
         let recall = SimpleMemoryRecall::new(embedding, vector_store);
-        let result = recall.recall("test query", None).await;
+        let result = recall.recall("test query", None, None).await;
 
         assert!(result.is_ok());
         let result = result.unwrap();
@@ -176,7 +183,7 @@ mod tests {
         };
 
         let recall = SimpleMemoryRecall::new(embedding, vector_store).with_config(config);
-        let result = recall.recall("test", None).await;
+        let result = recall.recall("test", None, None).await;
 
         assert!(result.is_ok());
     }
@@ -203,8 +210,42 @@ mod tests {
             .unwrap();
 
         let recall = SimpleMemoryRecall::new(embedding, vector_store);
-        let result = recall.recall("hello", None).await;
+        let result = recall.recall("hello", None, None).await;
 
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_recall_with_namespace() {
+        let embedding = Arc::new(MockEmbeddingProvider);
+        let vector_store: Arc<dyn VectorStore> = Arc::new(MemoryStore::new());
+
+        let namespace = MemoryNamespace::new("user1", "doctor_zhangsan");
+
+        vector_store
+            .upsert(VectorItem {
+                id: "test1".to_string(),
+                vector: vec![0.1, 0.2, 0.3],
+                payload: vec![
+                    ("content".to_string(), "Patient prefers detailed explanations".to_string()),
+                    ("source".to_string(), "test".to_string()),
+                    ("level".to_string(), "long_term".to_string()),
+                    ("user_id".to_string(), "user1".to_string()),
+                    ("persona_id".to_string(), "doctor_zhangsan".to_string()),
+                ]
+                .into_iter()
+                .collect(),
+                created_at: chrono::Utc::now(),
+            })
+            .await
+            .unwrap();
+
+        let recall = SimpleMemoryRecall::new(embedding, vector_store);
+        let result = recall.recall("patient preferences", Some(&namespace), None).await;
+
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert!(!result.items.is_empty());
+        assert_eq!(result.items[0].content, "Patient prefers detailed explanations");
     }
 }

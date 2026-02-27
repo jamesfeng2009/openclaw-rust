@@ -17,10 +17,29 @@ pub enum MemoryLevel {
     LongTerm,
 }
 
+/// 记忆命名空间 - 用于隔离不同用户的记忆
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MemoryNamespace {
+    /// 用户 ID
+    pub user_id: String,
+    /// Persona ID - 用于记忆隔离
+    pub persona_id: String,
+}
+
+impl MemoryNamespace {
+    pub fn new(user_id: impl Into<String>, persona_id: impl Into<String>) -> Self {
+        Self {
+            user_id: user_id.into(),
+            persona_id: persona_id.into(),
+        }
+    }
+}
+
 /// 记忆项
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryItem {
     pub id: Uuid,
+    pub namespace: Option<MemoryNamespace>,
     pub level: MemoryLevel,
     pub content: MemoryContent,
     pub created_at: DateTime<Utc>,
@@ -70,6 +89,7 @@ impl MemoryItem {
         let token_count = message.estimate_tokens();
         Self {
             id: Uuid::new_v4(),
+            namespace: None,
             level: MemoryLevel::Working,
             content: MemoryContent::Message { message },
             created_at: Utc::now(),
@@ -84,6 +104,7 @@ impl MemoryItem {
     pub fn summary(text: impl Into<String>, original_count: usize, token_count: usize) -> Self {
         Self {
             id: Uuid::new_v4(),
+            namespace: None,
             level: MemoryLevel::ShortTerm,
             content: MemoryContent::Summary {
                 text: text.into(),
@@ -96,6 +117,18 @@ impl MemoryItem {
             token_count,
             metadata: MemoryMetadata::default(),
         }
+    }
+
+    pub fn with_namespace(mut self, namespace: MemoryNamespace) -> Self {
+        self.namespace = Some(namespace);
+        self
+    }
+
+    pub fn with_optional_namespace(mut self, namespace: Option<MemoryNamespace>) -> Self {
+        if self.namespace.is_none() {
+            self.namespace = namespace;
+        }
+        self
     }
 
     pub fn touch(&mut self) {

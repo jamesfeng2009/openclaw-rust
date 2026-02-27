@@ -31,6 +31,8 @@ pub mod bluebubbles;
 pub mod config;
 pub mod dingtalk;
 pub mod discord;
+#[cfg(feature = "discord")]
+pub mod discord_gateway;
 pub mod dm_policy;
 pub mod email;
 pub mod factory;

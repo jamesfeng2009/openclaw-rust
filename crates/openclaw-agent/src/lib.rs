@@ -43,6 +43,8 @@ pub use sessions::*;
 pub use memory::{CompressionConfig, ContextCompactor, ContextMessage, CleanupPolicy, MemoryCleanupPolicy};
 pub use extension::{Extension, ExtensionError, ExtensionMeta, ExtensionRegistry, ExtensionResult, ExtensionSource, Priority};
 pub use evo::{CompiledSkill, DynamicCompiler, EvolutionEngine, EvolutionResult, EvolutionStatus, ProgrammingLanguage, SkillGenerator, SkillSandbox, ToolNeed, Sandbox};
+pub use evo::registry::{SharedSkillRegistry, DynamicSkill};
+pub use evo::adapter::EvoToAcpAdapter;
 pub use sub_agent::*;
 pub use task::*;
 pub use team::*;

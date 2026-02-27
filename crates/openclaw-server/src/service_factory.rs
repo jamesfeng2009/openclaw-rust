@@ -20,6 +20,8 @@ use crate::app_context::AppContext;
 use crate::orchestrator::OrchestratorConfig;
 use crate::orchestrator::ServiceOrchestrator;
 use crate::voice_service::VoiceService;
+use crate::server_config::AcpConfig;
+use crate::acp_service::AcpService;
 
 #[async_trait]
 pub trait ServiceFactory: Send + Sync {
@@ -40,6 +42,7 @@ pub trait ServiceFactory: Send + Sync {
         ai_provider: Arc<dyn AIProvider>,
         memory_backend: Option<Arc<dyn MemoryBackend>>,
     ) -> Result<Arc<crate::agentic_rag::AgenticRAGEngine>>;
+    async fn create_acp_service(&self, acp_config: &AcpConfig) -> Result<Option<Arc<AcpService>>>;
 }
 
 /// 默认服务工厂实现
@@ -291,5 +294,37 @@ impl ServiceFactory for DefaultServiceFactory {
         let engine = AgenticRAGEngine::new(config, ai_provider, None, None, None).await?;
 
         Ok(Arc::new(engine))
+    }
+
+    async fn create_acp_service(&self, acp_config: &AcpConfig) -> Result<Option<Arc<AcpService>>> {
+        if !acp_config.enabled {
+            return Ok(None);
+        }
+
+        let acp = if let Some(default_agent) = &acp_config.default_agent {
+            AcpService::new().with_default_agent(default_agent.clone())
+        } else {
+            AcpService::new()
+        };
+
+        for agent_config in &acp_config.agents {
+            let info = openclaw_acp::AgentInfo::new(
+                agent_config.id.clone(),
+                agent_config.name.clone(),
+            )
+            .with_endpoint(agent_config.endpoint.clone().unwrap_or_else(|| "local".to_string()))
+            .with_capabilities(agent_config.capabilities.clone());
+            
+            acp.register_agent(info).await;
+        }
+
+        for rule in &acp_config.router.rules {
+            let mut router = (*acp.router()).clone();
+            if let Err(e) = router.add_rule(&rule.pattern, &rule.target, rule.priority) {
+                tracing::warn!("Failed to add route rule: {}", e);
+            }
+        }
+
+        Ok(Some(Arc::new(acp)))
     }
 }

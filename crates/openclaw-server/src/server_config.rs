@@ -5,6 +5,65 @@ use openclaw_core::Config as CoreConfig;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AcpConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub default_agent: Option<String>,
+    #[serde(default)]
+    pub agents: Vec<AcpAgentConfig>,
+    #[serde(default)]
+    pub router: AcpRouterConfig,
+    #[serde(default)]
+    pub context: AcpContextConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AcpAgentConfig {
+    pub id: String,
+    pub name: String,
+    pub endpoint: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default = "default_local")]
+    pub local: bool,
+}
+
+fn default_local() -> bool {
+    false
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AcpRouterConfig {
+    #[serde(default)]
+    pub rules: Vec<AcpRouteRule>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AcpRouteRule {
+    pub pattern: String,
+    pub target: String,
+    #[serde(default = "default_priority")]
+    pub priority: i32,
+}
+
+fn default_priority() -> i32 {
+    0
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AcpContextConfig {
+    #[serde(default = "default_ttl")]
+    pub ttl: u64,
+    #[serde(default)]
+    pub backend: String,
+}
+
+fn default_ttl() -> u64 {
+    3600
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
     #[serde(flatten)]
@@ -12,6 +71,8 @@ pub struct ServerConfig {
     pub agents: AgentsConfig,
     pub devices: DevicesConfig,
     pub workspaces: WorkspacesConfig,
+    #[serde(default)]
+    pub acp: AcpConfig,
 }
 
 impl ServerConfig {
@@ -21,6 +82,7 @@ impl ServerConfig {
             agents: AgentsConfig::default(),
             devices: DevicesConfig::default(),
             workspaces: WorkspacesConfig::default(),
+            acp: AcpConfig::default(),
         }
     }
 
@@ -33,12 +95,15 @@ impl ServerConfig {
             .unwrap_or_default();
         let workspaces = load_yaml_config(config_dir.join("workspaces.yaml"))
             .unwrap_or_default();
+        let acp = load_yaml_config(config_dir.join("acp.yaml"))
+            .unwrap_or_default();
 
         Ok(Self {
             core,
             agents,
             devices,
             workspaces,
+            acp,
         })
     }
 
@@ -82,6 +147,7 @@ impl Default for ServerConfig {
             agents: AgentsConfig::default(),
             devices: DevicesConfig::default(),
             workspaces: WorkspacesConfig::default(),
+            acp: AcpConfig::default(),
         }
     }
 }

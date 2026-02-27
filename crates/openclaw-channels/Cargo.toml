@@ -18,9 +18,20 @@ tracing.workspace = true
 reqwest.workspace = true
 tokio-tungstenite.workspace = true
 futures.workspace = true
+async-stream.workspace = true
+tokio-stream.workspace = true
 chrono.workspace = true
 uuid.workspace = true
+regex = "1.11"
 rand = "0.8"
+serenity = { version = "0.12", optional = true, default-features = false, features = [
+    "client",
+    "gateway",
+    "http",
+    "model",
+    "rustls_backend",
+    "builder",
+] }
 
 # 钉钉加签支持
 hmac = "0.12"
@@ -33,9 +44,12 @@ hex = "0.4"
 [features]
 default = []
 telegram = []
-discord = []
+discord = ["dep:serenity"]
 whatsapp = []
 slack = []
 dingtalk = []
 wecom = []
 feishu = []
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }

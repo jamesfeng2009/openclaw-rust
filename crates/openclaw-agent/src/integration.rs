@@ -268,4 +268,37 @@ mod tests {
         let qwen_models = list_provider_models("qwen");
         assert!(!qwen_models.is_empty());
     }
+
+    #[test]
+    fn test_persona_namespace_isolation() {
+        use crate::config::AgentInstanceConfig;
+        use crate::sessions::Session;
+        use openclaw_core::session::SessionScope;
+        use crate::types::PersonaId;
+
+        let agent_config = AgentInstanceConfig {
+            id: "doctor".to_string(),
+            workspace: std::path::PathBuf::from("/tmp/workspace"),
+            default: true,
+            aieos_path: None,
+            persona_id: Some("doctor_zhangsan".to_string()),
+        };
+
+        assert_eq!(agent_config.persona_id, Some("doctor_zhangsan".to_string()));
+
+        let session = Session::new(
+            "test session",
+            "agent_001".to_string(),
+            SessionScope::Main,
+        );
+
+        let session_with_persona = Session::new(
+            "test session with persona",
+            "agent_001".to_string(),
+            SessionScope::Main,
+        ).with_persona("doctor_zhangsan".to_string());
+
+        assert_eq!(session.persona_id, None);
+        assert_eq!(session_with_persona.persona_id, Some("doctor_zhangsan".to_string()));
+    }
 }

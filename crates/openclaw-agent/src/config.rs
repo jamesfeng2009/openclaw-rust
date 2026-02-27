@@ -15,6 +15,8 @@ pub struct AgentInstanceConfig {
     pub default: bool,
     #[serde(default)]
     pub aieos_path: Option<PathBuf>,
+    #[serde(default)]
+    pub persona_id: Option<String>,
 }
 
 impl AgentInstanceConfig {
@@ -24,6 +26,7 @@ impl AgentInstanceConfig {
             workspace: workspace.into(),
             default: false,
             aieos_path: None,
+            persona_id: None,
         }
     }
 }
@@ -62,6 +65,7 @@ mod tests {
             workspace: PathBuf::from("/tmp/workspace"),
             default: true,
             aieos_path: Some(PathBuf::from("/path/to/aieos")),
+            persona_id: None,
         };
         assert_eq!(config.id, "test_agent");
         assert!(config.default);
@@ -83,6 +87,7 @@ mod tests {
                 workspace: PathBuf::from("./workspace/assistant"),
                 default: true,
                 aieos_path: None,
+                persona_id: None,
             }],
             defaults: AgentDefaults {
                 model: "gpt-4o".to_string(),
@@ -121,12 +126,14 @@ mod tests {
                     workspace: PathBuf::from("/ws/agent1"),
                     default: true,
                     aieos_path: None,
+                    persona_id: None,
                 },
                 AgentInstanceConfig {
                     id: "agent2".to_string(),
                     workspace: PathBuf::from("/ws/agent2"),
                     default: false,
                     aieos_path: Some(PathBuf::from("/aieos")),
+                    persona_id: None,
                 },
             ],
             defaults: AgentDefaults::default(),

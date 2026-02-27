@@ -137,6 +137,8 @@ pub struct ChannelConfig {
     pub allow_from: Option<Vec<String>>,
     #[serde(default)]
     pub proxy: Option<String>,
+    #[serde(default)]
+    pub use_gateway: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

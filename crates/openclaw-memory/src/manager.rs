@@ -79,13 +79,13 @@ impl MemoryManager {
     /// 自动召回相关记忆
     pub async fn recall(&self, query: &str) -> Result<RecallResult> {
         if let Some(strategy) = &self.recall_strategy {
-            return strategy.recall(query, None).await;
+            return strategy.recall(query, None, None).await;
         }
         
         if let Some(provider) = &self.embedding_provider {
             if let Some(vector_store) = &self.long_term {
                 let recall_tool = SimpleMemoryRecall::new(provider.clone(), vector_store.clone());
-                return recall_tool.recall(query, None).await;
+                return recall_tool.recall(query, None, None).await;
             }
             return Err(OpenClawError::Memory(
                 "Vector store not configured".to_string(),
@@ -99,9 +99,14 @@ impl MemoryManager {
 
     /// 添加消息到记忆
     pub async fn add(&mut self, message: Message) -> Result<()> {
+        self.add_with_namespace(message, None).await
+    }
+
+    /// 添加消息到记忆（带命名空间）
+    pub async fn add_with_namespace(&mut self, message: Message, namespace: Option<crate::types::MemoryNamespace>) -> Result<()> {
         // 计算重要性分数
         let score = self.scorer.score(&message);
-        let item = MemoryItem::from_message(message, score);
+        let item = MemoryItem::from_message(message, score).with_optional_namespace(namespace);
 
         // 添加到工作记忆
         if let Some(overflow) = self.working.add(item) {
@@ -168,6 +173,7 @@ impl MemoryManager {
                     let token_count = content_preview.len() / 4;
                     let memory_item = MemoryItem {
                         id: uuid::Uuid::new_v4(),
+                        namespace: None,
                         level: MemoryLevel::LongTerm,
                         content: MemoryContent::VectorRef {
                             vector_id: result.id.clone(),
@@ -235,15 +241,22 @@ impl MemoryManager {
             return Err(OpenClawError::Config("未配置嵌入向量提供者".to_string()));
         };
 
+        let mut payload = serde_json::json!({
+            "memory_id": item.id.to_string(),
+            "level": item.level,
+            "importance": item.importance_score,
+            "content": if text.len() > 200 { &text[..200] } else { &text },
+        });
+
+        if let Some(ref namespace) = item.namespace {
+            payload["user_id"] = serde_json::Value::String(namespace.user_id.clone());
+            payload["persona_id"] = serde_json::Value::String(namespace.persona_id.clone());
+        }
+
         let vector_item = openclaw_vector::VectorItem {
             id: vector_id.clone(),
             vector: embedding,
-            payload: serde_json::json!({
-                "memory_id": item.id.to_string(),
-                "level": item.level,
-                "importance": item.importance_score,
-                "content": if text.len() > 200 { &text[..200] } else { &text },
-            }),
+            payload,
             created_at: item.created_at,
         };
 

@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use openclaw_core::session::SessionScope;
 
-use crate::types::AgentId;
+use crate::types::{AgentId, PersonaId};
 
 /// Session 会话
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +30,8 @@ pub struct Session {
     pub scope: SessionScope,
     /// 关联的 Agent ID
     pub agent_id: AgentId,
+    /// Persona ID - 用于记忆隔离
+    pub persona_id: Option<PersonaId>,
     /// 通道类型
     pub channel_type: Option<String>,
     /// 账户 ID
@@ -76,6 +78,7 @@ impl Session {
             name: name.into(),
             scope,
             agent_id,
+            persona_id: None,
             channel_type: None,
             account_id: None,
             peer_id: None,
@@ -89,6 +92,11 @@ impl Session {
             system_prompt: None,
             history_summary: None,
         }
+    }
+
+    pub fn with_persona(mut self, persona_id: PersonaId) -> Self {
+        self.persona_id = Some(persona_id);
+        self
     }
 
     pub fn with_channel(mut self, channel_type: impl Into<String>) -> Self {
