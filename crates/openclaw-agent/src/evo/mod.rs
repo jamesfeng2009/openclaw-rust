@@ -254,34 +254,31 @@ impl EvolutionEngine {
             return EvolutionResult::failure("No tool needs detected".to_string());
         }
         
-        for need in &needs {
-            result.logs.push(format!("Generating skill: {}", need.name));
-            result.status = EvolutionStatus::Generating;
-            
-            let code = self.generator.generate(need);
-            
-            result.logs.push("Validating code...".to_string());
-            result.status = EvolutionStatus::Validating;
-            
-            if let Err(e) = self.compiler.validate(&code).await {
-                return EvolutionResult::failure(e.to_string());
-            }
-            
-            result.logs.push("Compiling skill...".to_string());
-            result.status = EvolutionStatus::Compiling;
-            
-            match self.compiler.compile(&code).await {
-                Ok(skill) => {
-                    result.logs.push(format!("Compiled: {} v{}", skill.language, skill.compiled_at.to_rfc3339()));
-                    return EvolutionResult::success(skill);
-                }
-                Err(e) => {
-                    return EvolutionResult::failure(e.to_string());
-                }
-            }
+        let need = &needs[0];
+        result.logs.push(format!("Generating skill: {}", need.name));
+        result.status = EvolutionStatus::Generating;
+        
+        let code = self.generator.generate(need);
+        
+        result.logs.push("Validating code...".to_string());
+        result.status = EvolutionStatus::Validating;
+        
+        if let Err(e) = self.compiler.validate(&code).await {
+            return EvolutionResult::failure(e.to_string());
         }
         
-        EvolutionResult::failure("No skills generated".to_string())
+        result.logs.push("Compiling skill...".to_string());
+        result.status = EvolutionStatus::Compiling;
+        
+        match self.compiler.compile(&code).await {
+            Ok(skill) => {
+                result.logs.push(format!("Compiled: {} v{}", skill.language, skill.compiled_at.to_rfc3339()));
+                EvolutionResult::success(skill)
+            }
+            Err(e) => {
+                EvolutionResult::failure(e.to_string())
+            }
+        }
     }
 }
 

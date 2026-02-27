@@ -17,7 +17,7 @@
 | 🛠️ **工具生态** | 浏览器控制、定时任务、Cron 调度、Webhook、设备节点、MCP 集成 |
 | 📝 **Prompt-Driven 技能** | 通过编写 SKILL.md 扩展 Agent 能力，技能自动注入 System Prompt |
 | 🚪 **智能技能准入** | 环境检测 (bins/env/files)，技能根据系统环境自动启用/禁用 |
-| 🔄 **跨格式兼容** | 支持 GoClaw、OpenClaw、AgentSkills 三种技能格式 |
+| 🔄 **跨格式兼容** | 支持 OpenClaw、AgentSkills 两种技能格式 |
 | 🧬 **Evo 技能进化** | LLM 自动生成新技能，ACP 广播跨 Agent 传播 |
 
 ## 🏗️ 架构设计
