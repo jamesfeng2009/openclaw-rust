@@ -207,7 +207,7 @@ mod tests {
         let task = AbortableTask::new();
         
         let handle = task.spawn(async {
-            loop {
+            for _ in 0..1000u64 {
                 tokio::time::sleep(Duration::from_millis(1)).await;
             }
         }).await;
