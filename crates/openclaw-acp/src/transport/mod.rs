@@ -3,6 +3,7 @@
 //! Provides HTTP and WebSocket transport for ACP messages.
 
 pub mod http;
+pub mod websocket;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,7 @@ use crate::envelope::AcpEnvelope;
 use crate::error::AcpResult;
 
 pub use http::HttpTransport;
+pub use websocket::{WebSocketTransport, WsMessage, WsTransportConfig};
 
 #[async_trait]
 pub trait Transport: Send + Sync {

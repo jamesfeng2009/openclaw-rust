@@ -5773,6 +5773,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "futures",
+ "futures-util",
  "openclaw-core",
  "regex",
  "reqwest",
