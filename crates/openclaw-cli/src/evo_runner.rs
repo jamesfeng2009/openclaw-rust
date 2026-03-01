@@ -5,7 +5,7 @@ use std::sync::Arc;
 use openclaw_agent::{
     EvoV2Engine, EvoContext, EvoSkill, EvoStatistics, 
     Recommendation, ValidationResult, RecurringPattern, ToolCall,
-    GraphStatistics,
+    GraphStatistics, VersionRecord, VersionDiff,
 };
 
 pub struct EvoRunner {
@@ -50,6 +50,18 @@ impl EvoRunner {
     pub async fn get_graph_statistics(&self) -> GraphStatistics {
         let graph = self.engine.get_knowledge_graph().await;
         graph.read().await.get_statistics()
+    }
+
+    pub async fn get_skill_history(&self, skill_id: &str) -> Vec<VersionRecord> {
+        self.engine.get_skill_history(skill_id).await
+    }
+
+    pub async fn rollback_skill(&self, skill_id: &str, version: u32) -> Option<VersionRecord> {
+        self.engine.rollback_skill(skill_id, version).await
+    }
+
+    pub async fn get_version_diff(&self, skill_id: &str, from: u32, to: u32) -> Option<VersionDiff> {
+        self.engine.get_version_diff(skill_id, from, to).await
     }
 
     pub async fn process_task(

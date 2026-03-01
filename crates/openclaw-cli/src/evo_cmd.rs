@@ -40,6 +40,27 @@ pub enum EvoCommand {
     },
     /// 检测重复模式
     Detect,
+    /// 查看技能版本历史
+    History {
+        /// 技能 ID
+        skill_id: String,
+    },
+    /// 回滚到指定版本
+    Rollback {
+        /// 技能 ID
+        skill_id: String,
+        /// 目标版本号
+        version: u32,
+    },
+    /// 查看版本差异
+    Diff {
+        /// 技能 ID
+        skill_id: String,
+        /// 起始版本
+        from: u32,
+        /// 目标版本
+        to: u32,
+    },
 }
 
 pub async fn execute(command: EvoCommand) -> Result<(), OpenClawError> {
@@ -208,6 +229,46 @@ pub async fn execute(command: EvoCommand) -> Result<(), OpenClawError> {
                     println!("   平均成功率: {:.0}%", pattern.avg_success_rate * 100.0);
                     println!();
                 }
+            }
+        }
+
+        EvoCommand::History { skill_id } => {
+            let history = runner.get_skill_history(&skill_id).await;
+            println!("📜 版本历史 (技能: {}):", skill_id);
+            if history.is_empty() {
+                println!("   无版本历史");
+            } else {
+                for record in &history {
+                    println!("  v{} | 可靠性: {:.1}% | {} | {}",
+                        record.version,
+                        record.reliability * 100.0,
+                        record.created_at.format("%Y-%m-%d %H:%M"),
+                        record.changes
+                    );
+                }
+            }
+        }
+
+        EvoCommand::Rollback { skill_id, version } => {
+            if let Some(record) = runner.rollback_skill(&skill_id, version).await {
+                println!("✅ 已回滚到 v{}: {}", record.version, record.changes);
+            } else {
+                println!("❌ 回滚失败: 未找到版本 {}", version);
+            }
+        }
+
+        EvoCommand::Diff { skill_id, from, to } => {
+            if let Some(diff) = runner.get_version_diff(&skill_id, from, to).await {
+                println!("📊 版本差异 (v{} -> v{}):", from, to);
+                println!("  +{} 行", diff.added_lines);
+                println!("  -{} 行", diff.removed_lines);
+                if diff.changed_params.is_empty() {
+                    println!("  参数变化: 无");
+                } else {
+                    println!("  参数变化: {:?}", diff.changed_params);
+                }
+            } else {
+                println!("❌ 无法计算差异: 版本不存在");
             }
         }
     }

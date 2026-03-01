@@ -13,6 +13,7 @@ use super::knowledge_graph::{KnowledgeGraph, SkillNode};
 use super::learning_history::{LearningHistory, LearningRecord, LearningType, RecurringPattern};
 use super::pattern_analyzer::{PatternAnalyzer, TaskPattern, ToolCall};
 use super::skill_validator::{SkillValidator, ValidationResult, ValidationStatus};
+use super::version_manager::{VersionManager, VersionRecord};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvoConfig {
@@ -82,6 +83,7 @@ pub struct EvoV2Engine {
     learning_history: Arc<RwLock<LearningHistory>>,
     knowledge_graph: Arc<RwLock<KnowledgeGraph>>,
     skill_validator: SkillValidator,
+    version_manager: Arc<RwLock<VersionManager>>,
     learned_skills: Arc<RwLock<std::collections::HashMap<String, EvoSkill>>>,
 }
 
@@ -103,6 +105,7 @@ impl EvoV2Engine {
             learning_history: Arc::new(RwLock::new(LearningHistory::new())),
             knowledge_graph: Arc::new(RwLock::new(KnowledgeGraph::new())),
             skill_validator: SkillValidator::new(),
+            version_manager: Arc::new(RwLock::new(VersionManager::new())),
             learned_skills: Arc::new(RwLock::new(std::collections::HashMap::new())),
         }
     }
@@ -201,13 +204,25 @@ impl EvoV2Engine {
     async fn evolve_skill(
         &self,
         skill_id: &str,
-        _pattern: &TaskPattern,
+        pattern: &TaskPattern,
         success: bool,
     ) -> EvoEvolutionResult {
         let mut skills = self.learned_skills.write().await;
 
         if let Some(skill) = skills.get_mut(skill_id) {
             let old_reliability = skill.reliability;
+
+            {
+                let mut vm = self.version_manager.write().await;
+                vm.create_version(
+                    skill_id,
+                    skill.code.clone(),
+                    skill.pattern.clone(),
+                    skill.reliability,
+                    format!("Before evolution v{}", skill.version),
+                    "auto_backup",
+                );
+            }
 
             if success {
                 skill.usage_count += 1;
@@ -217,6 +232,18 @@ impl EvoV2Engine {
                 skill.last_used = Some(Utc::now());
             } else {
                 skill.reliability *= 0.9;
+            }
+
+            {
+                let mut vm = self.version_manager.write().await;
+                vm.create_version(
+                    skill_id,
+                    skill.code.clone(),
+                    pattern.clone(),
+                    skill.reliability,
+                    format!("Reliability: {:.2} -> {:.2}", old_reliability, skill.reliability),
+                    "auto_evolve",
+                );
             }
 
             let changes = vec![
@@ -384,6 +411,25 @@ impl EvoV2Engine {
 
     pub async fn get_knowledge_graph(&self) -> Arc<RwLock<KnowledgeGraph>> {
         self.knowledge_graph.clone()
+    }
+
+    pub async fn get_version_manager(&self) -> Arc<RwLock<VersionManager>> {
+        self.version_manager.clone()
+    }
+
+    pub async fn get_skill_history(&self, skill_id: &str) -> Vec<VersionRecord> {
+        let vm = self.version_manager.read().await;
+        vm.get_all_versions(skill_id)
+    }
+
+    pub async fn rollback_skill(&self, skill_id: &str, version: u32) -> Option<VersionRecord> {
+        let mut vm = self.version_manager.write().await;
+        vm.rollback(skill_id, version)
+    }
+
+    pub async fn get_version_diff(&self, skill_id: &str, v1: u32, v2: u32) -> Option<super::version_manager::VersionDiff> {
+        let vm = self.version_manager.read().await;
+        vm.diff(skill_id, v1, v2)
     }
 }
 

@@ -55,6 +55,7 @@ pub use evo::pattern_analyzer::{PatternAnalyzer, TaskPattern, ToolCall, ToolCall
 pub use evo::learning_history::{LearningHistory, LearningRecord, RecurringPattern};
 pub use evo::knowledge_graph::{KnowledgeGraph, SkillNode, GraphStatistics};
 pub use evo::skill_validator::{SkillValidator, ValidationResult, ValidationStatus, ValidationDetail};
+pub use evo::version_manager::{VersionManager, VersionRecord, VersionDiff};
 pub use sub_agent::*;
 pub use task::*;
 pub use team::*;
