@@ -10,6 +10,8 @@ use crate::evo_runner::EvoRunner;
 pub enum EvoCommand {
     /// 查看进化系统统计信息
     Stats,
+    /// 查看知识图谱统计信息
+    GraphStats,
     /// 从历史记录学习新技能
     Learn,
     /// 触发技能进化
@@ -55,6 +57,17 @@ pub async fn execute(command: EvoCommand) -> Result<(), OpenClawError> {
             println!("   可靠技能: {}", stats.reliable_skills);
             println!("   图谱节点: {}", stats.graph_nodes);
             println!("   图谱边数: {}", stats.graph_edges);
+            println!();
+        }
+
+        EvoCommand::GraphStats => {
+            let stats = runner.get_graph_statistics().await;
+            println!("📊 知识图谱统计:");
+            println!();
+            println!("   技能节点数: {}", stats.total_skills);
+            println!("   关系边数:   {}", stats.total_edges);
+            println!("   平均使用次数: {:.1}", stats.avg_usage);
+            println!("   平均成功率:   {:.1}%", stats.avg_success_rate * 100.0);
             println!();
         }
 

@@ -39,6 +39,7 @@ pub enum EdgeType {
     VariantOf,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct KnowledgeGraph {
     nodes: HashMap<String, SkillNode>,
     edges: HashMap<String, Vec<SkillEdge>>,
@@ -298,6 +299,24 @@ impl KnowledgeGraph {
             avg_usage,
             avg_success_rate,
         }
+    }
+
+    pub fn add_edge(&mut self, edge: SkillEdge) {
+        self.edges
+            .entry(edge.from_skill_id.clone())
+            .or_insert_with(Vec::new)
+            .push(edge);
+    }
+
+    pub fn save_to_file(&self, path: &str) -> std::io::Result<()> {
+        let json = serde_json::to_string_pretty(self).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        std::fs::write(path, json)
+    }
+
+    pub fn load_from_file(path: &str) -> std::io::Result<Self> {
+        let json = std::fs::read_to_string(path)?;
+        let graph: KnowledgeGraph = serde_json::from_str(&json).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        Ok(graph)
     }
 }
 
@@ -565,5 +584,38 @@ mod tests {
 
         let sim_13 = graph.calculate_similarity(&seq1, &seq3);
         assert!(sim_13 < 0.5);
+    }
+
+    #[test]
+    fn test_add_edge() {
+        let mut graph = KnowledgeGraph::new();
+
+        graph.add_skill(create_test_node("skill-1", "search"));
+        graph.add_skill(create_test_node("skill-2", "search"));
+
+        let edge = SkillEdge {
+            from_skill_id: "skill-1".to_string(),
+            to_skill_id: "skill-2".to_string(),
+            edge_type: EdgeType::Similar,
+            weight: 0.8,
+        };
+        graph.add_edge(edge);
+
+        let stats = graph.get_statistics();
+        assert_eq!(stats.total_edges, 1);
+    }
+
+    #[test]
+    fn test_save_load() {
+        let mut graph = KnowledgeGraph::new();
+        graph.add_skill(create_test_node("skill-1", "search"));
+
+        let path = "/tmp/test_knowledge_graph.json";
+        graph.save_to_file(path).unwrap();
+
+        let loaded = KnowledgeGraph::load_from_file(path).unwrap();
+        assert_eq!(loaded.get_skills_count(), 1);
+
+        std::fs::remove_file(path).ok();
     }
 }

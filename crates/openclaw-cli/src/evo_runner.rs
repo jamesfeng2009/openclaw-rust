@@ -5,6 +5,7 @@ use std::sync::Arc;
 use openclaw_agent::{
     EvoV2Engine, EvoContext, EvoSkill, EvoStatistics, 
     Recommendation, ValidationResult, RecurringPattern, ToolCall,
+    GraphStatistics,
 };
 
 pub struct EvoRunner {
@@ -44,6 +45,11 @@ impl EvoRunner {
 
     pub async fn detect_recurring_patterns(&self) -> Vec<RecurringPattern> {
         self.engine.detect_recurring_patterns().await
+    }
+
+    pub async fn get_graph_statistics(&self) -> GraphStatistics {
+        let graph = self.engine.get_knowledge_graph().await;
+        graph.read().await.get_statistics()
     }
 
     pub async fn process_task(

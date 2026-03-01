@@ -323,6 +323,26 @@ impl EvoV2Engine {
         self.skill_validator.validate(code)
     }
 
+    pub async fn on_skill_executed(&self, skill_id: &str, success: bool) {
+        {
+            let mut graph = self.knowledge_graph.write().await;
+            graph.record_usage(skill_id, success);
+        }
+        {
+            let mut skills = self.learned_skills.write().await;
+            if let Some(skill) = skills.get_mut(skill_id) {
+                skill.usage_count += 1;
+                if success {
+                    skill.reliability = (skill.reliability * (skill.usage_count - 1) as f64 + 1.0) 
+                        / skill.usage_count as f64;
+                } else {
+                    skill.reliability *= 0.9;
+                }
+                skill.last_used = Some(Utc::now());
+            }
+        }
+    }
+
     pub async fn get_skill(&self, skill_id: &str) -> Option<EvoSkill> {
         self.learned_skills.read().await.get(skill_id).cloned()
     }
@@ -336,6 +356,10 @@ impl EvoV2Engine {
             let mut skills = self.learned_skills.write().await;
             skills.remove(skill_id).is_some()
         }
+    }
+
+    pub async fn get_knowledge_graph(&self) -> Arc<RwLock<KnowledgeGraph>> {
+        self.knowledge_graph.clone()
     }
 }
 

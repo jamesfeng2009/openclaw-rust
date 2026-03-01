@@ -53,7 +53,7 @@ pub use evo::skill_prompt_injector::SkillPromptInjector;
 pub use evo::evo_v2_engine::{EvoV2Engine, EvoConfig, EvoContext, EvoSkill, Recommendation, EvoStatistics};
 pub use evo::pattern_analyzer::{PatternAnalyzer, TaskPattern, ToolCall, ToolCallPattern};
 pub use evo::learning_history::{LearningHistory, LearningRecord, RecurringPattern};
-pub use evo::knowledge_graph::{KnowledgeGraph, SkillNode};
+pub use evo::knowledge_graph::{KnowledgeGraph, SkillNode, GraphStatistics};
 pub use evo::skill_validator::{SkillValidator, ValidationResult, ValidationStatus, ValidationDetail};
 pub use sub_agent::*;
 pub use task::*;
