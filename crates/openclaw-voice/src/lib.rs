@@ -17,6 +17,7 @@
 
 pub mod audio;
 pub mod config;
+pub mod dialogue;
 pub mod provider;
 pub mod stt;
 pub mod talk_mode;
@@ -25,8 +26,11 @@ pub mod types;
 pub mod voice_agent;
 pub mod wake;
 
-pub use audio::{AudioPlayer, AudioUtils};
+pub use audio::{AudioPlayer, AudioUtils, stream::{AudioChunk, StreamEvent, StreamProcessorConfig, DefaultStreamProcessor}, vad::{VadConfig, VadBuilder, EnergyVad, SpeechSegment, VoiceActivityDetector}, agc::{AgcConfig, AgcBuilder, SimpleAgc, AgcProcessor}, noise_suppression::{NoiseSuppressionConfig, NoiseSuppressionBuilder, SpectralSubtraction, GateNoiseSuppressor, NoiseSuppressor, SuppressorType}};
 pub use config::{VoiceConfigManager, default_voice_config};
+pub use dialogue::{DialogueContext, DialogueContextManager, ConversationTurn, Speaker, Intent, Entity, SlotValue, DialogueState};
+pub use dialogue::intent::{IntentRecognizer, KeywordIntentRecognizer};
+pub use dialogue::slots::{Slot, SlotManager};
 pub use provider::ProviderRegistry;
 pub use stt::{SpeechToText, create_stt};
 pub use talk_mode::{TalkMode, TalkModeBuilder, TalkModeConfig, TalkModeEvent};

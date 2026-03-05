@@ -6274,6 +6274,7 @@ dependencies = [
  "chrono",
  "config",
  "futures",
+ "lru",
  "once_cell",
  "openclaw-acp",
  "openclaw-agent",

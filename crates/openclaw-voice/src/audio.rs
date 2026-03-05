@@ -1,5 +1,10 @@
 //! 音频处理工具
 
+pub mod stream;
+pub mod vad;
+pub mod agc;
+pub mod noise_suppression;
+
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use openclaw_core::{OpenClawError, Result};
 use std::sync::Arc;
