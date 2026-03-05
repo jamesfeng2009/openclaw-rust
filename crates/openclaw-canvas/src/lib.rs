@@ -6,8 +6,10 @@ pub mod canvas;
 pub mod collaboration;
 pub mod draw;
 pub mod types;
+pub mod websocket;
 
 pub use canvas::{CanvasInfo, CanvasManager, CanvasOps};
 pub use collaboration::{CollabEvent, CollabManager, CollabSession, UserInfo, UserColorGenerator, WsMessage};
 pub use draw::DrawAction;
-pub use types::{CanvasState, Color, Element, ElementUpdate, UserCursor, CanvasId};
+pub use types::{CanvasState, Color, Element, ElementUpdate, UserCursor, CanvasId, UserId};
+pub use websocket::protocol::CollabMessage;
