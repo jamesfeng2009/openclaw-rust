@@ -184,6 +184,9 @@ pub struct ShortTermMemoryConfig {
     /// 压缩模式: "simple" | "ai"
     #[serde(default = "default_compression_mode")]
     pub compression_mode: String,
+    /// AI 摘要模型 (当 compression_mode 为 "ai" 时使用)
+    #[serde(default)]
+    pub summary_model: Option<String>,
 }
 
 fn default_compression_mode() -> String {
@@ -196,6 +199,7 @@ impl Default for ShortTermMemoryConfig {
             compress_after: 10,
             max_summaries: 5,
             compression_mode: "simple".to_string(),
+            summary_model: None,
         }
     }
 }

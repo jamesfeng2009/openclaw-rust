@@ -7,9 +7,13 @@ pub mod mqtt;
 pub mod ros2;
 
 pub use can::{CanBus, CanBusInfo, CanError, CanFilter, CanFrame, CanId, CanResult, CanState};
+
 pub use mqtt::{
     MqttClient, MqttConfig, MqttError, MqttMessage, MqttQos, MqttResult, MqttSubscription,
 };
+
+#[cfg(feature = "mqtt")]
+pub use mqtt::async_impl::AsyncMqttClient;
 pub use ros2::{
     Ros2Action, Ros2Client, Ros2Error, Ros2Result, Ros2Service, Ros2ServiceInfo, Ros2Topic,
     Ros2TopicInfo,

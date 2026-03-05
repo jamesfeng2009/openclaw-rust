@@ -67,24 +67,20 @@ pub fn create_kimi_provider(api_key: &str) -> Arc<dyn AIProvider> {
 }
 
 /// 创建 OpenRouter 提供商
-pub fn create_openrouter_provider(api_key: &str) -> Arc<dyn AIProvider> {
+pub fn create_openrouter_provider(api_key: &str) -> Result<Arc<dyn AIProvider>, String> {
     let config = ProviderConfig::new("openrouter", api_key).with_default_model("openai/gpt-4o");
-    match ProviderFactory::create(ProviderType::OpenRouter, config) {
-        Ok(provider) => provider,
-        Err(e) => panic!("Failed to create OpenRouter provider: {}", e),
-    }
+    ProviderFactory::create(ProviderType::OpenRouter, config)
+        .map_err(|e| format!("Failed to create OpenRouter provider: {}", e))
 }
 
 /// 创建 Ollama 本地模型提供商
-pub fn create_ollama_provider(base_url: Option<&str>) -> Arc<dyn AIProvider> {
+pub fn create_ollama_provider(base_url: Option<&str>) -> Result<Arc<dyn AIProvider>, String> {
     let url = base_url.unwrap_or("http://localhost:11434");
     let config = ProviderConfig::new("ollama", "dummy")
         .with_base_url(url)
         .with_default_model("llama3.1");
-    match ProviderFactory::create(ProviderType::Ollama, config) {
-        Ok(provider) => provider,
-        Err(e) => panic!("Failed to create Ollama provider: {}", e),
-    }
+    ProviderFactory::create(ProviderType::Ollama, config)
+        .map_err(|e| format!("Failed to create Ollama provider: {}", e))
 }
 
 /// 使用工厂模式创建提供商 (推荐)
@@ -92,7 +88,7 @@ pub fn create_provider(
     provider_type: ProviderType,
     api_key: &str,
     base_url: Option<&str>,
-) -> Arc<dyn AIProvider> {
+) -> Result<Arc<dyn AIProvider>, String> {
     let config = ProviderConfig::new(provider_type.to_string(), api_key);
     let config = if let Some(url) = base_url {
         config.with_base_url(url)
@@ -100,10 +96,8 @@ pub fn create_provider(
         config
     };
 
-    match ProviderFactory::create(provider_type, config) {
-        Ok(provider) => provider,
-        Err(e) => panic!("Failed to create provider: {}", e),
-    }
+    ProviderFactory::create(provider_type, config)
+        .map_err(|e| format!("Failed to create provider: {}", e))
 }
 
 /// 从名称创建提供商 (支持动态配置)

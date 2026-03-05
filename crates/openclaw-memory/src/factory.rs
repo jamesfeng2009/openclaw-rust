@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 
 use crate::ai_adapter::AIProviderEmbeddingAdapter;
 use crate::bm25::Bm25Index;
+use crate::compress_adapter::AIProviderCompressAdapter;
 use crate::hybrid_search::{HybridSearchConfig, HybridSearchManager};
 use crate::knowledge_graph::KnowledgeGraph;
 use crate::manager::MemoryManager;
@@ -84,6 +85,7 @@ impl HybridMemoryFactory {
         ai_provider: Arc<dyn AIProvider>,
         vector_store: Arc<dyn VectorStore>,
     ) -> Result<Arc<dyn MemoryBackend>> {
+        let ai_provider_clone = ai_provider.clone();
         let embedding_provider = AIProviderEmbeddingAdapter::new(
             ai_provider,
             config.long_term.embedding_model.clone(),
@@ -116,10 +118,24 @@ impl HybridMemoryFactory {
             hybrid_search = hybrid_search.with_knowledge_graph(Arc::new(tokio::sync::RwLock::new(kg)));
         }
 
-        let manager = MemoryManager::new(config.clone())
-            .with_vector_store(vector_store)
-            .with_embedding_provider(embedding_provider)
-            .with_hybrid_search(Arc::new(hybrid_search));
+        let manager = if config.short_term.compression_mode == "ai" {
+            let summary_model = config
+                .short_term
+                .summary_model
+                .clone()
+                .unwrap_or_else(|| "gpt-4o-mini".to_string());
+            let compress_adapter = AIProviderCompressAdapter::new(ai_provider_clone, summary_model);
+            MemoryManager::new(config.clone())
+                .with_vector_store(vector_store)
+                .with_embedding_provider(embedding_provider)
+                .with_hybrid_search(Arc::new(hybrid_search))
+                .with_ai_compressor(Arc::new(compress_adapter))
+        } else {
+            MemoryManager::new(config.clone())
+                .with_vector_store(vector_store)
+                .with_embedding_provider(embedding_provider)
+                .with_hybrid_search(Arc::new(hybrid_search))
+        };
 
         Ok(Arc::new(HybridMemoryBackend::new(manager)) as Arc<dyn MemoryBackend>)
     }

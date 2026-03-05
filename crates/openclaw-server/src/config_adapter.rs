@@ -48,6 +48,7 @@ impl ConfigAdapter {
                 compress_after: core.short_term.compress_after,
                 max_summaries: core.short_term.max_summaries,
                 compression_mode: core.short_term.compression_mode.clone(),
+                summary_model: core.short_term.summary_model.clone(),
             },
             long_term: LongTermMemoryConfig {
                 enabled: core.long_term.enabled,

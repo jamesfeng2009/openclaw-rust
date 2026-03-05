@@ -1,7 +1,9 @@
 //! Wasmi 运行时实现 (轻量级解释器)
 
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use wasmi::*;
 
 use super::config::WasmRuntimeConfig;
@@ -11,6 +13,7 @@ use super::WasmRuntimeType;
 pub struct WasmiRuntime {
     engine: Engine,
     config: WasmRuntimeConfig,
+    modules: Arc<RwLock<HashMap<String, Module>>>,
 }
 
 impl WasmiRuntime {
@@ -20,13 +23,28 @@ impl WasmiRuntime {
         engine_config.set_memory_limits(config.memory_limit_mb as u32, 1)
             .map_err(|e| WasmError::InitFailed(e.to_string()))?;
 
+        engine_config.set_fuel_enabled(true);
+
         let engine = Engine::new(&engine_config)
             .map_err(|e| WasmError::InitFailed(e.to_string()))?;
 
         Ok(Self {
             engine,
             config: config.clone(),
+            modules: Arc::new(RwLock::new(HashMap::new())),
         })
+    }
+
+    async fn check_timeout(&self, start: std::time::Instant) -> Result<(), WasmError> {
+        if start.elapsed().as_secs() > self.config.timeout_secs {
+            return Err(WasmError::ExecutionFailed("Execution timeout".to_string()));
+        }
+        Ok(())
+    }
+
+    fn get_allowed_function(&self, name: &str) -> bool {
+        self.config.allowed_functions.is_empty() || 
+        self.config.allowed_functions.iter().any(|f| f == name)
     }
 }
 

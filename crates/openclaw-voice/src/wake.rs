@@ -7,6 +7,8 @@ use openclaw_core::{OpenClawError, Result};
 use std::sync::Arc;
 use tokio::sync::{RwLock, broadcast};
 
+use crate::stt::SpeechToText;
+
 fn zip_err(e: zip::result::ZipError) -> OpenClawError {
     OpenClawError::Io(std::io::Error::other(e.to_string()))
 }
@@ -164,6 +166,111 @@ impl VoiceWake for KeywordWakeDetector {
         *running = false;
 
         tracing::info!("Voice Wake 已停止");
+        Ok(())
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<WakeEvent> {
+        self.event_tx.subscribe()
+    }
+
+    async fn is_running(&self) -> bool {
+        *self.running.read().await
+    }
+}
+
+/// 基于 STT 的唤醒词检测器
+/// 使用语音转文本 + 关键词匹配实现唤醒词检测
+pub struct SttWakeDetector {
+    stt: Arc<dyn SpeechToText>,
+    config: WakeWordConfig,
+    running: Arc<RwLock<bool>>,
+    event_tx: broadcast::Sender<WakeEvent>,
+    audio_buffer: Vec<u8>,
+    min_audio_bytes: usize,
+}
+
+impl SttWakeDetector {
+    pub fn new(stt: Arc<dyn SpeechToText>, config: WakeWordConfig) -> Self {
+        let min_audio_bytes = (config.min_audio_length_ms as usize * 16) / 1000;
+        let (event_tx, _) = broadcast::channel(16);
+        
+        Self {
+            stt,
+            config,
+            running: Arc::new(RwLock::new(false)),
+            event_tx,
+            audio_buffer: Vec::new(),
+            min_audio_bytes,
+        }
+    }
+
+    pub async fn process_frame(&mut self, audio_frame: &[u8]) -> Result<Option<WakeEvent>> {
+        if !*self.running.read().await {
+            return Ok(None);
+        }
+
+        self.audio_buffer.extend_from_slice(audio_frame);
+
+        if self.audio_buffer.len() < self.min_audio_bytes {
+            return Ok(None);
+        }
+
+        let audio_data = self.audio_buffer.clone();
+        let result = self.stt.transcribe(&audio_data, Some("zh")).await?;
+
+        let text_lower = result.text.to_lowercase();
+        for wake_word in &self.config.wake_words {
+            let wake_word_lower = wake_word.to_lowercase();
+            if text_lower.contains(&wake_word_lower) {
+                let confidence = self.calculate_confidence(&text_lower, &wake_word_lower);
+                if confidence >= self.config.threshold {
+                    let event = WakeEvent {
+                        wake_word: wake_word.clone(),
+                        confidence,
+                        timestamp: chrono::Utc::now(),
+                    };
+                    let _ = self.event_tx.send(event.clone());
+                    self.audio_buffer.clear();
+                    return Ok(Some(event));
+                }
+            }
+        }
+
+        self.audio_buffer.clear();
+        Ok(None)
+    }
+
+    fn calculate_confidence(&self, text: &str, wake_word: &str) -> f32 {
+        if text.trim() == wake_word {
+            1.0
+        } else if text.contains(wake_word) {
+            0.8
+        } else {
+            0.5
+        }
+    }
+}
+
+#[async_trait]
+impl VoiceWake for SttWakeDetector {
+    async fn start(&mut self) -> Result<()> {
+        let mut running = self.running.write().await;
+        *running = true;
+        self.audio_buffer.clear();
+        
+        tracing::info!(
+            "STT Wake Detector 已启动，监听唤醒词: {:?}",
+            self.config.wake_words
+        );
+        Ok(())
+    }
+
+    async fn stop(&mut self) -> Result<()> {
+        let mut running = self.running.write().await;
+        *running = false;
+        self.audio_buffer.clear();
+        
+        tracing::info!("STT Wake Detector 已停止");
         Ok(())
     }
 
@@ -389,9 +496,18 @@ pub enum VoskModelType {
 pub fn create_wake_detector(
     detector_type: WakeDetectorType,
     config: WakeWordConfig,
+    stt: Option<Arc<dyn SpeechToText>>,
 ) -> Box<dyn VoiceWake> {
     match detector_type {
         WakeDetectorType::Keyword => Box::new(KeywordWakeDetector::new(config)),
+        WakeDetectorType::Stt => {
+            if let Some(stt) = stt {
+                Box::new(SttWakeDetector::new(stt, config))
+            } else {
+                tracing::warn!("Stt 模式需要提供 STT 实例，回退到 Keyword 模式");
+                Box::new(KeywordWakeDetector::new(config))
+            }
+        }
         WakeDetectorType::Porcupine(access_key) => {
             Box::new(PorcupineWakeDetector::new(config, access_key))
         }
@@ -404,6 +520,8 @@ pub fn create_wake_detector(
 pub enum WakeDetectorType {
     /// 关键词匹配 (简单，需要配合 STT)
     Keyword,
+    /// STT + 关键词匹配 (使用 Whisper 等)
+    Stt,
     /// Porcupine (高质量，需要授权)
     Porcupine(Option<String>),
     /// Vosk (本地，免费)
