@@ -112,12 +112,12 @@ pub trait MqttClient: FrameworkModule {
 #[cfg(feature = "mqtt")]
 pub mod async_impl {
     use super::*;
-    use rumqttc::{AsyncClient, EventLoop, MqttOptions, QoS as RumqttQoS, Packet};
+    use rumqttc::{AsyncClient, EventLoop, MqttOptions, QoS as RumqttQoS};
     use std::sync::Arc;
     use tokio::sync::{mpsc, RwLock};
     use futures_util::{Stream, StreamExt};
-    use std::pin::Pin;
-    use std::task::{Context, Poll};
+    
+    
 
     impl From<MqttQos> for RumqttQoS {
         fn from(qos: MqttQos) -> Self {

@@ -98,7 +98,7 @@ impl DeviceCapabilities {
     }
 
     fn detect_sensors() -> Vec<SensorType> {
-        let mut sensors = Vec::new();
+        let sensors = Vec::new();
 
         #[cfg(target_os = "linux")]
         {

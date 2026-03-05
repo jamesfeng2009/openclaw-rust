@@ -23,7 +23,7 @@ use crate::platform::Platform;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FrameworkConfig {
     pub enabled: bool,
     pub endpoint: Option<String>,
