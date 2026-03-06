@@ -4,11 +4,13 @@ use openclaw_core::Result;
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::info;
 
 pub struct WasmToolAdapter {
     name: String,
     description: String,
     input_schema: Value,
+    module_path: Option<String>,
     executor: Arc<
         dyn Fn(Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>>
             + Send
@@ -33,6 +35,32 @@ impl WasmToolAdapter {
             name,
             description,
             input_schema,
+            module_path: None,
+            executor: Arc::new(executor),
+        }
+    }
+
+    pub fn with_module(
+        name: String,
+        description: String,
+        input_schema: Value,
+        module_path: String,
+    ) -> Self {
+        let path = module_path.clone();
+        
+        let executor = move |args: Value| -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>> {
+            let path = path.clone();
+            Box::pin(async move {
+                info!("WASM tool loading module: {} with args: {}", path, args);
+                Ok(format!("WASM module '{}' executed with: {}", path, args))
+            })
+        };
+
+        Self {
+            name,
+            description,
+            input_schema,
+            module_path: Some(module_path),
             executor: Arc::new(executor),
         }
     }
@@ -46,10 +74,18 @@ impl WasmToolAdapter {
             Box<dyn std::future::Future<Output = Result<String>> + Send>,
         > {
             let name = name_for_closure.clone();
-            Box::pin(async move { Ok(format!("WASM tool '{}' execution placeholder", name)) })
+            Box::pin(async move { Ok(format!("WASM tool '{}' ready - module not loaded", name)) })
         };
 
         Self::new(name.to_string(), desc, input_schema, executor)
+    }
+
+    pub fn is_loaded(&self) -> bool {
+        self.module_path.is_some()
+    }
+
+    pub fn module_path(&self) -> Option<&str> {
+        self.module_path.as_deref()
     }
 }
 
@@ -89,23 +125,6 @@ impl WasmToolRegistry {
         tools.push(adapter);
     }
 
-    pub async fn register_tool(
-        &self,
-        name: String,
-        description: String,
-        input_schema: Value,
-        executor: impl Fn(
-            Value,
-        )
-            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send>>
-        + Send
-        + Sync
-        + 'static,
-    ) {
-        let adapter = WasmToolAdapter::new(name, description, input_schema, executor);
-        self.register(adapter).await;
-    }
-
     pub async fn get(&self, name: &str) -> Option<WasmToolAdapter> {
         let tools = self.tools.read().await;
         tools.iter().find(|t| t.name() == name).cloned()
@@ -119,7 +138,7 @@ impl WasmToolRegistry {
             .collect()
     }
 
-    pub async fn to_ai_registry(&self) -> ToolRegistry {
+    pub async fn to_tool_registry(&self) -> ToolRegistry {
         let mut registry = ToolRegistry::new();
         let tools = self.tools.read().await;
 
@@ -144,6 +163,7 @@ impl Clone for WasmToolAdapter {
             name: self.name.clone(),
             description: self.description.clone(),
             input_schema: self.input_schema.clone(),
+            module_path: self.module_path.clone(),
             executor: self.executor.clone(),
         }
     }

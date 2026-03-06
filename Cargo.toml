@@ -139,7 +139,7 @@ openclaw-voice = { path = "crates/openclaw-voice" }
 openclaw-server = { path = "crates/openclaw-server" }
 openclaw-canvas = { path = "crates/openclaw-canvas" }
 openclaw-browser = { path = "crates/openclaw-browser" }
-openclaw-sandbox = { path = "crates/openclaw-sandbox" }
+openclaw-sandbox = { path = "crates/openclaw-sandbox", default-features = false, features = ["wasm-runtime-wasmtime"] }
 openclaw-tools = { path = "crates/openclaw-tools" }
 openclaw-device = { path = "crates/openclaw-device" }
 openclaw-security = { path = "crates/openclaw-security" }

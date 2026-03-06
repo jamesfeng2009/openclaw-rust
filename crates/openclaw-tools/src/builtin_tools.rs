@@ -133,15 +133,255 @@ impl Default for FileOpsTool {
 
 #[derive(Clone)]
 pub struct WebSearchTool {
-    provider: String,
+    provider: SearchProvider,
+    api_key: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum SearchProvider {
+    DuckDuckGo,
+    SerpAPI,
+    Tavily,
+    Google,
+    Bing,
+}
+
+impl Default for SearchProvider {
+    fn default() -> Self {
+        SearchProvider::DuckDuckGo
+    }
 }
 
 impl WebSearchTool {
     pub fn new() -> Self {
         Self {
-            provider: "default".to_string(),
+            provider: SearchProvider::default(),
+            api_key: None,
         }
     }
+
+    pub fn with_provider(mut self, provider: SearchProvider) -> Self {
+        self.provider = provider;
+        self
+    }
+
+    pub fn with_api_key(mut self, api_key: String) -> Self {
+        self.api_key = Some(api_key);
+        self
+    }
+
+    pub async fn search(&self, query: &str) -> openclaw_core::Result<Vec<SearchResult>> {
+        match self.provider {
+            SearchProvider::DuckDuckGo => self.search_duckduckgo(query).await,
+            SearchProvider::SerpAPI => {
+                if self.api_key.is_none() {
+                    return Err(openclaw_core::OpenClawError::Config("SerpAPI key required".into()));
+                }
+                self.search_serpapi(query).await
+            }
+            SearchProvider::Tavily => {
+                if self.api_key.is_none() {
+                    return Err(openclaw_core::OpenClawError::Config("Tavily API key required".into()));
+                }
+                self.search_tavily(query).await
+            }
+            SearchProvider::Google => {
+                if self.api_key.is_none() {
+                    return Err(openclaw_core::OpenClawError::Config("Google API key required".into()));
+                }
+                self.search_google(query).await
+            }
+            SearchProvider::Bing => {
+                if self.api_key.is_none() {
+                    return Err(openclaw_core::OpenClawError::Config("Bing API key required".into()));
+                }
+                self.search_bing(query).await
+            }
+        }
+    }
+
+    async fn search_google(&self, query: &str) -> openclaw_core::Result<Vec<SearchResult>> {
+        let api_key = self.api_key.as_ref().unwrap();
+        let url = format!(
+            "https://customsearch.googleapis.com/customsearch/v1?key={}&cx=SEARCH_ENGINE_ID&q={}",
+            api_key,
+            urlencoding::encode(query)
+        );
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| openclaw_core::OpenClawError::AIProvider(e.to_string()))?;
+
+        let json: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| openclaw_core::OpenClawError::AIProvider(e.to_string()))?;
+
+        let results = json["items"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .take(10)
+            .map(|item| SearchResult {
+                title: item["title"].as_str().unwrap_or("").to_string(),
+                url: item["link"].as_str().unwrap_or("").to_string(),
+                snippet: item["snippet"].as_str().unwrap_or("").to_string(),
+            })
+            .collect();
+
+        Ok(results)
+    }
+
+    async fn search_bing(&self, query: &str) -> openclaw_core::Result<Vec<SearchResult>> {
+        let api_key = self.api_key.as_ref().unwrap();
+        let url = format!(
+            "https://api.bing.microsoft.com/v7.0/search?q={}",
+            urlencoding::encode(query)
+        );
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(&url)
+            .header("Ocp-Apim-Subscription-Key", api_key)
+            .send()
+            .await
+            .map_err(|e| openclaw_core::OpenClawError::AIProvider(e.to_string()))?;
+
+        let json: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| openclaw_core::OpenClawError::AIProvider(e.to_string()))?;
+
+        let results = json["webPages"]["value"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .take(10)
+            .map(|item| SearchResult {
+                title: item["name"].as_str().unwrap_or("").to_string(),
+                url: item["url"].as_str().unwrap_or("").to_string(),
+                snippet: item["snippet"].as_str().unwrap_or("").to_string(),
+            })
+            .collect();
+
+        Ok(results)
+    }
+
+    async fn search_duckduckgo(&self, query: &str) -> openclaw_core::Result<Vec<SearchResult>> {
+        let url = format!(
+            "https://duckduckgo.com/?q={}&format=json",
+            urlencoding::encode(query)
+        );
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(&url)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .map_err(|e| openclaw_core::OpenClawError::AIProvider(e.to_string()))?;
+
+        let json: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| openclaw_core::OpenClawError::AIProvider(e.to_string()))?;
+
+        let results = json["RelatedTopics"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .take(10)
+            .map(|item| SearchResult {
+                title: item["Text"].as_str().unwrap_or("").to_string(),
+                url: item["FirstURL"].as_str().unwrap_or("").to_string(),
+                snippet: item["Text"].as_str().unwrap_or("").to_string(),
+            })
+            .collect();
+
+        Ok(results)
+    }
+
+    async fn search_serpapi(&self, query: &str) -> openclaw_core::Result<Vec<SearchResult>> {
+        let api_key = self.api_key.as_ref().unwrap();
+        let url = format!(
+            "https://serpapi.com/search.json?q={}&api_key={}",
+            urlencoding::encode(query),
+            api_key
+        );
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| openclaw_core::OpenClawError::AIProvider(e.to_string()))?;
+
+        let json: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| openclaw_core::OpenClawError::AIProvider(e.to_string()))?;
+
+        let results = json["organic_results"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .take(10)
+            .map(|item| SearchResult {
+                title: item["title"].as_str().unwrap_or("").to_string(),
+                url: item["link"].as_str().unwrap_or("").to_string(),
+                snippet: item["snippet"].as_str().unwrap_or("").to_string(),
+            })
+            .collect();
+
+        Ok(results)
+    }
+
+    async fn search_tavily(&self, query: &str) -> openclaw_core::Result<Vec<SearchResult>> {
+        let api_key = self.api_key.as_ref().unwrap();
+        let url = "https://api.tavily.com/search";
+
+        let client = reqwest::Client::new();
+        let body = serde_json::json!({
+            "api_key": api_key,
+            "query": query,
+            "max_results": 10
+        });
+
+        let response = client
+            .post(url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| openclaw_core::OpenClawError::AIProvider(e.to_string()))?;
+
+        let json: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| openclaw_core::OpenClawError::AIProvider(e.to_string()))?;
+
+        let results = json["results"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .map(|item| SearchResult {
+                title: item["title"].as_str().unwrap_or("").to_string(),
+                url: item["url"].as_str().unwrap_or("").to_string(),
+                snippet: item["content"].as_str().unwrap_or("").to_string(),
+            })
+            .collect();
+
+        Ok(results)
+    }
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct SearchResult {
+    pub title: String,
+    pub url: String,
+    pub snippet: String,
 }
 
 #[async_trait]
@@ -158,29 +398,20 @@ impl Tool for WebSearchTool {
         &self,
         args: serde_json::Value,
     ) -> openclaw_core::Result<serde_json::Value> {
-        tracing::warn!("WebSearchTool is in stub mode - returning mock data");
-        
         let query = args["query"]
             .as_str()
             .ok_or_else(|| openclaw_core::OpenClawError::Tool("Missing query".into()))?;
 
-        let limit = args["limit"].as_u64().unwrap_or(5) as usize;
+        let limit = args["limit"].as_u64().unwrap_or(10) as usize;
+
+        let results = self.search(query).await?;
+
+        let limited_results: Vec<_> = results.into_iter().take(limit).collect();
 
         Ok(serde_json::json!({
             "query": query,
-            "results": [
-                {
-                    "title": format!("Result for '{}' - 1", query),
-                    "url": "https://example.com/1",
-                    "snippet": "Search result snippet..."
-                },
-                {
-                    "title": format!("Result for '{}' - 2", query),
-                    "url": "https://example.com/2",
-                    "snippet": "Another search result..."
-                }
-            ],
-            "total": limit
+            "results": limited_results,
+            "total": limited_results.len()
         }))
     }
 }
@@ -188,6 +419,44 @@ impl Tool for WebSearchTool {
 impl Default for WebSearchTool {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_search_provider_default() {
+        let provider = SearchProvider::default();
+        assert_eq!(provider, SearchProvider::DuckDuckGo);
+    }
+
+    #[test]
+    fn test_search_result_serialization() {
+        let result = SearchResult {
+            title: "Test Title".to_string(),
+            url: "https://example.com".to_string(),
+            snippet: "Test snippet".to_string(),
+        };
+        
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("Test Title"));
+        assert!(json.contains("example.com"));
+    }
+
+    #[test]
+    fn test_web_search_tool_creation() {
+        let tool = WebSearchTool::new();
+        assert_eq!(tool.name(), "web_search");
+        assert!(!tool.description().is_empty());
+    }
+
+    #[test]
+    fn test_web_search_tool_with_provider() {
+        let tool = WebSearchTool::new()
+            .with_provider(SearchProvider::Bing)
+            .with_api_key("test-key".to_string());
     }
 }
 
