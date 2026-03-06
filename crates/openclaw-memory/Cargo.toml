@@ -25,3 +25,12 @@ regex.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 tantivy = "0.22"
 walkdir = "2"
+lancedb = { workspace = true, optional = true }
+qdrant-client = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true, features = ["runtime-tokio", "postgres", "uuid", "chrono", "json"] }
+
+[features]
+default = []
+lancedb = ["dep:lancedb", "openclaw-vector/lancedb"]
+qdrant = ["dep:qdrant-client", "openclaw-vector/qdrant"]
+pgvector = ["dep:sqlx", "openclaw-vector/pgvector"]
