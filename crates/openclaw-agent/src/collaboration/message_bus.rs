@@ -430,7 +430,7 @@ mod tests {
             enabled: true,
         };
 
-        bus.add_delegation_rule(rule).await;
+        let _ = bus.add_delegation_rule(rule).await;
         
         let rules = bus.get_delegation_rules("agent_1").await;
         assert_eq!(rules.len(), 1);
@@ -467,7 +467,7 @@ mod tests {
             enabled: true,
         };
 
-        bus.add_delegation_rule(rule).await;
+        let _ = bus.add_delegation_rule(rule).await;
 
         let request = DelegationRequest {
             from_agent: "agent_1".to_string(),
