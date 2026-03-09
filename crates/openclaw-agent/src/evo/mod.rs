@@ -527,6 +527,7 @@ pub mod skill_validator;
 pub mod version_manager;
 pub mod evo_v2_engine;
 pub mod autonomous;
+pub mod llm_skill_generator;
 
 #[cfg(test)]
 mod tests {

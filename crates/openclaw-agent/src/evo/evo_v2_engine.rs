@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
+use openclaw_ai::AIProvider;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -15,6 +16,7 @@ use super::pattern_analyzer::{PatternAnalyzer, TaskPattern, ToolCall};
 use super::skill_validator::{SkillValidator, ValidationResult, ValidationStatus};
 use super::version_manager::{VersionManager, VersionRecord};
 use super::autonomous;
+use super::llm_skill_generator::LlmSkillGenerator;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvoConfig {
@@ -97,6 +99,7 @@ pub struct EvoV2Engine {
     hand_executor: Arc<autonomous::HandExecutor>,
     hand_output_manager: Arc<autonomous::HandOutputManager>,
     metrics_collector: Arc<autonomous::MetricsCollector>,
+    llm_skill_generator: Option<Arc<LlmSkillGenerator>>,
 }
 
 impl Default for EvoV2Engine {
@@ -128,7 +131,13 @@ impl EvoV2Engine {
             )),
             metrics_collector: Arc::new(autonomous::MetricsCollector::new()),
             hand_output_manager: Arc::new(autonomous::HandOutputManager::new()),
+            llm_skill_generator: None,
         }
+    }
+
+    pub fn with_ai_provider(mut self, provider: Arc<dyn AIProvider>) -> Self {
+        self.llm_skill_generator = Some(Arc::new(LlmSkillGenerator::new(provider)));
+        self
     }
 
     pub async fn process_task(&self, context: EvoContext) -> Result<EvoEvolutionResult, String> {
@@ -317,11 +326,40 @@ impl EvoV2Engine {
 
     async fn create_skill_from_pattern(&self, pattern: &TaskPattern) -> EvoSkill {
         let skill_id = uuid::Uuid::new_v4().to_string();
+
+        let generated_code = if let Some(generator) = &self.llm_skill_generator {
+            match generator.generate_skill_code(pattern).await {
+                Ok(code) => {
+                    tracing::info!("LLM generated skill code for {}", pattern.task_category);
+                    code
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to generate skill code with LLM: {}, using placeholder", e);
+                    let skill_name = pattern.task_category.to_lowercase().replace(' ', "_");
+                    format!(
+                        r#"// Auto-generated skill (LLM generation failed: {})
+// Pattern: {} (reusability: {:.2})
+
+pub async fn skill_{}(context: &super::EvoContext) -> Result<String, String> {{
+    Err("Skill not fully implemented".to_string())
+}}"#,
+                        e,
+                        pattern.task_category,
+                        pattern.reusability_score,
+                        skill_name
+                    )
+                }
+            }
+        } else {
+            tracing::info!("No LLM provider configured, creating skill without generated code");
+            String::new()
+        };
+
         let skill = EvoSkill {
             id: skill_id.clone(),
             name: format!("skill_{}", pattern.task_category.to_lowercase().replace(' ', "_")),
             category: pattern.task_category.clone(),
-            code: String::new(),
+            code: generated_code,
             pattern: pattern.clone(),
             reliability: 1.0,
             created_at: Utc::now(),
