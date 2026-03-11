@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use openclaw_ai::{AIProvider, ChatRequest};
-use openclaw_core::{Content, Message, Result};
+use openclaw_core::{Content, Message, Result, session::SessionScope};
 use openclaw_memory::MemoryManager;
 use openclaw_security::{PipelineResult, SecurityPipeline};
 use openclaw_tools::ToolResult as OpenClawToolResult;
@@ -89,6 +89,27 @@ pub trait Agent: Send + Sync {
     /// 初始化安全模块
     async fn init_safety(&self, config: crate::safety::AgentSafetyConfig);
 
+    /// 初始化 ContextEngine
+    async fn init_context_engine(&self) -> Result<()>;
+
+    /// ContextEngine: 消息处理钩子
+    async fn on_message(&self, message: &Message) -> Result<()>;
+
+    /// ContextEngine: 构建上下文钩子
+    async fn on_context(&self) -> Result<Vec<crate::context::ContextFragment>>;
+
+    /// ContextEngine: 压缩上下文钩子
+    async fn on_compress(&self) -> Result<crate::context::CompressResult>;
+
+    /// ContextEngine: 构建 Prompt 钩子
+    async fn on_build(&self, prompt: &mut String) -> Result<()>;
+
+    /// ContextEngine: 完成处理钩子
+    async fn on_complete(&self, response: &Message) -> Result<()>;
+
+    /// ContextEngine: SubAgent 上下文继承钩子
+    async fn on_sub_agent(&self, parent_context: String) -> Result<crate::context::SubAgentContext>;
+
     /// 获取安全模块
     async fn get_safety(&self) -> Option<Arc<crate::safety::AgentSafetyWrapper>>;
 
@@ -105,6 +126,7 @@ pub trait Agent: Send + Sync {
 }
 
 use crate::safety::AgentSafetyWrapper;
+use crate::context::{ContextEngine, ContextEngineConfig, ContextEngineType, create_context_engine};
 
 /// 基础 Agent 实现
 pub struct BaseAgent {
@@ -123,6 +145,9 @@ pub struct BaseAgent {
     tool_port: Arc<tokio::sync::RwLock<Option<Arc<dyn ToolPort>>>>,
     device_port: Arc<tokio::sync::RwLock<Option<Arc<dyn DevicePort>>>>,
     safety_wrapper: Arc<tokio::sync::RwLock<Option<Arc<AgentSafetyWrapper>>>>,
+    context_engine: Arc<tokio::sync::RwLock<Option<Arc<dyn ContextEngine>>>>,
+    session: Arc<tokio::sync::RwLock<Option<crate::sessions::Session>>>,
+    session_storage: Arc<tokio::sync::RwLock<Option<Arc<dyn crate::sessions::SessionStorage>>>>,
 }
 
 impl BaseAgent {
@@ -143,6 +168,9 @@ impl BaseAgent {
             tool_port: Arc::new(RwLock::new(None)),
             device_port: Arc::new(RwLock::new(None)),
             safety_wrapper: Arc::new(RwLock::new(None)),
+            context_engine: Arc::new(RwLock::new(None)),
+            session: Arc::new(RwLock::new(None)),
+            session_storage: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -193,6 +221,209 @@ impl BaseAgent {
         self
     }
 
+    pub fn with_context_engine(mut self, engine_type: ContextEngineType) -> Self {
+        let config = ContextEngineConfig {
+            engine_type,
+            ..Default::default()
+        };
+        self.config.context_engine_config = Some(serde_json::to_string(&config).unwrap_or_default());
+        self
+    }
+
+    pub fn with_session_storage(mut self, storage: Arc<dyn crate::sessions::SessionStorage>) -> Self {
+        self.session_storage = Arc::new(RwLock::new(Some(storage)));
+        self
+    }
+
+    pub fn get_session_storage(&self) -> Arc<tokio::sync::RwLock<Option<Arc<dyn crate::sessions::SessionStorage>>>> {
+        self.session_storage.clone()
+    }
+
+    pub async fn load_or_create_session(&self, key: &str) -> crate::Result<crate::sessions::Session> {
+        let storage_guard = self.session_storage.read().await;
+        
+        if let Some(storage) = storage_guard.as_ref() {
+            let agent_id = self.config.id.clone();
+            if let Some(session) = storage.find_by_key(key, &agent_id).await? {
+                let messages = storage.load_messages(&session.id).await?;
+                tracing::info!("Loaded session {} with {} messages", session.id, messages.len());
+                let mut session_guard = self.session.write().await;
+                *session_guard = Some(session.clone());
+                return Ok(session);
+            }
+        }
+        drop(storage_guard);
+
+        let session = crate::sessions::Session::new(
+            self.name().to_string(),
+            self.id().to_string(),
+            SessionScope::Main,
+        );
+
+        let storage_guard = self.session_storage.read().await;
+        if let Some(storage) = storage_guard.as_ref() {
+            storage.save(&session).await?;
+            tracing::info!("Created new session {}", session.id);
+        }
+
+        let mut session_guard = self.session.write().await;
+        *session_guard = Some(session.clone());
+        
+        Ok(session)
+    }
+
+    pub async fn load_historical_sessions(&self, limit: usize) -> crate::Result<Vec<crate::sessions::Session>> {
+        let storage_guard = self.session_storage.read().await;
+        
+        if let Some(storage) = storage_guard.as_ref() {
+            let agent_id = &self.config.id;
+            let sessions = storage.list(Some(&agent_id), None).await?;
+            let limited: Vec<_> = sessions.into_iter().take(limit).collect();
+            tracing::info!("Loaded {} historical sessions", limited.len());
+            return Ok(limited);
+        }
+        
+        Ok(vec![])
+    }
+
+    pub async fn save_session_messages(&self, messages: &[openclaw_core::Message]) -> crate::Result<()> {
+        let storage_guard = self.session_storage.read().await;
+        
+        if let Some(storage) = storage_guard.as_ref() {
+            let session_guard = self.session.read().await;
+            if let Some(session) = session_guard.as_ref() {
+                storage.save_messages(&session.id, messages).await?;
+                tracing::debug!("Saved {} messages for session {}", messages.len(), session.id);
+            }
+        }
+        
+        Ok(())
+    }
+
+    pub fn get_context_engine(&self) -> Arc<tokio::sync::RwLock<Option<Arc<dyn ContextEngine>>>> {
+        self.context_engine.clone()
+    }
+
+    pub async fn init_session_with_storage(&self, key: &str) -> Result<()> {
+        let storage_guard = self.session_storage.read().await;
+        
+        if let Some(storage) = storage_guard.as_ref() {
+            let agent_id = &self.config.id;
+            
+            let session = if let Some(existing) = storage.find_by_key(key, agent_id).await? {
+                tracing::info!("Found existing session: {}", existing.id);
+                existing
+            } else {
+                let new_session = crate::sessions::Session::new(
+                    self.name().to_string(),
+                    self.id().to_string(),
+                    SessionScope::Main,
+                );
+                storage.save(&new_session).await?;
+                tracing::info!("Created new session: {}", new_session.id);
+                new_session
+            };
+            
+            let messages = storage.load_messages(&session.id).await?;
+            tracing::info!("Loaded {} messages for session {}", messages.len(), session.id);
+            
+            {
+                let mut session_guard = self.session.write().await;
+                *session_guard = Some(session.clone());
+            }
+            
+            if let Some(config_str) = &self.config.context_engine_config {
+                let config: ContextEngineConfig = serde_json::from_str(config_str)
+                    .map_err(|e| openclaw_core::OpenClawError::Config(e.to_string()))?;
+                let engine = create_context_engine(config);
+                
+                for msg in &messages {
+                    if let Err(e) = engine.on_message(&session, msg).await {
+                        tracing::warn!("Failed to process message: {}", e);
+                    }
+                }
+                
+                let mut engine_guard = self.context_engine.write().await;
+                *engine_guard = Some(engine);
+            }
+        } else {
+            return self.init_context_engine().await;
+        }
+        
+        Ok(())
+    }
+
+    pub async fn sync_session_state(&self) -> crate::Result<()> {
+        let storage_guard = self.session_storage.read().await;
+        let session_guard = self.session.read().await;
+        
+        if let (Some(storage), Some(session)) = (storage_guard.as_ref(), session_guard.as_ref()) {
+            storage.save(session).await?;
+            
+            let messages = storage.load_messages(&session.id).await?;
+            let current_msg_count = messages.len();
+            
+            if session.message_count != current_msg_count {
+                tracing::debug!("Session message count mismatch: stored={}, current={}", 
+                    current_msg_count, session.message_count);
+            }
+        }
+        
+        Ok(())
+    }
+
+    pub async fn init_context_engine(&self) -> Result<()> {
+        if let Some(config_str) = &self.config.context_engine_config {
+            let config: ContextEngineConfig = serde_json::from_str(config_str)
+                .map_err(|e| openclaw_core::OpenClawError::Config(e.to_string()))?;
+            let engine = create_context_engine(config);
+            let mut engine_guard = self.context_engine.write().await;
+            *engine_guard = Some(engine);
+            
+            let session = crate::sessions::Session::new(
+                self.name().to_string(),
+                self.id().to_string(),
+                SessionScope::Main,
+            );
+            let mut session_guard = self.session.write().await;
+            *session_guard = Some(session);
+        }
+        Ok(())
+    }
+
+    async fn get_or_create_session(&self) -> crate::sessions::Session {
+        let guard = self.session.read().await;
+        if let Some(session) = guard.as_ref() {
+            session.clone()
+        } else {
+            drop(guard);
+            let session = crate::sessions::Session::new(
+                self.name().to_string(),
+                self.id().to_string(),
+                SessionScope::Main,
+            );
+            let mut guard = self.session.write().await;
+            *guard = Some(session.clone());
+            session
+        }
+    }
+
+    async fn build_context_fragments(&self) -> Vec<crate::context::ContextFragment> {
+        let session = self.get_or_create_session().await;
+        let guard = self.context_engine.read().await;
+        if let Some(engine) = guard.as_ref() {
+            match engine.on_context(&session).await {
+                Ok(fragments) => fragments,
+                Err(e) => {
+                    tracing::warn!("Failed to build context fragments: {}", e);
+                    vec![]
+                }
+            }
+        } else {
+            vec![]
+        }
+    }
+
     pub fn with_priority(mut self, priority: u8) -> Self {
         self.config.priority = priority;
         self
@@ -222,6 +453,12 @@ impl BaseAgent {
         };
         if !ctx.is_empty() {
             messages.extend(ctx);
+        }
+
+        // 从 ContextEngine 获取上下文片段
+        let context_fragments = self.build_context_fragments().await;
+        for fragment in context_fragments {
+            messages.push(Message::user(fragment.content));
         }
 
         // 根据任务输入添加用户消息
@@ -548,6 +785,84 @@ impl Agent for BaseAgent {
     async fn init_safety(&self, config: crate::safety::AgentSafetyConfig) {
         let wrapper = Arc::new(crate::safety::AgentSafetyWrapper::new(config));
         *self.safety_wrapper.write().await = Some(wrapper);
+    }
+
+    async fn init_context_engine(&self) -> Result<()> {
+        if let Some(config_str) = &self.config.context_engine_config {
+            let config: ContextEngineConfig = serde_json::from_str(config_str)
+                .map_err(|e| openclaw_core::OpenClawError::Config(e.to_string()))?;
+            let engine = create_context_engine(config);
+            let mut guard = self.context_engine.write().await;
+            *guard = Some(engine);
+        }
+        Ok(())
+    }
+
+    async fn on_message(&self, message: &Message) -> Result<()> {
+        let guard = self.context_engine.read().await;
+        if let Some(engine) = guard.as_ref() {
+            let session = self.get_or_create_session().await;
+            if let Err(e) = engine.on_message(&session, message).await {
+                tracing::warn!("ContextEngine on_message error: {}", e);
+            }
+        }
+        Ok(())
+    }
+
+    async fn on_context(&self) -> Result<Vec<crate::context::ContextFragment>> {
+        let guard = self.context_engine.read().await;
+        if let Some(engine) = guard.as_ref() {
+            let session = self.get_or_create_session().await;
+            return engine.on_context(&session).await;
+        }
+        Ok(vec![])
+    }
+
+    async fn on_compress(&self) -> Result<crate::context::CompressResult> {
+        let guard = self.context_engine.read().await;
+        if let Some(engine) = guard.as_ref() {
+            let session = self.get_or_create_session().await;
+            return engine.on_compress(&session).await;
+        }
+        Ok(crate::context::CompressResult::default())
+    }
+
+    async fn on_build(&self, prompt: &mut String) -> Result<()> {
+        let guard = self.context_engine.read().await;
+        if let Some(engine) = guard.as_ref() {
+            let mut ctx = crate::context::PromptContext::default();
+            if let Err(e) = engine.on_build(&mut ctx).await {
+                tracing::warn!("ContextEngine on_build error: {}", e);
+            } else {
+                let messages = ctx.build();
+                for msg in messages {
+                    let content = crate::context::extract_content(&msg);
+                    prompt.push_str(&content);
+                    prompt.push('\n');
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn on_complete(&self, response: &Message) -> Result<()> {
+        let guard = self.context_engine.read().await;
+        if let Some(engine) = guard.as_ref() {
+            let session = self.get_or_create_session().await;
+            if let Err(e) = engine.on_complete(&session, response).await {
+                tracing::warn!("ContextEngine on_complete error: {}", e);
+            }
+        }
+        Ok(())
+    }
+
+    async fn on_sub_agent(&self, parent_context: String) -> Result<crate::context::SubAgentContext> {
+        let guard = self.context_engine.read().await;
+        if let Some(engine) = guard.as_ref() {
+            let session = self.get_or_create_session().await;
+            return engine.on_sub_agent(&session, &"child-agent".to_string()).await;
+        }
+        Ok(crate::context::SubAgentContext::new(parent_context, 50000))
     }
 
     async fn get_safety(&self) -> Option<Arc<crate::safety::AgentSafetyWrapper>> {

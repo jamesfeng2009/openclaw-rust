@@ -36,6 +36,7 @@ chrono.workspace = true
 uuid.workspace = true
 futures.workspace = true
 regex.workspace = true
+rusqlite.workspace = true
 
 [dev-dependencies]
 tokio-test.workspace = true

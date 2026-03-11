@@ -12,6 +12,7 @@ pub mod aieos;
 pub mod config;
 pub mod control;
 pub mod control_flow;
+pub mod context;
 pub mod orchestrator;
 pub mod ports;
 pub mod provider;
@@ -32,6 +33,11 @@ pub use aieos::AIEOS;
 pub use config::{AgentDefaults, AgentInstanceConfig, AgentsConfig};
 pub use control::MessageQueue;
 pub use control_flow::{AgentControlFlow, AgentRunResult, ControlFlowStats, RunReason, RunStatus};
+pub use context::{
+    CompressResult, ContextEngine, ContextEngineConfig, ContextEngineType, ContextFragment,
+    ContextSource, ContextState, DefaultContextEngine, LosslessContextEngine, PromptContext,
+    SubAgentContext, create_context_engine,
+};
 pub use orchestrator::*;
 pub use ports::{
     AIPort, MemoryEntry, MemoryPort, RecallItem, SecurityCheckResult, SecurityPort,

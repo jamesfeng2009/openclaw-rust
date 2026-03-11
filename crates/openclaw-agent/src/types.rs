@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::aieos::AIEOS;
+use crate::context::ContextEngineConfig;
 
 /// Agent ID 类型
 pub type AgentId = String;
@@ -161,6 +162,12 @@ pub struct AgentConfig {
     pub max_concurrent_tasks: usize,
     /// 是否启用
     pub enabled: bool,
+    /// Context Engine 配置 (JSON 格式)
+    #[serde(default)]
+    pub context_engine_config: Option<String>,
+    /// Session 存储路径 (SQLite)
+    #[serde(default)]
+    pub session_storage_path: Option<String>,
 }
 
 impl AgentConfig {
@@ -177,6 +184,8 @@ impl AgentConfig {
             priority: 50,
             max_concurrent_tasks: 1,
             enabled: true,
+            context_engine_config: None,
+            session_storage_path: None,
         }
     }
 
@@ -208,6 +217,24 @@ impl AgentConfig {
     pub fn with_aieos(mut self, aieos: AIEOS) -> Self {
         self.aieos = Some(aieos);
         self
+    }
+
+    pub fn with_session_storage_path(mut self, path: impl Into<String>) -> Self {
+        self.session_storage_path = Some(path.into());
+        self
+    }
+
+    pub fn load_context_engine_from_yaml(&mut self, yaml_content: &str) -> crate::Result<()> {
+        let config: ContextEngineConfig = serde_yaml::from_str(yaml_content)
+            .map_err(|e| crate::OpenClawError::Config(e.to_string()))?;
+        self.context_engine_config = Some(serde_json::to_string(&config).unwrap_or_default());
+        Ok(())
+    }
+
+    pub fn get_context_engine_config(&self) -> Option<ContextEngineConfig> {
+        self.context_engine_config.as_ref().and_then(|s| {
+            serde_json::from_str(s).ok()
+        })
     }
 
     pub fn get_system_prompt(&self) -> Option<String> {
